@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: scribd-814-bulk
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   capture:
@@ -64,7 +64,7 @@ jobs:
         env:
           BATCH: "${{ matrix.batch }}"
         run: |
-          $file = 'scribd814-results/batch_' + $env:BATCH.PadLeft(2,'0') + '/summary.json'
+          $file = 'scribd814-results/batch_' + $env:BATCH + '/summary.json'
           if (Test-Path $file) { Get-Content $file }
           else { Write-Host "No results saved for this batch" }
       - name: Upload screenshot images and per-document results
@@ -72,6 +72,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: scribd814-batch-${{ matrix.batch }}
-          path: scribd814-results/batch_*/
+          path: scribd814-results/batch_${{ matrix.batch }}/
           if-no-files-found: warn
           retention-days: 14
