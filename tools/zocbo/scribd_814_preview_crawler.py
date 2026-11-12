@@ -124,7 +124,7 @@ def main():
     )
     if not selected:
         raise ValueError("No documents in selected batch.")
-    target = Path(args.out) / ("probe" if args.probe else f"batch_{args.batch:02d}")
+    target = Path(args.out) / ("probe" if args.probe else f"batch_{args.batch}")
     target.mkdir(parents=True, exist_ok=True)
     rows = []
     with sync_playwright() as p:
