@@ -102,7 +102,7 @@ def inspect(page, doc_id, out):
             pass
     print("PREVIEW_RESULT", json.dumps({
         k: row[k] for k in ("document_id", "status", "http_status", "preview_visible", "page_title", "error")
-    }, ensure_ascii=False), flush=True)
+    }, ensure_ascii=True), flush=True)
     return row
 
 def main():
@@ -138,6 +138,8 @@ def main():
         for doc_id in selected:
             row = inspect(page, doc_id, target)
             rows.append(row)
+            # Persist each completed result so an interrupted batch remains auditable.
+            write_rows(target / "results.csv", rows)
             consecutive_blocks = consecutive_blocks + 1 if row["status"] == "blocked" else 0
             # Stop rather than consume 814 visits on a site-wide challenge.
             if consecutive_blocks >= 3:
@@ -161,7 +163,7 @@ def main():
     }
     write_rows(target / "results.csv", rows)
     (target / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-    print("FINAL_PREVIEW_SUMMARY", json.dumps(summary, ensure_ascii=False), flush=True)
+    print("FINAL_PREVIEW_SUMMARY", json.dumps(summary, ensure_ascii=True), flush=True)
 
 if __name__ == "__main__":
     main()
