@@ -1,0 +1,77 @@
+name: Windows Scribd 814 Public Preview Batch Capture
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/scribd-814-batches.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scribd-814-bulk
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    runs-on: self-hosted
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        batch: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Fetch trusted public source code
+        run: |
+          if ($env:RUNNER_OS -ne 'Windows') { throw 'Windows runner required' }
+          if (Test-Path src\.git) {
+            git -C src fetch --depth 1 origin main
+            if ($LASTEXITCODE -ne 0) { throw 'git fetch failed' }
+            git -C src reset --hard origin/main
+            if ($LASTEXITCODE -ne 0) { throw 'git reset failed' }
+          } else {
+            git clone --depth 1 --branch main https://github.com/lyonbegin/hitel-scribd-runner.git src
+            if ($LASTEXITCODE -ne 0) { throw 'git clone failed' }
+          }
+          if (-not (Test-Path src\tools\zocbo\unresolved_814_ids.txt)) { throw '814 queue missing' }
+      - name: Confirm local Playwright package
+        run: |
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m pip install --disable-pip-version-check playwright==1.56.0
+          } else {
+            python -m pip install --disable-pip-version-check playwright==1.56.0
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Playwright install failed' }
+      - name: Capture up to 50 public previews
+        env:
+          BATCH: "${{ matrix.batch }}"
+        run: |
+          Write-Host "Capturing batch $env:BATCH of 17"
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 src/tools/zocbo/scribd_814_preview_crawler.py --ids-file src/tools/zocbo/unresolved_814_ids.txt --batch $env:BATCH --batch-size 50
+          } else {
+            python src/tools/zocbo/scribd_814_preview_crawler.py --ids-file src/tools/zocbo/unresolved_814_ids.txt --batch $env:BATCH --batch-size 50
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Capture script failed' }
+      - name: Report exact results
+        if: always()
+        env:
+          BATCH: "${{ matrix.batch }}"
+        run: |
+          $file = 'scribd814-results/batch_' + $env:BATCH.PadLeft(2,'0') + '/summary.json'
+          if (Test-Path $file) { Get-Content $file }
+          else { Write-Host "No results saved for this batch" }
+      - name: Upload screenshot images and per-document results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scribd814-batch-${{ matrix.batch }}
+          path: scribd814-results/batch_*/
+          if-no-files-found: warn
+          retention-days: 14
