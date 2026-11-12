@@ -1,0 +1,77 @@
+name: Windows Scribd 814 Public Preview Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/scribd-windows-preview.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scribd-windows-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    runs-on: self-hosted
+    timeout-minutes: 20
+    steps:
+      - name: Check out trusted main branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check Windows and installed Google Chrome
+        shell: pwsh
+        run: |
+          if ($env:RUNNER_OS -ne "Windows") {
+            throw "This workflow requires a Windows self-hosted runner"
+          }
+          $chromeCandidates = @(
+            "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+            "$( [Environment]::GetEnvironmentVariable('ProgramFiles(x86)') )\Google\Chrome\Application\chrome.exe",
+            "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
+          )
+          $chrome = $chromeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $chrome) { throw "Google Chrome was not found on this Windows account" }
+          Write-Host "Windows and Chrome detected"
+          & $chrome --version
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Playwright (uses existing Google Chrome)
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          python -m playwright --version
+
+      - name: Inspect first three public Scribd document previews
+        shell: pwsh
+        run: |
+          python tools/zocbo/scribd_814_preview_crawler.py --probe
+
+      - name: Show actual preview results
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path scribd814-results/probe/summary.json) {
+            Get-Content scribd814-results/probe/summary.json
+          } else {
+            Write-Host "No browser summary was produced"
+          }
+
+      - name: Upload screenshots and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scribd814-windows-probe
+          path: scribd814-results/probe/
+          if-no-files-found: warn
+          retention-days: 7
