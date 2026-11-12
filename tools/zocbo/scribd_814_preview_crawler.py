@@ -59,6 +59,13 @@ def inspect(page, doc_id, out):
             row["heading"] = page.locator("h1").first.inner_text(timeout=1500)[:200] if page.locator("h1").count() else ""
         except Exception:
             pass
+        # Clear an optional cookie banner that may obscure document cover text.
+        try:
+            reject = page.get_by_role("button", name="Reject Non-Essential")
+            if reject.count():
+                reject.first.click(timeout=1600)
+        except Exception:
+            pass
         body = page.locator("body").inner_text(timeout=5000)
         row["body_excerpt"] = " ".join(body.split())[:600]
         if CHALLENGE.search(row["page_title"] + " " + body[:1500]):
