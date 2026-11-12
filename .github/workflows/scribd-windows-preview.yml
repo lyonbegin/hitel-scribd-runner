@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: scribd-windows-probe
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   probe:
