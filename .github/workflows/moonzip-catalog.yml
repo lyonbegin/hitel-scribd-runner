@@ -1,0 +1,81 @@
+name: Moonzip 370-series catalogue (URL metadata, no image download)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/moonzip-catalog.yml
+permissions:
+  contents: read
+concurrency:
+  group: moonzip-catalog
+  cancel-in-progress: false
+jobs:
+  pilot:
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Require interactive PC
+        run: |
+          $ErrorActionPreference='Stop'
+          $sid=(Get-Process -Id $PID).SessionId
+          Write-Host "MOONZIP_WINDOWS_RUNNER=$env:RUNNER_NAME session=$sid"
+          if($sid -eq 0){throw 'Interactive session required'}
+      - name: Read exact Github commit
+        run: |
+          $ErrorActionPreference='Stop'
+          if(Test-Path src\.git){
+            git -C src fetch --depth 1 origin $env:GITHUB_SHA
+            if($LASTEXITCODE -ne 0){throw 'git fetch failed'}
+            git -C src checkout --detach $env:GITHUB_SHA
+          } else {
+            git clone --no-checkout https://github.com/lyonbegin/hitel-scribd-runner.git src
+            if($LASTEXITCODE -ne 0){throw 'git clone failed'}
+            git -C src checkout --detach $env:GITHUB_SHA
+          }
+          if($LASTEXITCODE -ne 0){throw 'git checkout failed'}
+      - name: Python compile
+        run: |
+          py -3 -m py_compile src/tools/moonzip/moonzip_catalog.py
+          if($LASTEXITCODE -ne 0){throw 'Python syntax failure'}
+      - name: Live pilot three series and four books (image requests blocked)
+        run: |
+          $ErrorActionPreference='Stop'
+          py -3 -u src/tools/moonzip/moonzip_catalog.py --mode probe --series-limit 3 --book-limit 4 --delay 1.2
+          if($LASTEXITCODE -ne 0){throw 'Moonzip pilot execution failed'}
+      - name: Reject incomplete discovery or downloaded images
+        run: |
+          $ErrorActionPreference='Stop'
+          $summary=Get-Content moonzip-results/summary.json -Raw | ConvertFrom-Json
+          $series=Get-Content moonzip-results/series.json -Raw | ConvertFrom-Json
+          $books=Get-Content moonzip-results/books.json -Raw | ConvertFrom-Json
+          Write-Host "MOONZIP_PILOT_SUMMARY $($summary | ConvertTo-Json -Compress)"
+          foreach($id in $series.PSObject.Properties.Name){
+            $s=$series.$id
+            Write-Host "MOONZIP_SERIES_EXPANSION id=$id expected=$($s.site_book_count_label) found=$($s.visible_books_after_expand)"
+            if($s.site_book_count_label -and $s.visible_books_after_expand -lt $s.site_book_count_label){
+              throw "Subbooks not fully enumerated in series $id"
+            }
+          }
+          if($summary.series_crawled -ne 3 -or $summary.books_discovered -lt 12 -or $summary.series_cover_urls -lt 3 -or $summary.book_cover_urls -lt 3 -or $summary.image_files_downloaded -ne 0){
+            throw 'Moonzip pilot quality gate failed'
+          }
+          $imageFiles=@(Get-ChildItem moonzip-results -Include *.png,*.jpg,*.jpeg,*.webp -File -Recurse)
+          if($imageFiles.Count -gt 0){throw 'Image file was unexpectedly saved'}
+      - name: Upload only small JSON/CSV data and cover URLs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonzip-3series-pilot-urls-only
+          path: |
+            moonzip-results/summary.json
+            moonzip-results/series.json
+            moonzip-results/series.csv
+            moonzip-results/books.json
+            moonzip-results/books.csv
+            moonzip-results/search_pages.json
+          retention-days: 7
+          if-no-files-found: warn
