@@ -1,4 +1,4 @@
-name: Moonzip 370-series catalogue (URL metadata, no image download)
+name: Moonzip 370 series | Windows Chrome 10 concurrent tabs | cover URLs
 on:
   workflow_dispatch:
   push:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 concurrency:
   group: moonzip-catalog
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
-  pilot:
+  windows-ten-tabs:
     runs-on: [self-hosted, Windows]
-    timeout-minutes: 30
+    timeout-minutes: 180
     defaults:
       run:
         shell: powershell
@@ -24,7 +24,7 @@ jobs:
           $sid=(Get-Process -Id $PID).SessionId
           Write-Host "MOONZIP_WINDOWS_RUNNER=$env:RUNNER_NAME session=$sid"
           if($sid -eq 0){throw 'Interactive session required'}
-      - name: Read exact Github commit
+      - name: Check out exact tested commit with Git
         run: |
           $ErrorActionPreference='Stop'
           if(Test-Path src\.git){
@@ -37,32 +37,47 @@ jobs:
             git -C src checkout --detach $env:GITHUB_SHA
           }
           if($LASTEXITCODE -ne 0){throw 'git checkout failed'}
-      - name: Python compile
-        run: |
-          py -3 -m py_compile src/tools/moonzip/moonzip_catalog.py
-          if($LASTEXITCODE -ne 0){throw 'Python syntax failure'}
-      - name: Live pilot three series and four books (image requests blocked)
+      - name: Validate script syntax and Playwright
         run: |
           $ErrorActionPreference='Stop'
-          if(Test-Path moonzip-results){ Remove-Item moonzip-results -Recurse -Force }
-          py -3 -u src/tools/moonzip/moonzip_catalog.py --mode probe --series-limit 3 --book-limit 4 --delay 1.2
-          if($LASTEXITCODE -ne 0){throw 'Moonzip pilot execution failed'}
-      - name: Reject incomplete discovery or downloaded images
+          py -3 -m py_compile src/tools/moonzip/moonzip_parallel.py
+          if($LASTEXITCODE -ne 0){throw 'Parallel script Python syntax error'}
+          py -3 -m pip show playwright
+          if($LASTEXITCODE -ne 0){throw 'Playwright missing'}
+      - name: Smoke test 10 series with TEN simultaneous Chrome tabs
         run: |
           $ErrorActionPreference='Stop'
-          py -3 -u src/tools/moonzip/moonzip_validate.py
-          if($LASTEXITCODE -ne 0){throw 'Moonzip 3-series pilot did not pass quality gate'}
-      - name: Upload only small JSON/CSV data and cover URLs
+          $env:PYTHONIOENCODING='utf-8'
+          py -3 -u src/tools/moonzip/moonzip_parallel.py --mode probe --series-limit 10 --book-limit 10 --out moonzip-probe-parallel-results
+          if($LASTEXITCODE -ne 0){throw '10-tab site smoke test failed; full crawl disabled'}
+          py -3 -c "import json; s=json.load(open('moonzip-probe-parallel-results/summary.json',encoding='utf-8')); print('MOONZIP_SMOKE_GATE',s); assert s['simultaneous_chrome_tabs']==10 and s['series_crawled']>=5 and s['book_details_checked']>=8 and s['image_files_downloaded']==0"
+          if($LASTEXITCODE -ne 0){throw '10-tab smoke verification failed'}
+      - name: Crawl 370 series and all linked books TEN at a time
+        run: |
+          $ErrorActionPreference='Stop'
+          $env:PYTHONIOENCODING='utf-8'
+          py -3 -u src/tools/moonzip/moonzip_parallel.py --mode full --out moonzip-catalog-results
+          if($LASTEXITCODE -ne 0){throw 'Full Moonzip crawl incomplete; inspect checkpoint'}
+          py -3 -c "import json; s=json.load(open('moonzip-catalog-results/summary.json',encoding='utf-8')); print('MOONZIP_FINAL_SUMMARY',s); assert s['series_discovered']>=350 and s['image_files_downloaded']==0"
+          if($LASTEXITCODE -ne 0){throw 'Full Moonzip report failed validation'}
+      - name: Show real checkpoint summary
+        if: always()
+        run: |
+          $env:PYTHONIOENCODING='utf-8'
+          foreach($p in @('moonzip-probe-parallel-results/summary.json','moonzip-catalog-results/summary.json')){
+            if(Test-Path $p){
+              py -3 -c "import json,sys;print('MOONZIP_CHECKPOINT',sys.argv[1],json.load(open(sys.argv[1],encoding='utf-8')))" $p
+            }
+          }
+      - name: Upload only CSV and JSON metadata with cover-image LINKS
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: moonzip-3series-pilot-urls-only
+          name: moonzip-370-series-cover-links-and-book-metadata
           path: |
-            moonzip-results/summary.json
-            moonzip-results/series.json
-            moonzip-results/series.csv
-            moonzip-results/books.json
-            moonzip-results/books.csv
-            moonzip-results/search_pages.json
-          retention-days: 7
+            moonzip-probe-parallel-results/*.json
+            moonzip-probe-parallel-results/*.csv
+            moonzip-catalog-results/*.json
+            moonzip-catalog-results/*.csv
           if-no-files-found: warn
+          retention-days: 7
