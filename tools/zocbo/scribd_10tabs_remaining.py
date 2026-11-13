@@ -112,8 +112,12 @@ async def inspect(page, doc_id, output):
         await page.wait_for_timeout(1200)
         row["http_status"] = response.status if response else ""
         row["final_url"] = page.url
-        # Playwright's title() can block without a built-in per-call timeout.
-        row["page_title"] = (await asyncio.wait_for(page.title(), timeout=7))[:240]
+        # Playwright page.title() stalled prior 10-tab jobs. Title metadata is optional.
+        # Use a bounded DOM locator and continue checking the preview on failure.
+        try:
+            row["page_title"] = ((await page.locator("title").first.text_content(timeout=1800)) or "")[:240]
+        except Exception as exc:
+            row["error"] = f"title_lookup_optional:{type(exc).__name__}"
         try:
             heading = page.locator("h1").first
             if await heading.count():
@@ -154,7 +158,8 @@ async def inspect(page, doc_id, output):
         except Exception as exc:
             row["error"] = ("Screenshot: " + str(exc))[:700]
     except Exception as exc:
-        row["error"] = str(exc)[:700]
+        row["status"] = "timeout" if isinstance(exc, asyncio.TimeoutError) else "error"
+        row["error"] = f"inspect:{type(exc).__name__}: {str(exc)}"[:700]
     return row
 
 
@@ -187,7 +192,7 @@ async def review_document(context, doc_id, output, args):
         except asyncio.TimeoutError as exc:
             row = result_error(doc_id, "timeout", str(exc))
         except Exception as exc:
-            row = result_error(doc_id, "error", str(exc))
+            row = result_error(doc_id, "error", f"{type(exc).__name__}: {str(exc)}")
         finally:
             if page is not None:
                 try:
