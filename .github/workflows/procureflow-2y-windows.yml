@@ -14,6 +14,7 @@ on:
     paths: [.github/workflows/procureflow-2y-windows.yml]
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: procureflow-2y-windows
   cancel-in-progress: false
@@ -72,6 +73,13 @@ jobs:
             python $script --mode plan --max-windows 0
           }
           if ($LASTEXITCODE -ne 0) { throw 'planning failed' }
+      - name: Restore prior verified G2B raw evidence and page checkpoints
+        uses: actions/download-artifact@v4
+        with:
+          name: procureflow-2y-windows-source-evidence
+          run-id: 43451369673
+          github-token: ${{ github.token }}
+          path: procureflow-2y-evidence
       - name: Real Chrome smoke for first and last historical day
         run: |
           $ErrorActionPreference = 'Stop'
@@ -90,7 +98,7 @@ jobs:
           $output = Join-Path $env:GITHUB_WORKSPACE 'procureflow-2y-evidence'
           $cmd = @($script, '--mode', 'batch', '--tabs', '10',
                    '--window-offset', '0', '--max-windows', '2',
-                   '--max-pages', '100', '--details-per-window', '2',
+                   '--max-pages', '120', '--details-per-window', '2',
                    '--run-timeout', '4200', '--output', $output)
           if (Get-Command py -ErrorAction SilentlyContinue) { & py -3 @cmd } else { & python @cmd }
           if ($LASTEXITCODE -ne 0) { throw 'First two weekly windows failed: inspect evidence and resume' }
