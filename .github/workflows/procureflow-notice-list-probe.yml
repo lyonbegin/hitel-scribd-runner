@@ -1,0 +1,65 @@
+name: ProcureFlow - two-year bid notice number LIST probe
+run-name: "G2B notice index probe | 2024-11-13 to 2026-11-13"
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/procureflow-g2b-2y-win-20261114]
+    paths: [.github/workflows/procureflow-notice-list-probe.yml]
+permissions:
+  contents: read
+concurrency:
+  group: procureflow-notice-list-probe
+  cancel-in-progress: false
+jobs:
+  notice-index-probe:
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: powershell
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - name: Verify real interactive Windows runner
+        run: |
+          $session=(Get-Process -Id $PID).SessionId
+          Write-Host "GUI_PREFLIGHT name=$env:RUNNER_NAME session=$session"
+          if ($session -eq 0) { throw 'Not an interactive Chrome session' }
+      - name: Clone committed source
+        run: |
+          $ErrorActionPreference='Stop'
+          $folder=Join-Path $env:RUNNER_TEMP "g2bnotice-$env:GITHUB_RUN_ID"
+          git clone --depth 1 --branch feature/procureflow-g2b-2y-win-20261114 https://github.com/lyonbegin/hitel-scribd-runner.git $folder
+          if ($LASTEXITCODE -ne 0) { throw 'Source fetch failed' }
+          $sha=(git -C $folder rev-parse HEAD).Trim()
+          if ($sha -ne $env:GITHUB_SHA) { throw 'Source SHA mismatch' }
+          "NOTICE_SRC=$folder" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Verify Python and Chrome Playwright
+        run: |
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m pip show playwright
+            if ($LASTEXITCODE -ne 0) { py -3 -m pip install --disable-pip-version-check playwright==1.56.0 }
+          } else {
+            python -m pip show playwright
+            if ($LASTEXITCODE -ne 0) { python -m pip install --disable-pip-version-check playwright==1.56.0 }
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Playwright not available' }
+      - name: Public notice list dates and pagination verified on actual Chrome
+        run: |
+          $script=Join-Path $env:NOTICE_SRC 'tools/procureflow/g2b_notice_list_probe.py'
+          if (Get-Command py -ErrorAction SilentlyContinue) { py -3 -m py_compile $script; if ($LASTEXITCODE -ne 0) { throw 'Syntax failure' }; py -3 $script }
+          else { python -m py_compile $script; if ($LASTEXITCODE -ne 0) { throw 'Syntax failure' }; python $script }
+          if ($LASTEXITCODE -ne 0) { throw 'Notice listing did not return verifiable rows' }
+      - name: Print exact source result
+        if: always()
+        run: |
+          if (Test-Path g2b-notice-list-probe/summary.json) { Get-Content g2b-notice-list-probe/summary.json -Encoding utf8 }
+      - name: Archive raw evidence and diagnostic summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2b-notice-list-public-probe
+          path: g2b-notice-list-probe/
+          if-no-files-found: warn
+          retention-days: 7
