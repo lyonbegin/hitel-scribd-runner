@@ -50,6 +50,21 @@ def read_ids(path):
     return ids
 
 
+def read_previously_visited(path):
+    """Read GitHub-audited visit log; exclude even previously failed/redirected visits."""
+    if not path:
+        return set()
+    source = Path(path)
+    if not source.exists():
+        raise FileNotFoundError(f"Visit checkpoint missing: {source}")
+    seen = set()
+    for line in source.read_text(encoding="utf-8-sig").splitlines():
+        first = line.split(",", 1)[0].strip()
+        if re.fullmatch(r"\d{6,12}", first):
+            seen.add(first)
+    return seen
+
+
 def save_atomic_csv(path, rows):
     tmp = path.with_name(path.name + ".new")
     with tmp.open("w", newline="", encoding="utf-8-sig") as file:
@@ -132,12 +147,17 @@ async def run(args, ids):
     if results_path.exists():
         with results_path.open(newline="", encoding="utf-8-sig") as file:
             existing = list(csv.DictReader(file))
+    prior_2026_11_12 = read_previously_visited(args.skip_prior_file)
+    prior_2026_11_13 = read_previously_visited(args.skip_current_file)
+    excluded = (prior_2026_11_12 | prior_2026_11_13) & set(ids)
     known = {row["document_id"] for row in existing if row.get("document_id") in ids}
-    pending = [doc_id for doc_id in ids if doc_id not in known]
+    pending = [doc_id for doc_id in ids if doc_id not in known and doc_id not in excluded]
     rows = [row for row in existing if row.get("document_id") in ids]
-    print(f"QUEUE total={len(ids)} resumed={len(known)} remaining={len(pending)} tabs={args.tabs}", flush=True)
+    eligible_total = len(ids) - len(excluded)
+    print(f"QUEUE total={len(ids)} previously_visited_in_queue={len(excluded)} "
+          f"eligible={eligible_total} resumed={len(known)} remaining={len(pending)} tabs={args.tabs}", flush=True)
     if not pending:
-        return summarize(ids, rows, output, stopped=False)
+        return summarize(ids, rows, output, stopped=False, excluded=excluded)
 
     queue = asyncio.Queue()
     for doc_id in pending:
@@ -172,8 +192,6 @@ async def run(args, ids):
                         if block_count >= 3:
                             stop.set()
                             print("STOP_SITE_CHALLENGE: 3 blocked pages", flush=True)
-                    else:
-                        block_count = 0
                     queue.task_done()
                     if not stop.is_set():
                         await page.wait_for_timeout(1100)
@@ -182,16 +200,18 @@ async def run(args, ids):
         await asyncio.gather(*(worker(i + 1) for i in range(args.tabs)))
         await context.close()
         await browser.close()
-    return summarize(ids, rows, output, stopped=stop.is_set())
+    return summarize(ids, rows, output, stopped=stop.is_set(), excluded=excluded)
 
 
-def summarize(ids, rows, output, stopped):
+def summarize(ids, rows, output, stopped, excluded):
     statuses = {}
     for row in rows:
         statuses[row.get("status", "unknown")] = statuses.get(row.get("status", "unknown"), 0) + 1
     summary = {
-        "queue_total": len(ids), "completed_or_attempted": len(rows),
-        "left_unattempted": len(ids) - len(rows),
+        "queue_total": len(ids), "previously_visited_excluded": len(excluded),
+        "eligible_total": len(ids) - len(excluded),
+        "completed_or_attempted": len(rows),
+        "left_unattempted": len(ids) - len(excluded) - len(rows),
         "preview_visible": statuses.get("preview_visible", 0),
         "status_counts": statuses, "stopped_on_challenge": stopped,
         "browser_count": 1, "concurrent_tabs": 10,
@@ -208,6 +228,8 @@ def main():
     parser.add_argument("--ids-file", default="tools/zocbo/pending_1149_ids.zlib64")
     parser.add_argument("--out", default="scribd-review-results")
     parser.add_argument("--tabs", type=int, default=10)
+    parser.add_argument("--skip-prior-file", default="tools/zocbo/attempted_43224551981_ids.txt")
+    parser.add_argument("--skip-current-file", default="tools/zocbo/attempted_43344449923_ids.csv")
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -215,7 +237,11 @@ def main():
         parser.error("This audited workflow uses exactly ten tabs")
     ids = read_ids(args.ids_file)
     if args.dry_run:
-        print(json.dumps({"count": len(ids), "unique": len(set(ids)),
+        previous = read_previously_visited(args.skip_prior_file) | read_previously_visited(args.skip_current_file)
+        excluded = set(ids) & previous
+        print(json.dumps({"count": len(ids), "unique": len(set(ids)), 
+                          "previously_visited_excluded": len(excluded),
+                          "eligible": len(ids) - len(excluded),
                           "first": ids[:3], "last": ids[-3:]}, ensure_ascii=True))
         return
     raise SystemExit(asyncio.run(run(args, ids)))
