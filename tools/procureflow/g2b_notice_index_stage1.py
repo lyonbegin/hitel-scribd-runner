@@ -175,8 +175,9 @@ async def collect_day(ctx,gate,out,day,args):
                  "cumulative_unique":len(seen),"origin":cache})
             # Some days really may have 0 notices. Without independent official
             # confirmation treat an empty first page as unverified, not full.
-            if len(records)<args.page_size or (
-                records and str(records[-1].get("nextRowYn") or "").upper()=="N"):
+            # Verified listing has nextRowYn=N even when the next page
+            # contains 100 more notices. Only a short page closes the scan.
+            if len(records)<args.page_size:
                 state="complete" if index_rows else "empty_unverified"
                 break
         else:
