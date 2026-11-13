@@ -1,5 +1,5 @@
 name: ProcureFlow - two-stage historical notice index then bidder detail
-run-name: "G2B TWO-STAGE | strict source checkpoint revalidation"
+run-name: "G2B TWO-STAGE | strict full-day notice index corrected"
 on:
   workflow_dispatch:
     inputs:
