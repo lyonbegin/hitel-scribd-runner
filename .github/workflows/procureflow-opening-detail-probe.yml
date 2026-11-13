@@ -1,0 +1,79 @@
+name: ProcureFlow - G2B complete bidder detail verification
+run-name: "G2B full bidder list - public WebSquare live probe"
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/procureflow-g2b-2y-win-20261114]
+    paths: [.github/workflows/procureflow-opening-detail-probe.yml]
+permissions:
+  contents: read
+concurrency:
+  group: procureflow-g2b-opening-detail-single
+  cancel-in-progress: false
+jobs:
+  verify-detail:
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: powershell
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - name: Validate interactive Windows runner
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $session = (Get-Process -Id $PID).SessionId
+          Write-Host "GUI_PREFLIGHT runner=$env:RUNNER_NAME session=$session"
+          if ($session -eq 0) { throw 'Chrome GUI unavailable in session zero' }
+      - name: Clone exact source revision
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $folder = Join-Path $env:RUNNER_TEMP "g2bdetail-$env:GITHUB_RUN_ID"
+          git clone --depth 1 --branch feature/procureflow-g2b-2y-win-20261114 https://github.com/lyonbegin/hitel-scribd-runner.git $folder
+          if ($LASTEXITCODE -ne 0) { throw 'git clone failed' }
+          $sha=(git -C $folder rev-parse HEAD).Trim()
+          if ($sha -ne $env:GITHUB_SHA) { throw "SHA mismatch $sha" }
+          "DETAIL_SOURCE=$folder" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Verify Python Playwright
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m pip show playwright
+            if ($LASTEXITCODE -ne 0) { py -3 -m pip install playwright==1.56.0 }
+          } else {
+            python -m pip show playwright
+            if ($LASTEXITCODE -ne 0) { python -m pip install playwright==1.56.0 }
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Playwright unavailable' }
+      - name: Test official G2B bidder-detail endpoint on three actual format IDs
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $script = Join-Path $env:DETAIL_SOURCE 'tools/procureflow/probe_opening_detail.py'
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m py_compile $script
+            if ($LASTEXITCODE -ne 0) { throw 'syntax error' }
+            py -3 $script
+          } else {
+            python -m py_compile $script
+            if ($LASTEXITCODE -ne 0) { throw 'syntax error' }
+            python $script
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'None of the public detail records returned verifiable bidder data' }
+      - name: Print evidence summary
+        if: always()
+        run: |
+          if (Test-Path g2b-open-detail-probe/summary.json) {
+            Get-Content g2b-open-detail-probe/summary.json -Encoding utf8
+          } else {
+            Write-Host 'No completed summary; verify step logs'
+          }
+      - name: Preserve raw detail evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2b-bidder-detail-probe
+          path: g2b-open-detail-probe/
+          if-no-files-found: warn
+          retention-days: 7
