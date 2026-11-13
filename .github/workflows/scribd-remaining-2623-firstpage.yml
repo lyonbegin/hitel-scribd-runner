@@ -1,0 +1,127 @@
+name: Scribd New Unclassified First Page Capture (2623)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/scribd-remaining-2623-firstpage.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scribd-remaining-2623
+  cancel-in-progress: false
+
+jobs:
+  access-probe:
+    runs-on: self-hosted
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: powershell
+    outputs:
+      ready: ${{ steps.gate.outputs.ready }}
+    steps:
+      - name: Download exact reviewed queue and proven screenshot code
+        run: |
+          if ($env:RUNNER_OS -ne 'Windows') { throw 'Windows runner required' }
+          if (Test-Path src\.git) {
+            git -C src fetch --depth 1 origin main
+            if ($LASTEXITCODE -ne 0) { throw 'git fetch failed' }
+            git -C src reset --hard origin/main
+            if ($LASTEXITCODE -ne 0) { throw 'git reset failed' }
+          } else {
+            git clone --depth 1 --branch main https://github.com/lyonbegin/hitel-scribd-runner.git src
+            if ($LASTEXITCODE -ne 0) { throw 'git clone failed' }
+          }
+      - name: Validate exactly 2623 unresolved IDs
+        run: |
+          $ids = @(Get-Content src/tools/zocbo/remaining_unclassified_2623_ids.txt)
+          if ($ids.Count -ne 2623) { throw "Expected 2623 IDs; got $($ids.Count)" }
+          if (@($ids | Sort-Object -Unique).Count -ne 2623) { throw 'Duplicate ID found' }
+      - name: Install required Playwright package if missing
+        run: |
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m pip install --disable-pip-version-check playwright==1.56.0
+          } else {
+            python -m pip install --disable-pip-version-check playwright==1.56.0
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Python Playwright not available' }
+      - name: Verify Chrome preview access using only 3 new documents
+        run: |
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 src/tools/zocbo/scribd_remaining_firstpage_crawler.py --ids-file src/tools/zocbo/remaining_unclassified_2623_ids.txt --probe
+          } else {
+            python src/tools/zocbo/scribd_remaining_firstpage_crawler.py --ids-file src/tools/zocbo/remaining_unclassified_2623_ids.txt --probe
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Browser access probe failed' }
+      - name: Gate all further public preview capture
+        id: gate
+        if: always()
+        run: |
+          $file = 'scribd_remaining_results/probe/summary.json'
+          $ready = 'false'
+          if (Test-Path $file) {
+            $summary = Get-Content $file -Raw | ConvertFrom-Json
+            if ($summary.preview_visible -ge 1 -and $summary.blocked -eq 0) { $ready = 'true' }
+            Get-Content $file
+          }
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "ready=$ready"
+          Write-Host "READY_FOR_BATCHES=$ready"
+      - name: Store sample screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unresolved2623-three-document-probe
+          path: scribd_remaining_results/probe/
+          if-no-files-found: warn
+          retention-days: 14
+
+  capture-batches:
+    needs: access-probe
+    if: ${{ needs.access-probe.outputs.ready == 'true' }}
+    runs-on: self-hosted
+    timeout-minutes: 20
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        batch: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52]
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Read same audited 2623-ID queue
+        run: |
+          if ($env:RUNNER_OS -ne 'Windows') { throw 'Windows runner required' }
+          if (Test-Path src\.git) {
+            git -C src fetch --depth 1 origin main
+            if ($LASTEXITCODE -ne 0) { throw 'git fetch failed' }
+            git -C src reset --hard origin/main
+            if ($LASTEXITCODE -ne 0) { throw 'git reset failed' }
+          } else {
+            git clone --depth 1 --branch main https://github.com/lyonbegin/hitel-scribd-runner.git src
+            if ($LASTEXITCODE -ne 0) { throw 'git clone failed' }
+          }
+          $ids = @(Get-Content src/tools/zocbo/remaining_unclassified_2623_ids.txt)
+          if ($ids.Count -ne 2623) { throw 'Unexpected queue size' }
+      - name: Capture only the FIRST public preview per unresolved document
+        env:
+          BATCH: "${{ matrix.batch }}"
+        run: |
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 src/tools/zocbo/scribd_remaining_firstpage_crawler.py --ids-file src/tools/zocbo/remaining_unclassified_2623_ids.txt --batch $env:BATCH --batch-size 50
+          } else {
+            python src/tools/zocbo/scribd_remaining_firstpage_crawler.py --ids-file src/tools/zocbo/remaining_unclassified_2623_ids.txt --batch $env:BATCH --batch-size 50
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Document preview access failed' }
+      - name: Upload page images and per-document CSV
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unresolved2623-firstpage-batch-${{ matrix.batch }}
+          path: scribd_remaining_results/batch_${{ matrix.batch }}/
+          if-no-files-found: warn
+          retention-days: 14
