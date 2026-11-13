@@ -1,10 +1,6 @@
 name: Windows Scribd 814 Public Preview Batch Capture
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/scribd-814-batches.yml
 
 permissions:
   contents: read
