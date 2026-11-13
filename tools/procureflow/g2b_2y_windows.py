@@ -91,7 +91,7 @@ def plan(args):
 
 async def bounded(awaitable, seconds):
     # Copied from successful HITEL ten-tabs engine: bounded task with cancel.
-    task=asyncio.create_task(awaitable)
+    task=asyncio.ensure_future(awaitable)
     task.add_done_callback(lambda t: None if t.cancelled() else t.exception())
     done,_=await asyncio.wait({task}, timeout=seconds)
     if not done:
@@ -362,6 +362,8 @@ def main():
         p.error("Invalid bounded-run settings")
     if a.mode=="full":
         a.max_windows=0
+        a.max_pages=1000
+        a.details_per_window=0
     raise SystemExit(asyncio.run(run(a)))
 
 
