@@ -1,6 +1,7 @@
 {
-  "run_id": null,
-  "status": "awaiting_verified_smoke_run",
+  "run_id": 43413211677,
+  "run_url": "https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/43413211677",
+  "status": "workflow_started",
   "workflow": "scribd-remaining-10tabs.yml",
-  "updated_at": null
+  "commit": "5213f3f71277f7ac541e06f6916a4561cfe02ec7"
 }
