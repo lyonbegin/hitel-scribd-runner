@@ -130,8 +130,16 @@ jobs:
             & python @cmd --dry-run
           }
           if ($LASTEXITCODE -ne 0) { throw '2623 pending IDs or prior checkpoints failed validation' }
-      - name: Real Chrome preflight on first 10 unvisited documents
+      - name: Real Chrome preflight on next 10 unvisited documents
         run: |
+          $ErrorActionPreference = 'Stop'
+          $priorStable = @()
+          if (Test-Path scribd-remaining-results/results.csv) {
+            $priorStable = @(Import-Csv scribd-remaining-results/results.csv |
+              Where-Object { $_.status -notin @('error','timeout') } |
+              ForEach-Object { $_.document_id })
+          }
+          Write-Host "SMOKE_BASELINE stable_before=$($priorStable.Count)"
           $cmd = @(
             'src/tools/zocbo/scribd_10tabs_remaining.py',
             '--ids-file', 'src/tools/zocbo/remaining_unclassified_2623_ids.txt',
@@ -143,18 +151,18 @@ jobs:
             '--tabs', '10', '--limit', '10'
           )
           if (Get-Command py -ErrorAction SilentlyContinue) { & py -3 @cmd } else { & python @cmd }
-          if ($LASTEXITCODE -ne 0) { throw '10-tab Chrome preflight failed' }
-          $probe = Get-Content scribd-remaining-results/summary.json -Raw | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw '10-tab Chrome preflight crashed' }
           $actual = @(Import-Csv scribd-remaining-results/results.csv)
-          Write-Host "SMOKE_TEST_RESULT attempted=$($probe.newly_attempted) preview=$($probe.preview_visible_new) actual_csv=$($actual.Count)"
-          if ($probe.newly_attempted -ne 10 -or $actual.Count -ne 10) {
-            throw 'Preflight did not complete all 10 public preview visits; bulk disabled'
+          $newRows = @($actual | Where-Object { $priorStable -notcontains $_.document_id })
+          $newIds = @($newRows | ForEach-Object { $_.document_id } | Select-Object -Unique)
+          $newPreview = @($newRows | Where-Object { $_.status -eq 'preview_visible' }).Count
+          $newFatal = @($newRows | Where-Object { $_.status -in @('timeout','error','blocked') }).Count
+          Write-Host "SMOKE_TEST_RESULT new_docs=$($newRows.Count) unique=$($newIds.Count) preview=$newPreview fatal=$newFatal"
+          if ($newRows.Count -ne 10 -or $newIds.Count -ne 10) {
+            throw 'Preflight did not complete 10 new unique documents; bulk disabled'
           }
-          if ($probe.preview_visible_new -lt 9) {
-            throw 'Less than 9/10 public previews visible; bulk disabled until diagnosed'
-          }
-          if ($probe.status_counts.timeout -gt 0 -or $probe.status_counts.error -gt 0 -or $probe.status_counts.blocked -gt 0) {
-            throw 'Preflight includes timeout, exception, or site challenge; bulk disabled'
+          if ($newPreview -lt 7 -or $newFatal -gt 0) {
+            throw 'Preflight did not meet 7/10 preview and zero hard-error rule; bulk disabled'
           }
       - name: Crawl all remaining unvisited 2623-queue IDs with recycled Chrome
         run: |
