@@ -44,27 +44,14 @@ jobs:
       - name: Live pilot three series and four books (image requests blocked)
         run: |
           $ErrorActionPreference='Stop'
+          if(Test-Path moonzip-results){ Remove-Item moonzip-results -Recurse -Force }
           py -3 -u src/tools/moonzip/moonzip_catalog.py --mode probe --series-limit 3 --book-limit 4 --delay 1.2
           if($LASTEXITCODE -ne 0){throw 'Moonzip pilot execution failed'}
       - name: Reject incomplete discovery or downloaded images
         run: |
           $ErrorActionPreference='Stop'
-          $summary=Get-Content moonzip-results/summary.json -Raw | ConvertFrom-Json
-          $series=Get-Content moonzip-results/series.json -Raw | ConvertFrom-Json
-          $books=Get-Content moonzip-results/books.json -Raw | ConvertFrom-Json
-          Write-Host "MOONZIP_PILOT_SUMMARY $($summary | ConvertTo-Json -Compress)"
-          foreach($id in $series.PSObject.Properties.Name){
-            $s=$series.$id
-            Write-Host "MOONZIP_SERIES_EXPANSION id=$id expected=$($s.site_book_count_label) found=$($s.visible_books_after_expand)"
-            if($s.site_book_count_label -and $s.visible_books_after_expand -lt $s.site_book_count_label){
-              throw "Subbooks not fully enumerated in series $id"
-            }
-          }
-          if($summary.series_crawled -ne 3 -or $summary.books_discovered -lt 12 -or $summary.series_cover_urls -lt 3 -or $summary.book_cover_urls -lt 3 -or $summary.image_files_downloaded -ne 0){
-            throw 'Moonzip pilot quality gate failed'
-          }
-          $imageFiles=@(Get-ChildItem moonzip-results -Include *.png,*.jpg,*.jpeg,*.webp -File -Recurse)
-          if($imageFiles.Count -gt 0){throw 'Image file was unexpectedly saved'}
+          py -3 -u src/tools/moonzip/moonzip_validate.py
+          if($LASTEXITCODE -ne 0){throw 'Moonzip 3-series pilot did not pass quality gate'}
       - name: Upload only small JSON/CSV data and cover URLs
         if: always()
         uses: actions/upload-artifact@v4
