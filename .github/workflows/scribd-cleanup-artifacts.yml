@@ -1,0 +1,75 @@
+name: Cleanup verified-backed-up Scribd artifacts
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/scribd-cleanup-artifacts.yml
+permissions:
+  actions: write
+  contents: read
+jobs:
+  remove-verified-artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Delete only 38 backed-up Scribd artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ids=(
+            13951367833
+            13951267596
+            13951140531
+            13950949133
+            13950653770
+            13950227314
+            13949885501
+            13949250163
+            13949034259
+            13948676653
+            13948468981
+            13948304708
+            13947443830
+            13947158101
+            13947132832
+            13946899027
+            13946782490
+            14007546401
+            14007043295
+            14006651865
+            14006421327
+            14006128359
+            14005949729
+            14005937067
+            14004926295
+            14004889435
+            14004878382
+            14004444467
+            14004400964
+            14003989152
+            14003479894
+            14018033564
+            14031271348
+            14030527639
+            14030903281
+            14031177561
+            14033007845
+            14032469121
+          )
+          if [[ ${#ids[@]} -ne 38 ]]; then echo 'Invalid ID count'; exit 1; fi
+          deleted=0
+          gone=0
+          for id in "${ids[@]}"; do
+            status=$(curl -sS -o /tmp/delete_response.txt -w '%{http_code}' -X DELETE -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$id")
+            case "$status" in
+              204) deleted=$((deleted+1)); echo "SCRIBD_ARTIFACT_DELETED id=$id http=204" ;;
+              404) gone=$((gone+1)); echo "SCRIBD_ARTIFACT_ALREADY_ABSENT id=$id http=404" ;;
+              *) echo "SCRIBD_ARTIFACT_DELETE_FAILED id=$id http=$status"; cat /tmp/delete_response.txt; exit 1 ;;
+            esac
+          done
+          echo "SCRIBD_CLEANUP_RESULT expected=38 deleted=$deleted already_absent=$gone"
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" --jq '.artifacts[] | [.id,.name] | @tsv' > /tmp/remaining-artifacts.tsv
+          echo "REMAINING_REPO_ARTIFACTS $(wc -l < /tmp/remaining-artifacts.tsv)"
+          cat /tmp/remaining-artifacts.tsv
