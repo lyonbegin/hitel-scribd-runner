@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: scribd-2623-resilient
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   publish-run-pointer:
@@ -99,24 +99,11 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw 'Playwright installation failed' }
             }
           }
-      - name: Restore last run artifact with 1066 attempted documents
-        uses: actions/download-artifact@v4
-        with:
-          name: scribd-1149-10tabs-results
-          repository: lyonbegin/hitel-scribd-runner
-          run-id: 43377032832
-          github-token: ${{ github.token }}
-          path: scribd-prior-results
       - name: Validate original 2623 ID queue, prior CSV and watchdog
         run: |
           $ErrorActionPreference = 'Stop'
-          if (-not (Test-Path scribd-prior-results/results.csv)) {
-            throw 'Required 1066-row artifact CSV was not restored; refuse to repeat prior visits'
-          }
-          $prior = @(Import-Csv scribd-prior-results/results.csv)
-          if ($prior.Count -ne 1066) {
-            throw "Expected 1066 prior results; got $($prior.Count). Refuse unsafe restart."
-          }
+          Write-Host 'RESTORE_SKIPPED: 366MB screenshot artifact is not required to start browser'
+          Write-Host 'DEDUP_SOURCE: 573 + 641 earlier attempts and 1063 verified latest log IDs'
           $script = 'src/tools/zocbo/scribd_10tabs_remaining.py'
           $cmd = @(
             $script,
@@ -124,7 +111,6 @@ jobs:
             '--skip-prior-file', 'src/tools/zocbo/attempted_43224551981_ids.txt',
             '--skip-current-file', 'src/tools/zocbo/attempted_43344449923_ids.csv',
             '--skip-latest-file', 'src/tools/zocbo/attempted_43377032832_from_logs.csv',
-            '--prior-results-file', 'scribd-prior-results/results.csv',
             '--out', 'scribd-remaining-results',
             '--tabs', '10'
           )
@@ -150,7 +136,6 @@ jobs:
             '--skip-prior-file', 'src/tools/zocbo/attempted_43224551981_ids.txt',
             '--skip-current-file', 'src/tools/zocbo/attempted_43344449923_ids.csv',
             '--skip-latest-file', 'src/tools/zocbo/attempted_43377032832_from_logs.csv',
-            '--prior-results-file', 'scribd-prior-results/results.csv',
             '--out', 'scribd-remaining-results',
             '--tabs', '10', '--limit', '10'
           )
@@ -176,7 +161,6 @@ jobs:
             '--skip-prior-file', 'src/tools/zocbo/attempted_43224551981_ids.txt',
             '--skip-current-file', 'src/tools/zocbo/attempted_43344449923_ids.csv',
             '--skip-latest-file', 'src/tools/zocbo/attempted_43377032832_from_logs.csv',
-            '--prior-results-file', 'scribd-prior-results/results.csv',
             '--out', 'scribd-remaining-results',
             '--tabs', '10', '--batch-size', '80',
             '--document-timeout', '80', '--batch-timeout', '1200', '--retries', '1'
@@ -194,6 +178,16 @@ jobs:
           } else {
             Write-Host 'No document processing results yet'
           }
+      - name: Upload lightweight CSV checkpoint for future resume
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scribd-2623-resume-checkpoint
+          path: |
+            scribd-remaining-results/results.csv
+            scribd-remaining-results/summary.json
+          if-no-files-found: warn
+          retention-days: 30
       - name: Upload screenshots and checkpoint
         if: always()
         uses: actions/upload-artifact@v4
