@@ -79,7 +79,8 @@ jobs:
             'src/tools/zocbo/remaining_unclassified_2623_ids.txt',
             'src/tools/zocbo/attempted_43224551981_ids.txt',
             'src/tools/zocbo/attempted_43344449923_ids.csv',
-            'src/tools/zocbo/attempted_43377032832_from_logs.csv'
+            'src/tools/zocbo/attempted_43377032832_from_logs.csv',
+            'src/tools/zocbo/attempted_43414135287_smoke_success.csv'
           )) {
             if (-not (Test-Path $path)) { throw "Missing audited source file: $path" }
           }
@@ -111,6 +112,7 @@ jobs:
             '--skip-prior-file', 'src/tools/zocbo/attempted_43224551981_ids.txt',
             '--skip-current-file', 'src/tools/zocbo/attempted_43344449923_ids.csv',
             '--skip-latest-file', 'src/tools/zocbo/attempted_43377032832_from_logs.csv',
+            '--skip-smoke-file', 'src/tools/zocbo/attempted_43414135287_smoke_success.csv',
             '--out', 'scribd-remaining-results',
             '--tabs', '10'
           )
@@ -136,6 +138,7 @@ jobs:
             '--skip-prior-file', 'src/tools/zocbo/attempted_43224551981_ids.txt',
             '--skip-current-file', 'src/tools/zocbo/attempted_43344449923_ids.csv',
             '--skip-latest-file', 'src/tools/zocbo/attempted_43377032832_from_logs.csv',
+            '--skip-smoke-file', 'src/tools/zocbo/attempted_43414135287_smoke_success.csv',
             '--out', 'scribd-remaining-results',
             '--tabs', '10', '--limit', '10'
           )
@@ -161,6 +164,7 @@ jobs:
             '--skip-prior-file', 'src/tools/zocbo/attempted_43224551981_ids.txt',
             '--skip-current-file', 'src/tools/zocbo/attempted_43344449923_ids.csv',
             '--skip-latest-file', 'src/tools/zocbo/attempted_43377032832_from_logs.csv',
+            '--skip-smoke-file', 'src/tools/zocbo/attempted_43414135287_smoke_success.csv',
             '--out', 'scribd-remaining-results',
             '--tabs', '10', '--batch-size', '80',
             '--document-timeout', '80', '--batch-timeout', '1200', '--retries', '1'
