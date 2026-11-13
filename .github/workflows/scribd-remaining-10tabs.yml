@@ -2,10 +2,6 @@ name: Scribd 1149 unresolved - One Chrome 10 Concurrent Tabs
 run-name: "Scribd 1149 remaining | Chrome 1 x 10 tabs"
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/scribd-remaining-10tabs.yml
 
 permissions:
   contents: read
@@ -25,6 +21,8 @@ jobs:
     steps:
       - name: Fetch public source and audited 1149-ID queue
         uses: actions/checkout@v4
+        with:
+          clean: false
       - name: Verify Python and Playwright
         run: |
           $ErrorActionPreference = 'Stop'
