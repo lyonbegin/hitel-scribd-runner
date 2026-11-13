@@ -8,7 +8,7 @@ on:
       - .github/workflows/scribd-remaining-10tabs.yml
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 concurrency:
@@ -16,7 +16,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  publish-run-pointer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Write run id to repository for independent log monitoring
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO_NAME: ${{ github.repository }}
+          RUN_NUMBER: ${{ github.run_id }}
+          COMMIT_ID: ${{ github.sha }}
+        run: |
+          python3 - <<'PY' > /tmp/scribd-run.json
+          import json, os
+          print(json.dumps({
+            "run_id": int(os.environ["RUN_NUMBER"]),
+            "run_url": "https://github.com/" + os.environ["REPO_NAME"] + "/actions/runs/" + os.environ["RUN_NUMBER"],
+            "status": "workflow_started",
+            "workflow": "scribd-remaining-10tabs.yml",
+            "commit": os.environ["COMMIT_ID"],
+          }, indent=2))
+          PY
+          old_sha=$(gh api "repos/$REPO_NAME/contents/ops/latest_scribd_run.json" --jq .sha)
+          content=$(base64 -w0 < /tmp/scribd-run.json)
+          gh api -X PUT "repos/$REPO_NAME/contents/ops/latest_scribd_run.json" \
+            -f message="Track Scribd Actions run $RUN_NUMBER" \
+            -f content="$content" -f sha="$old_sha" \
+            --jq '.commit.sha'
   audit:
+    needs: publish-run-pointer
     if: github.repository == 'lyonbegin/hitel-scribd-runner'
     runs-on: [self-hosted, Windows]
     timeout-minutes: 180
@@ -128,8 +157,16 @@ jobs:
           if (Get-Command py -ErrorAction SilentlyContinue) { & py -3 @cmd } else { & python @cmd }
           if ($LASTEXITCODE -ne 0) { throw '10-tab Chrome preflight failed' }
           $probe = Get-Content scribd-remaining-results/summary.json -Raw | ConvertFrom-Json
-          if ($probe.preview_visible_new -lt 1) {
-            throw 'Preflight found no visible preview; halt bulk collection instead of blind processing'
+          $actual = @(Import-Csv scribd-remaining-results/results.csv)
+          Write-Host "SMOKE_TEST_RESULT attempted=$($probe.newly_attempted) preview=$($probe.preview_visible_new) actual_csv=$($actual.Count)"
+          if ($probe.newly_attempted -ne 10 -or $actual.Count -ne 10) {
+            throw 'Preflight did not complete all 10 public preview visits; bulk disabled'
+          }
+          if ($probe.preview_visible_new -lt 9) {
+            throw 'Less than 9/10 public previews visible; bulk disabled until diagnosed'
+          }
+          if ($probe.status_counts.timeout -gt 0 -or $probe.status_counts.error -gt 0 -or $probe.status_counts.blocked -gt 0) {
+            throw 'Preflight includes timeout, exception, or site challenge; bulk disabled'
           }
       - name: Crawl all remaining unvisited 2623-queue IDs with recycled Chrome
         run: |
