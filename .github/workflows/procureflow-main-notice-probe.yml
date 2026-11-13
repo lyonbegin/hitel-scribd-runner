@@ -1,5 +1,5 @@
 name: ProcureFlow - G2B MAIN nationwide notice list validation
-run-name: "PNPE001 nationwide notice list | historical sample"
+run-name: "PNPE001 history-list | blank deadline filter diagnostic"
 on:
   workflow_dispatch:
   push:
