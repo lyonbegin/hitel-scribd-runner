@@ -242,7 +242,14 @@ async def crawl(args, ids):
     results_path = output / "results.csv"
     rows = csv_rows(results_path) if results_path.exists() else []
     allowed = set(ids)
-    rows = [r for r in rows if r.get("document_id") in allowed]
+    # Prior hard failures are not completed visits. Retry them after code fixes,
+    # while preserving successful preview and classified non-preview outcomes.
+    prior_failures = [r["document_id"] for r in rows if r.get("document_id") in allowed
+                      and r.get("status") in ("error", "timeout")]
+    if prior_failures:
+        print("REQUEUE_PRIOR_FAILURES", json.dumps(prior_failures), flush=True)
+    rows = [r for r in rows if r.get("document_id") in allowed
+            and r.get("status") not in ("error", "timeout")]
     deduped = {}
     for row in rows:
         deduped[row["document_id"]] = row
