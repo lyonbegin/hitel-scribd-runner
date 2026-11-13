@@ -230,7 +230,8 @@ async def crawl(args, ids):
     prior = set()
     for path in (args.skip_prior_file, args.skip_current_file, args.skip_latest_file):
         prior |= prior_ids(path)
-    prior |= {r["document_id"] for r in csv_rows(args.prior_results_file)}
+    if args.prior_results_file:
+        prior |= {r["document_id"] for r in csv_rows(args.prior_results_file)}
     output = Path(args.out)
     output.mkdir(parents=True, exist_ok=True)
     results_path = output / "results.csv"
@@ -381,7 +382,8 @@ def main():
     parser.add_argument("--skip-prior-file", default="tools/zocbo/attempted_43224551981_ids.txt")
     parser.add_argument("--skip-current-file", default="tools/zocbo/attempted_43344449923_ids.csv")
     parser.add_argument("--skip-latest-file", default="tools/zocbo/attempted_43377032832_from_logs.csv")
-    parser.add_argument("--prior-results-file", default="scribd-prior-results/results.csv")
+    parser.add_argument("--prior-results-file", default="",
+                        help="Optional verified prior results.csv; existing attempt-ID checkpoints also apply")
     parser.add_argument("--out", default="scribd-remaining-results")
     parser.add_argument("--tabs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=80)
