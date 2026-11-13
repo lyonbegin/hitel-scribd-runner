@@ -1,7 +1,11 @@
 name: Scribd 1149 unresolved - One Chrome 10 Concurrent Tabs
-run-name: "Scribd 1149 remaining | Chrome 1 x 10 tabs"
+run-name: "Scribd remaining | Chrome 1 x 10 tabs"
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/scribd-remaining-10tabs.yml
 
 permissions:
   contents: read
@@ -19,46 +23,86 @@ jobs:
       run:
         shell: powershell
     steps:
-      - name: Fetch public source and audited 1149-ID queue
-        uses: actions/checkout@v4
-        with:
-          clean: false
-      - name: Verify Python and Playwright
+      - name: Fetch audited code directly with Git (avoid checkout EBUSY)
         run: |
           $ErrorActionPreference = 'Stop'
           if ($env:RUNNER_OS -ne 'Windows') { throw 'Windows runner is required' }
-          if (Get-Command py -ErrorAction SilentlyContinue) {
-            py -3 -m pip install --disable-pip-version-check playwright==1.56.0
-            if ($LASTEXITCODE -ne 0) { throw 'Playwright installation failed' }
+          if (Test-Path src\.git) {
+            git -C src fetch --depth 1 origin main
+            if ($LASTEXITCODE -ne 0) { throw 'git fetch failed' }
+            git -C src reset --hard origin/main
+            if ($LASTEXITCODE -ne 0) { throw 'git reset failed' }
           } else {
-            python -m pip install --disable-pip-version-check playwright==1.56.0
-            if ($LASTEXITCODE -ne 0) { throw 'Playwright installation failed' }
+            git clone --depth 1 --branch main https://github.com/lyonbegin/hitel-scribd-runner.git src
+            if ($LASTEXITCODE -ne 0) { throw 'git clone failed' }
           }
-      - name: Verify queue is exactly 1149 unique never-visited unresolved IDs
+          foreach ($path in @(
+            'src/tools/zocbo/scribd_10tabs_remaining.py',
+            'src/tools/zocbo/pending_1149_ids.zlib64',
+            'src/tools/zocbo/attempted_43224551981_ids.txt',
+            'src/tools/zocbo/attempted_43344449923_ids.csv'
+          )) {
+            if (-not (Test-Path $path)) { throw "Missing audited source file: $path" }
+          }
+      - name: Install required Playwright package if missing
         run: |
+          $ErrorActionPreference = 'Stop'
           if (Get-Command py -ErrorAction SilentlyContinue) {
-            py -3 tools/zocbo/scribd_10tabs_remaining.py --dry-run
+            py -3 -m pip show playwright
+            if ($LASTEXITCODE -ne 0) {
+              py -3 -m pip install --disable-pip-version-check playwright==1.56.0
+              if ($LASTEXITCODE -ne 0) { throw 'Playwright installation failed' }
+            }
           } else {
-            python tools/zocbo/scribd_10tabs_remaining.py --dry-run
+            python -m pip show playwright
+            if ($LASTEXITCODE -ne 0) {
+              python -m pip install --disable-pip-version-check playwright==1.56.0
+              if ($LASTEXITCODE -ne 0) { throw 'Playwright installation failed' }
+            }
           }
-          if ($LASTEXITCODE -ne 0) { throw 'Queue verification failed' }
-      - name: Launch a single Google Chrome browser with 10 concurrent tabs
+      - name: Validate remaining queue and both prior visit logs
         run: |
+          $cmd = @(
+            'src/tools/zocbo/scribd_10tabs_remaining.py',
+            '--ids-file', 'src/tools/zocbo/pending_1149_ids.zlib64',
+            '--skip-prior-file', 'src/tools/zocbo/attempted_43224551981_ids.txt',
+            '--skip-current-file', 'src/tools/zocbo/attempted_43344449923_ids.csv',
+            '--dry-run'
+          )
           if (Get-Command py -ErrorAction SilentlyContinue) {
-            py -3 tools/zocbo/scribd_10tabs_remaining.py --tabs 10
+            & py -3 @cmd
           } else {
-            python tools/zocbo/scribd_10tabs_remaining.py --tabs 10
+            & python @cmd
           }
-          if ($LASTEXITCODE -ne 0) { throw '10-tab audit failed or was stopped on access challenge' }
-      - name: Print exact audited totals
+          if ($LASTEXITCODE -ne 0) { throw 'Audited remaining queue validation failed' }
+      - name: Run one Chrome with ten concurrent tabs and persist per-result CSV
+        run: |
+          $cmd = @(
+            'src/tools/zocbo/scribd_10tabs_remaining.py',
+            '--ids-file', 'src/tools/zocbo/pending_1149_ids.zlib64',
+            '--skip-prior-file', 'src/tools/zocbo/attempted_43224551981_ids.txt',
+            '--skip-current-file', 'src/tools/zocbo/attempted_43344449923_ids.csv',
+            '--out', 'scribd-review-results',
+            '--tabs', '10'
+          )
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            & py -3 @cmd
+          } else {
+            & python @cmd
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Chrome ten-tab crawl failed or site challenge stopped it' }
+      - name: Print actual progress
         if: always()
         run: |
           if (Test-Path scribd-review-results/summary.json) {
             Get-Content scribd-review-results/summary.json
+          } elseif (Test-Path scribd-review-results/results.csv) {
+            $lines = @(Get-Content scribd-review-results/results.csv)
+            Write-Host "PARTIAL_RESULTS_CSV_DATA_ROWS=$($lines.Count - 1)"
           } else {
-            Write-Host 'No final summary was produced'
+            Write-Host 'No document processing results yet'
           }
-      - name: Preserve captured PNG screenshots, results, and progress
+      - name: Upload screenshots and checkpoint
         if: always()
         uses: actions/upload-artifact@v4
         with:
