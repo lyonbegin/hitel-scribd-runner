@@ -233,7 +233,7 @@ def summarize(ids, excluded, rows, output, reason, tabs):
 async def crawl(args, ids):
     # Restore the previous Action artifact into a separate directory; never overwrite it.
     prior = set()
-    for path in (args.skip_prior_file, args.skip_current_file, args.skip_latest_file):
+    for path in (args.skip_prior_file, args.skip_current_file, args.skip_latest_file, args.skip_smoke_file):
         prior |= prior_ids(path)
     if args.prior_results_file:
         prior |= {r["document_id"] for r in csv_rows(args.prior_results_file)}
@@ -387,6 +387,7 @@ def main():
     parser.add_argument("--skip-prior-file", default="tools/zocbo/attempted_43224551981_ids.txt")
     parser.add_argument("--skip-current-file", default="tools/zocbo/attempted_43344449923_ids.csv")
     parser.add_argument("--skip-latest-file", default="tools/zocbo/attempted_43377032832_from_logs.csv")
+    parser.add_argument("--skip-smoke-file", default="tools/zocbo/attempted_43414135287_smoke_success.csv")
     parser.add_argument("--prior-results-file", default="",
                         help="Optional verified prior results.csv; existing attempt-ID checkpoints also apply")
     parser.add_argument("--out", default="scribd-remaining-results")
