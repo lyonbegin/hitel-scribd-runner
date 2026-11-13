@@ -1,0 +1,70 @@
+name: Scribd 1149 unresolved - One Chrome 10 Concurrent Tabs
+run-name: "Scribd 1149 remaining | Chrome 1 x 10 tabs"
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/scribd-remaining-10tabs.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scribd-1149-10tabs
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    runs-on: self-hosted
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Fetch public source and audited 1149-ID queue
+        uses: actions/checkout@v4
+      - name: Verify Python and Playwright
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RUNNER_OS -ne 'Windows') { throw 'Windows runner is required' }
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m pip install --disable-pip-version-check playwright==1.56.0
+            if ($LASTEXITCODE -ne 0) { throw 'Playwright installation failed' }
+          } else {
+            python -m pip install --disable-pip-version-check playwright==1.56.0
+            if ($LASTEXITCODE -ne 0) { throw 'Playwright installation failed' }
+          }
+      - name: Verify queue is exactly 1149 unique never-visited unresolved IDs
+        run: |
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 tools/zocbo/scribd_10tabs_remaining.py --dry-run
+          } else {
+            python tools/zocbo/scribd_10tabs_remaining.py --dry-run
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Queue verification failed' }
+      - name: Launch a single Google Chrome browser with 10 concurrent tabs
+        run: |
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 tools/zocbo/scribd_10tabs_remaining.py --tabs 10
+          } else {
+            python tools/zocbo/scribd_10tabs_remaining.py --tabs 10
+          }
+          if ($LASTEXITCODE -ne 0) { throw '10-tab audit failed or was stopped on access challenge' }
+      - name: Print exact audited totals
+        if: always()
+        run: |
+          if (Test-Path scribd-review-results/summary.json) {
+            Get-Content scribd-review-results/summary.json
+          } else {
+            Write-Host 'No final summary was produced'
+          }
+      - name: Preserve captured PNG screenshots, results, and progress
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scribd-1149-10tabs-results
+          path: scribd-review-results/
+          if-no-files-found: warn
+          retention-days: 14
