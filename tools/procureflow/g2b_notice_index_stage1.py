@@ -142,9 +142,14 @@ async def collect_day(ctx,gate,out,day,args):
     if status_path.exists():
         try:
             old=json.loads(status_path.read_text(encoding="utf-8"))
-            if old.get("status")=="complete" and (folder/"index.csv").is_file():
+            verified_last_short=(bool(old.get("evidence")) and
+                int(old["evidence"][-1].get("rows",args.page_size))<args.page_size)
+            if (old.get("status")=="complete" and verified_last_short and (folder/"index.csv").is_file():
                 print_event("INDEX_DAY_SKIPPED",{"day":str(day),"rows":old.get("rows",0)})
                 return old
+            if old.get("status")=="complete":
+                print_event("INDEX_CACHE_REVALIDATE",{"day":str(day),
+                    "reason":"previous_complete_without_short_final_page"})
         except ValueError:pass
     folder.mkdir(parents=True,exist_ok=True)
     summaries=[]
