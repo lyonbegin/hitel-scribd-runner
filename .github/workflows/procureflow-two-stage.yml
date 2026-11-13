@@ -59,8 +59,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Playwright unavailable' }
       - name: Stage 1 - full listing pagination and independent notice_queue.csv
         env:
-          DATE_INPUT: \${{ github.event.inputs.start_date || '2024-11-13' }}
-          DAYS_INPUT: \${{ github.event.inputs.days || '1' }}
+          DATE_INPUT: ${{ github.event.inputs.start_date || '2024-11-13' }}
+          DAYS_INPUT: ${{ github.event.inputs.days || '1' }}
         run: |
           $script=Join-Path $env:STAGE_SOURCE 'tools/procureflow/g2b_notice_index_stage1.py'
           $args=@($script,'--start-date',$env:DATE_INPUT,'--days',$env:DAYS_INPUT,'--tabs','10','--max-pages','90','--output','g2b-index-stage1')
@@ -116,7 +116,7 @@ jobs:
           "STAGE2_SOURCE=$path" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Stage 2 - public bidder details on queued notice IDs only
         env:
-          DETAIL_LIMIT: \${{ github.event.inputs.detail_limit || '25' }}
+          DETAIL_LIMIT: ${{ github.event.inputs.detail_limit || '25' }}
         run: |
           $script=Join-Path $env:STAGE2_SOURCE 'tools/procureflow/g2b_bidder_detail_stage2.py'
           $args=@($script,'--input','g2b-index-stage1/notice_queue.csv','--tabs','10','--limit',$env:DETAIL_LIMIT,'--output','g2b-detail-stage2')
