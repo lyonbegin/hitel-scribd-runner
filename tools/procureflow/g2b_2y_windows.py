@@ -206,6 +206,7 @@ async def detail(ctx, gate, stream, row):
 
 async def process_window(ctx, gate, out, stream, first,last,args):
     location=checkpoint_path(out,stream,first,last)
+    previous=None
     if location.exists():
         previous=json.loads(location.read_text(encoding="utf-8"))
         if previous.get("status")=="complete":
@@ -214,6 +215,7 @@ async def process_window(ctx, gate, out, stream, first,last,args):
     meta={"stream":stream,"from":first.isoformat(),"to":last.isoformat(),
           "status":"started","pages":[],"raw_list_count":0,"detail_ok":0,
           "detail_error":0,"detail_sample_count":0,"errors":[],
+          "requested_details_per_window":args.details_per_window,
           "source_url":OPEN_LIST if stream=="opening" else AWARD_LIST,
           "updated_at":datetime.now(timezone.utc).isoformat()}
     headers=({"Accept":"application/json","Content-Type":"application/json;charset=UTF-8",
@@ -222,8 +224,18 @@ async def process_window(ctx, gate, out, stream, first,last,args):
              {"Accept":"application/json","Content-Type":"application/json;charset=UTF-8",
               "Menu-Info":AWARD_MENU,"Target-Id":"btnS0001",
               "Usr-Id":"null","Origin":NURI,"Referer":NURI})
+    page_start=1
+    if (previous and previous.get("status")=="partial_page_limit"
+            and previous.get("requested_details_per_window")==args.details_per_window
+            and previous.get("pages")
+            and all(Path(p["file"]).is_file() for p in previous["pages"])):
+        meta=previous
+        meta["status"]="started"
+        page_start=int(meta["pages"][-1]["page"])+1
+        print("WINDOW_RESUME",json.dumps({"stream":stream,"from":str(first),
+              "to":str(last),"next_page":page_start},ensure_ascii=False),flush=True)
     try:
-        for page in range(1,args.max_pages+1):
+        for page in range(page_start,page_start+args.max_pages):
             payload=(opening_payload(first,last,page) if stream=="opening"
                      else award_payload(first,last,page))
             data,raw=await request_json(ctx,meta["source_url"],payload,headers,gate)
@@ -342,7 +354,12 @@ async def run(args):
     }
     atomic_json(out/"summary.json",report)
     print("FINAL_COLLECTION_STATUS",json.dumps(report,ensure_ascii=False),flush=True)
-    return 2 if counts.get("error") or len(results)!=len(tasks) else 0
+    if counts.get("error") or len(results)!=len(tasks):
+        return 2
+    if args.mode in ("batch","full") and any(x != "complete" for x in counts):
+        print("COLLECTION_PARTIAL_NOT_SUCCESS",json.dumps(dict(counts)),flush=True)
+        return 3
+    return 0
 
 
 def main():
