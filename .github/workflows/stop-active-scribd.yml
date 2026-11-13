@@ -1,0 +1,80 @@
+name: Stop active Scribd crawling jobs
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/stop-active-scribd.yml
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cancel-scribd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Cancel queued and active Scribd crawling runs in this repository
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          THIS_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+          import urllib.error
+
+          repo = os.environ["REPOSITORY"]
+          token = os.environ["GITHUB_TOKEN"]
+          this_run_id = int(os.environ["THIS_RUN_ID"])
+          root = f"https://api.github.com/repos/{repo}/actions/runs"
+          headers = {
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+              "User-Agent": "hitel-stop-scribd",
+          }
+          statuses = {"queued", "in_progress", "waiting", "pending", "requested"}
+          cancelled = []
+          errors = []
+          for page in range(1, 6):
+              req = urllib.request.Request(f"{root}?per_page=100&page={page}", headers=headers)
+              with urllib.request.urlopen(req, timeout=20) as response:
+                  runs = json.load(response)["workflow_runs"]
+              for run in runs:
+                  run_id = run["id"]
+                  title = (run.get("name") or "").lower()
+                  path = (run.get("path") or "").lower()
+                  status = run.get("status")
+                  if run_id == this_run_id or status not in statuses:
+                      continue
+                  # Never cancel WOL or unrelated workflows.
+                  if "scribd" not in title and "scribd" not in path:
+                      continue
+                  print(f"Cancel request: {run_id} status={status} name={title} path={path}")
+                  request = urllib.request.Request(
+                      f"{root}/{run_id}/cancel",
+                      data=b"",
+                      headers=headers,
+                      method="POST",
+                  )
+                  try:
+                      with urllib.request.urlopen(request, timeout=20) as response:
+                          cancelled.append(run_id)
+                          print(f"Cancel API response: {response.status}")
+                  except urllib.error.HTTPError as exc:
+                      if exc.code == 409:
+                          print(f"Already finished or cancelling: {run_id}")
+                      else:
+                          errors.append((run_id, exc.code))
+                          print(f"Cancel error: {run_id} HTTP {exc.code}")
+              if len(runs) < 100:
+                  break
+          print(f"Requested cancellation of {len(cancelled)} Scribd workflow runs: {cancelled}")
+          if errors:
+              raise SystemExit(f"Cancellation request errors: {errors}")
+          PY
