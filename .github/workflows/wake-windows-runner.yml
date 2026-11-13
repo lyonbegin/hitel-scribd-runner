@@ -1,0 +1,70 @@
+name: Wake Windows self-hosted runner (WOL)
+# Runs on a GitHub-hosted runner, NOT on the sleeping Windows machine.
+on:
+  workflow_dispatch:
+    inputs:
+      mac:
+        description: "Ethernet MAC of DESKTOP-3239E35 (or set repo variable WOL_MAC)"
+        required: false
+        type: string
+      endpoint:
+        description: "Public IP/DDNS of configured KT WOL forwarder (or repo variable WOL_ENDPOINT)"
+        required: false
+        type: string
+      port:
+        description: "External UDP port forwarded to a LAN WOL receiver"
+        required: false
+        default: "9"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  send-magic-packet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Send WOL magic packet from GitHub-hosted Ubuntu
+        env:
+          WOL_MAC: ${{ inputs.mac || vars.WOL_MAC }}
+          WOL_ENDPOINT: ${{ inputs.endpoint || vars.WOL_ENDPOINT }}
+          WOL_PORT: ${{ inputs.port || vars.WOL_PORT || '9' }}
+        run: |
+          python3 - <<'PY'
+          import ipaddress
+          import os
+          import re
+          import socket
+          import sys
+          import time
+
+          mac = re.sub(r"[^0-9a-fA-F]", "", os.getenv("WOL_MAC", ""))
+          endpoint = os.getenv("WOL_ENDPOINT", "").strip()
+          port_raw = os.getenv("WOL_PORT", "9")
+          if len(mac) != 12 or not re.fullmatch(r"[0-9a-fA-F]{12}", mac):
+              sys.exit("NOT SENT: WOL_MAC is missing/invalid; set a 12-hex-digit Ethernet MAC.")
+          if not endpoint:
+              sys.exit("NOT SENT: WOL_ENDPOINT missing; a public IP/DDNS or reachable relay is required.")
+          try:
+              port = int(port_raw)
+              if not 1 <= port <= 65535:
+                  raise ValueError()
+          except ValueError:
+              sys.exit("NOT SENT: invalid UDP port")
+          try:
+              addresses = {entry[4][0] for entry in socket.getaddrinfo(endpoint, port, socket.AF_INET, socket.SOCK_DGRAM)}
+          except OSError as error:
+              sys.exit(f"NOT SENT: endpoint cannot be resolved: {error}")
+          public_addresses = [ip for ip in addresses if ipaddress.ip_address(ip).is_global]
+          if not public_addresses:
+              sys.exit("NOT SENT: destination has no public IPv4 address; GitHub-hosted runners cannot reach 172.30.x.x LAN addresses.")
+
+          packet = b"\xff" * 6 + bytes.fromhex(mac) * 16
+          with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+              for i in range(5):
+                  sock.sendto(packet, (public_addresses[0], port))
+                  time.sleep(0.5)
+          print("SENT: 5 WOL UDP magic packets sent to configured public endpoint.")
+          print("UNVERIFIED: UDP does not confirm that the KT router forwarded packets or that the PC woke up.")
+          PY
