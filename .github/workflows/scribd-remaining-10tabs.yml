@@ -18,12 +18,20 @@ concurrency:
 jobs:
   audit:
     if: github.repository == 'lyonbegin/hitel-scribd-runner'
-    runs-on: self-hosted
+    runs-on: [self-hosted, Windows]
     timeout-minutes: 180
     defaults:
       run:
         shell: powershell
     steps:
+      - name: Require interactive desktop session for visible Chrome
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $session = (Get-Process -Id $PID).SessionId
+          Write-Host "GUI_PREFLIGHT runner_name=$env:RUNNER_NAME session_id=$session user=$(whoami)"
+          if ($session -eq 0) {
+            throw 'DESKTOP_SESSION_UNAVAILABLE: Windows runner is in service/session 0; visible Chrome requires an interactive runner started in a logged-in Windows session.'
+          }
       - name: Fetch audited code directly with Git (avoid checkout EBUSY)
         run: |
           $ErrorActionPreference = 'Stop'
@@ -65,7 +73,7 @@ jobs:
       - name: Restore last run artifact with 1066 attempted documents
         uses: actions/download-artifact@v4
         with:
-          name: scribd-2623-resilient-resumed-results
+          name: scribd-1149-10tabs-results
           repository: lyonbegin/hitel-scribd-runner
           run-id: 43377032832
           github-token: ${{ github.token }}
@@ -153,7 +161,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: scribd-1149-10tabs-results
+          name: scribd-2623-resilient-resumed-results
           path: scribd-remaining-results/
           if-no-files-found: warn
           retention-days: 14
