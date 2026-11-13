@@ -1,0 +1,87 @@
+name: Moonzip - Windows Chrome image-preserving smoke
+run-name: "Moonzip real Windows Chrome | preserve full pages and images"
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/moonzip-windows-capture.yml
+permissions:
+  contents: read
+concurrency:
+  group: moonzip-windows-image-preservation
+  cancel-in-progress: false
+
+jobs:
+  moonzip-smoke:
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Check interactive PC runner and persistent image directory
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sid = (Get-Process -Id $PID).SessionId
+          Write-Host "MOONZIP_GUI runner=$env:RUNNER_NAME user=$(whoami) session=$sid"
+          if ($sid -eq 0) { throw "Visible Chrome requires interactive Windows user session (not Session 0)" }
+          $base = Join-Path $env:USERPROFILE 'Documents\HITEL-Crawler\moonzip'
+          New-Item -ItemType Directory -Force -Path $base | Out-Null
+          Write-Host "MOONZIP_PERSISTENT_OUTPUT=$base"
+          Write-Host "MOONZIP_IMAGE_POLICY=KEEP_ALL; do not delete/recycle page captures"
+      - name: Get trusted code without checkout EBUSY
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path src\.git) {
+            git -C src fetch --depth 1 origin main
+            if ($LASTEXITCODE -ne 0) { throw 'git fetch failed' }
+            git -C src reset --hard origin/main
+            if ($LASTEXITCODE -ne 0) { throw 'git reset failed' }
+          } else {
+            git clone --depth 1 --branch main https://github.com/lyonbegin/hitel-scribd-runner.git src
+            if ($LASTEXITCODE -ne 0) { throw 'git clone failed' }
+          }
+          if (!(Test-Path src\tools\moonzip\moonzip_capture.py)) { throw 'Moonzip adapter source missing' }
+      - name: Validate Python and browser environment
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m py_compile src\tools\moonzip\moonzip_capture.py
+            py -3 -m pip show playwright
+          } else {
+            python -m py_compile src\tools\moonzip\moonzip_capture.py
+            python -m pip show playwright
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Moonzip Python/Playwright validation failed' }
+      - name: Capture 3 public series and up to 10 linked books with EVERY page image
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $base = Join-Path $env:USERPROFILE 'Documents\HITEL-Crawler\moonzip'
+          $args = @('src/tools/moonzip/moonzip_capture.py', '--phase', 'smoke', '--out', $base,
+                    '--series-limit', '3', '--book-limit', '10', '--pause', '0.4')
+          if (Get-Command py -ErrorAction SilentlyContinue) { & py -3 @args }
+          else { & python @args }
+          if ($LASTEXITCODE -ne 0) { throw 'Moonzip smoke incomplete. Full crawl is disabled.' }
+      - name: Copy proof to Actions without removing persistent PC originals
+        if: always()
+        run: |
+          $base = Join-Path $env:USERPROFILE 'Documents\HITEL-Crawler\moonzip'
+          $out = Join-Path $env:GITHUB_WORKSPACE 'moonzip-smoke-export'
+          if (Test-Path $base) {
+            New-Item -ItemType Directory -Force $out | Out-Null
+            Copy-Item -Path (Join-Path $base '*') -Destination $out -Recurse -Force
+            Write-Host "MOONZIP_PROOF_COPY=$out"
+            $images = @(Get-ChildItem $base -File -Recurse | Where-Object { $_.Extension -in @('.png','.jpg','.jpeg','.webp','.svg','.avif','.gif') })
+            Write-Host "MOONZIP_PERSISTENT_IMAGES=$($images.Count)"
+          }
+      - name: Upload image preservation proof (does not delete PC images)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonzip-smoke-images-and-metadata
+          path: moonzip-smoke-export/
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 30
