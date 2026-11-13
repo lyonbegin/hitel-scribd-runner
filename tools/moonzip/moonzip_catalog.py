@@ -154,7 +154,7 @@ async def catalogue(context,mode,series_limit,book_limit,delay):
             if await actions.count():
                 try:
                     await actions.last.click(timeout=3500)
-                    await page.wait_for_timeout(600)
+                    await page.wait_for_timeout(1500)
                     more=await page.evaluate("""() => Array.from(document.querySelectorAll('a[href*="/books/"]')).map(a=>({
                       href:a.href,text:(a.innerText||a.getAttribute('aria-label')||'').trim(),
                       cover:(a.querySelector('img')?.getAttribute('src')||'')
@@ -166,6 +166,18 @@ async def catalogue(context,mode,series_limit,book_limit,delay):
                     print("MOONZIP_EXPAND_WARNING",json.dumps({"series_id":sid,"error":f"{type(e).__name__}:{str(e)[:100]}"},ensure_ascii=False),flush=True)
             label=re.search(r"(?:같은 시리즈의 다른 책|시리즈 내 다른 책)\s*\((\d+)\s*권\)",data["body"])
             count=int(label.group(1)) if label else None
+            if count is not None and len(initial)<count:
+                debug=await page.evaluate("""() => ({
+                  current_url:location.href,
+                  footer:(document.body?.innerText||'').slice(-3000),
+                  controls:Array.from(document.querySelectorAll('button')).map(b=>({
+                    text:(b.innerText||b.getAttribute('aria-label')||'').trim().slice(0,60),
+                    disabled:b.disabled
+                  })).filter(x=>x.text).slice(-40),
+                  book_links_count:document.querySelectorAll('a[href*="/books/"]').length,
+                  overlays:Array.from(document.querySelectorAll('[role="dialog"],[aria-modal="true"]')).map(x=>x.innerText.slice(0,1000))
+                })""")
+                print("MOONZIP_EXPANSION_DIAG",json.dumps({"series_id":sid,"expected":count,"found":len(initial),"debug":debug},ensure_ascii=False),flush=True)
             series[sid]={"series_id":sid,"series_url":url,"series_name":strip(data["h1"]),
                          "series_cover_image_url":cover_from(data,data["h1"],series=True),
                          "series_page_title":data["title"],
