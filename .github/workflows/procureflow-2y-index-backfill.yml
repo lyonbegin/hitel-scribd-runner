@@ -1,0 +1,128 @@
+name: ProcureFlow 2-year G2B full notice-index backfill
+run-name: "G2B two-year nationwide notice index | 25 thirty-day shards"
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/procureflow-g2b-2y-win-20261114]
+    paths: [.github/workflows/procureflow-2y-index-backfill.yml]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: procureflow-2y-index-backfill
+  cancel-in-progress: false
+
+jobs:
+  sharded-index:
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    name: "Index shard ${{ matrix.shard }} / 24"
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 160
+    defaults:
+      run:
+        shell: powershell
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: 'utf-8'
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - name: Check live Windows desktop runner
+        run: |
+          $session=(Get-Process -Id $PID).SessionId
+          Write-Host "INDEX_GUI_PREFLIGHT runner=$env:RUNNER_NAME session=$session shard=$env:SHARD"
+          if ($session -eq 0) { throw 'Windows logged-in desktop session required' }
+      - name: Checkout same immutable Git revision without Windows checkout EBUSY
+        run: |
+          $ErrorActionPreference='Stop'
+          $path=Join-Path $env:RUNNER_TEMP "g2b-backfill-$env:GITHUB_RUN_ID-$env:SHARD"
+          git clone --depth 1 --branch feature/procureflow-g2b-2y-win-20261114 https://github.com/lyonbegin/hitel-scribd-runner.git $path
+          if ($LASTEXITCODE -ne 0) { throw 'Clone failed' }
+          $actual=(git -C $path rev-parse HEAD).Trim()
+          if ($actual -ne $env:GITHUB_SHA) {
+            git -C $path fetch --depth 1 origin $env:GITHUB_SHA
+            if ($LASTEXITCODE -ne 0) { throw 'Immutable commit fetch failed' }
+            git -C $path checkout --detach $env:GITHUB_SHA
+            if ($LASTEXITCODE -ne 0) { throw 'Immutable checkout failed' }
+          }
+          if ((git -C $path rev-parse HEAD).Trim() -ne $env:GITHUB_SHA) { throw 'Source SHA mismatch' }
+          "INDEX_SOURCE=$path" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "SOURCE_VERIFIED SHA=$env:GITHUB_SHA"
+      - name: Verify Python 3 and installed Playwright
+        run: |
+          $ErrorActionPreference='Stop'
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m pip show playwright
+            if ($LASTEXITCODE -ne 0) { py -3 -m pip install --disable-pip-version-check playwright==1.56.0 }
+          } else {
+            python -m pip show playwright
+            if ($LASTEXITCODE -ne 0) { python -m pip install --disable-pip-version-check playwright==1.56.0 }
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Playwright unavailable' }
+      - name: Run exact 30-day shard and preserve every original list page
+        run: |
+          $ErrorActionPreference='Stop'
+          $shard=[int]$env:SHARD
+          $base=[datetime]::ParseExact('2024-11-13','yyyy-MM-dd',$null)
+          $last=[datetime]::ParseExact('2026-11-13','yyyy-MM-dd',$null)
+          $first=$base.AddDays(30*$shard)
+          if ($first -gt $last) { throw 'Shard outside fixed horizon' }
+          $days=[math]::Min(30,($last-$first).Days+1)
+          $start=$first.ToString('yyyy-MM-dd')
+          Write-Host "SHARD_PLAN index=$shard start=$start days=$days"
+          $script=Join-Path $env:INDEX_SOURCE 'tools/procureflow/g2b_notice_index_stage1.py'
+          $output="g2b-index-shard-$shard"
+          $arguments=@($script,'--start-date',$start,'--days',"$days",
+                  '--tabs','10','--page-size','100','--max-pages','120',
+                  '--timeout','9000','--output',$output)
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m py_compile $script
+            if ($LASTEXITCODE -ne 0) { throw 'Index syntax check failed' }
+            py -3 @arguments
+          } else {
+            python -m py_compile $script
+            if ($LASTEXITCODE -ne 0) { throw 'Index syntax check failed' }
+            python @arguments
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Shard incomplete; inspect day statuses and raw page evidence' }
+      - name: Upload raw JSON gzip, per-day checkpoints and notice IDs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2b-two-year-index-shard-${{ matrix.shard }}
+          path: g2b-index-shard-${{ matrix.shard }}/
+          if-no-files-found: warn
+          retention-days: 14
+
+  audit-and-merge:
+    name: Merge 731 days into one independent Stage-2 index queue
+    needs: [sharded-index]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Download all completed shard evidence
+        uses: actions/download-artifact@v4
+        with:
+          pattern: g2b-two-year-index-shard-*
+          path: g2b-shards/
+          merge-multiple: false
+      - name: Assemble and verify 731-day coverage (never fake missing days)
+        run: |
+          python3 -m py_compile tools/procureflow/merge_2y_notice_shards.py
+          python3 tools/procureflow/merge_2y_notice_shards.py --input g2b-shards --output g2b-index-2year-merged
+      - name: Archive national queue and complete/missing date coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2b-two-year-notice-index-merged
+          path: g2b-index-2year-merged/
+          if-no-files-found: warn
+          retention-days: 14
