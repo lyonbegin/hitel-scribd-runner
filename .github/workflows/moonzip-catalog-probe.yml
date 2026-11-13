@@ -1,0 +1,73 @@
+name: Moonzip catalog and cover-link probe (no images downloaded)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/moonzip-catalog-probe.yml
+permissions:
+  contents: read
+concurrency:
+  group: moonzip-catalog-probe
+  cancel-in-progress: true
+jobs:
+  windows-moonzip-probe:
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Require Windows interactive desktop runner
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $s=(Get-Process -Id $PID).SessionId
+          Write-Host "MOONZIP_RUNNER_PRECHECK name=$env:RUNNER_NAME session=$s user=$(whoami)"
+          if ($s -eq 0) { throw 'Visible Chrome requires interactive logged-in Windows session' }
+      - name: Sync pinned Moonzip probe source
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path src\.git) {
+            git -C src fetch --depth 1 origin $env:GITHUB_SHA
+            if ($LASTEXITCODE -ne 0) { throw 'git fetch failed' }
+            git -C src checkout --detach $env:GITHUB_SHA
+            if ($LASTEXITCODE -ne 0) { throw 'git checkout failed' }
+          } else {
+            git clone --no-checkout https://github.com/lyonbegin/hitel-scribd-runner.git src
+            if ($LASTEXITCODE -ne 0) { throw 'git clone failed' }
+            git -C src checkout --detach $env:GITHUB_SHA
+            if ($LASTEXITCODE -ne 0) { throw 'git checkout failed' }
+          }
+      - name: Confirm Python and Playwright
+        run: |
+          $ErrorActionPreference = 'Stop'
+          py -3 -m pip show playwright
+          if ($LASTEXITCODE -ne 0) {
+            py -3 -m pip install --disable-pip-version-check playwright==1.56.0
+            if ($LASTEXITCODE -ne 0) { throw 'Playwright setup failed' }
+          }
+          py -3 -m py_compile src/tools/moonzip/moonzip_probe.py
+          if ($LASTEXITCODE -ne 0) { throw 'Python compile failed' }
+      - name: Visit five public catalogue pages with visible Chrome
+        run: |
+          $ErrorActionPreference = 'Stop'
+          py -3 -u src/tools/moonzip/moonzip_probe.py
+          if ($LASTEXITCODE -ne 0) { throw 'Moonzip probe failed' }
+      - name: Print summary and write checkpoint
+        if: always()
+        run: |
+          if (Test-Path moonzip-results/probe.json) {
+            $d=Get-Content moonzip-results/probe.json -Raw | ConvertFrom-Json
+            Write-Host "MOONZIP_PROBE_ROWS=$(@($d).Count)"
+            foreach($x in $d) {
+              Write-Host "MOONZIP_PAGE title=$($x.pageTitle) series=$(@($x.links | Where-Object {$_.href -match '/series/'}).Count) books=$(@($x.links | Where-Object {$_.href -match '/books/'}).Count) images=$(@($x.images).Count) url=$($x.source_url) error=$($x.error)"
+            }
+          }
+      - name: Upload metadata JSON only (NO PNG/JPEG)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonzip-probe-cover-urls-only
+          path: moonzip-results/probe.json
+          retention-days: 3
+          if-no-files-found: warn
