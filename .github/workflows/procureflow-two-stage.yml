@@ -1,0 +1,140 @@
+name: ProcureFlow - two-stage historical notice index then bidder detail
+run-name: "G2B TWO-STAGE | 2024-11-13 notice index -> bidder detail"
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Date within 2024-11-13 .. 2026-11-13"
+        default: "2024-11-13"
+        required: true
+        type: string
+      days:
+        description: "Number of full calendar days for stage 1"
+        default: "1"
+        required: true
+        type: string
+      detail_limit:
+        description: "Stage 2 number of notice executions to inspect (0=all)"
+        default: "25"
+        required: true
+        type: string
+  push:
+    branches: [feature/procureflow-g2b-2y-win-20261114]
+    paths: [.github/workflows/procureflow-two-stage.yml]
+permissions:
+  contents: read
+concurrency:
+  group: procureflow-two-stage-window
+  cancel-in-progress: false
+
+jobs:
+  # Job 1 is ONLY the notice index. It never reads bidder details.
+  index-notice-numbers:
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 160
+    defaults:
+      run:
+        shell: powershell
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - name: Validate logged-in real Windows Chrome runner
+        run: |
+          $session=(Get-Process -Id $PID).SessionId
+          Write-Host "INDEX_GUI_PREFLIGHT runner=$env:RUNNER_NAME session=$session"
+          if ($session -eq 0) { throw 'Interactive desktop required' }
+      - name: Clone exact two-stage source
+        run: |
+          $ErrorActionPreference='Stop'
+          $path=Join-Path $env:RUNNER_TEMP "g2b-two-stage-index-$env:GITHUB_RUN_ID"
+          git clone --depth 1 --branch feature/procureflow-g2b-2y-win-20261114 https://github.com/lyonbegin/hitel-scribd-runner.git $path
+          if ($LASTEXITCODE -ne 0) { throw 'git clone failed' }
+          if ((git -C $path rev-parse HEAD).Trim() -ne $env:GITHUB_SHA) { throw 'Commit mismatch' }
+          "STAGE_SOURCE=$path" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Confirm Python Playwright
+        run: |
+          if (Get-Command py -ErrorAction SilentlyContinue) { py -3 -m pip show playwright; if ($LASTEXITCODE -ne 0) { py -3 -m pip install playwright==1.56.0 } }
+          else { python -m pip show playwright; if ($LASTEXITCODE -ne 0) { python -m pip install playwright==1.56.0 } }
+          if ($LASTEXITCODE -ne 0) { throw 'Playwright unavailable' }
+      - name: Stage 1 - full listing pagination and independent notice_queue.csv
+        env:
+          DATE_INPUT: \${{ github.event.inputs.start_date || '2024-11-13' }}
+          DAYS_INPUT: \${{ github.event.inputs.days || '1' }}
+        run: |
+          $script=Join-Path $env:STAGE_SOURCE 'tools/procureflow/g2b_notice_index_stage1.py'
+          $args=@($script,'--start-date',$env:DATE_INPUT,'--days',$env:DAYS_INPUT,'--tabs','10','--max-pages','90','--output','g2b-index-stage1')
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m py_compile $script
+            if ($LASTEXITCODE -ne 0) { throw 'Stage1 syntax failure' }
+            py -3 @args
+          } else {
+            python -m py_compile $script
+            if ($LASTEXITCODE -ne 0) { throw 'Stage1 syntax failure' }
+            python @args
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Stage1 notice index incomplete: inspect raw/checkpoints' }
+      - name: Upload Stage 1 notice numbers and source pages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: procureflow-stage1-notice-queue
+          path: g2b-index-stage1/
+          if-no-files-found: warn
+          retention-days: 7
+
+  # Job 2 starts only after Stage 1 has fully paginated target days.
+  bidder-detail-from-index:
+    needs: index-notice-numbers
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 160
+    defaults:
+      run:
+        shell: powershell
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - name: Retrieve Stage 1 queue, no independent discovery
+        uses: actions/download-artifact@v4
+        with:
+          name: procureflow-stage1-notice-queue
+          path: g2b-index-stage1
+      - name: Check queue exists and is nonempty
+        run: |
+          $p='g2b-index-stage1/notice_queue.csv'
+          if (-not (Test-Path $p)) { throw 'No validated notice queue' }
+          $lines=(Get-Content $p | Measure-Object -Line).Lines
+          Write-Host "STAGE2_QUEUE_LINES $lines"
+          if ($lines -le 1) { throw 'No notice IDs in queue' }
+      - name: Clone exact Stage 2 source
+        run: |
+          $ErrorActionPreference='Stop'
+          $path=Join-Path $env:RUNNER_TEMP "g2b-two-stage-detail-$env:GITHUB_RUN_ID"
+          git clone --depth 1 --branch feature/procureflow-g2b-2y-win-20261114 https://github.com/lyonbegin/hitel-scribd-runner.git $path
+          if ($LASTEXITCODE -ne 0) { throw 'git clone failed' }
+          if ((git -C $path rev-parse HEAD).Trim() -ne $env:GITHUB_SHA) { throw 'Source SHA mismatch' }
+          "STAGE2_SOURCE=$path" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Stage 2 - public bidder details on queued notice IDs only
+        env:
+          DETAIL_LIMIT: \${{ github.event.inputs.detail_limit || '25' }}
+        run: |
+          $script=Join-Path $env:STAGE2_SOURCE 'tools/procureflow/g2b_bidder_detail_stage2.py'
+          $args=@($script,'--input','g2b-index-stage1/notice_queue.csv','--tabs','10','--limit',$env:DETAIL_LIMIT,'--output','g2b-detail-stage2')
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m py_compile $script
+            if ($LASTEXITCODE -ne 0) { throw 'Stage2 syntax failure' }
+            py -3 @args
+          } else {
+            python -m py_compile $script
+            if ($LASTEXITCODE -ne 0) { throw 'Stage2 syntax failure' }
+            python @args
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Stage2 bidder details incomplete: inspect raw/checkpoints' }
+      - name: Upload Stage 2 bidder evidence and status separately
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: procureflow-stage2-bidder-details
+          path: g2b-detail-stage2/
+          if-no-files-found: warn
+          retention-days: 7
