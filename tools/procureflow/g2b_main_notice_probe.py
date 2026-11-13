@@ -14,14 +14,14 @@ MENU='{"menuNo":"01175","menuCangVal":"PNPE001_01","bsneClsfCd":"%EC%97%85130026
 SUBMIT="mf_wfm_container_tacBidPbancLst_contents_tab2_body_sbmPbancBidPbancLst"
 OUT=Path("g2b-main-notices-probe")
 DATES=("20241113","20250701","20261113")
-ALL_CODES="조070001 조070002 조070003 조070004 조070005"
+ALL_CODES="0000 조070001 조070002 조070003 조070004 조070005 민079999"
 
-def payload(day,start=1,count=100,codes=ALL_CODES,kind=""):
+def payload(day,start=1,count=100,codes=ALL_CODES,kind="",deadline_filter=""):
     return {"dlBidPbancLstM":{
         "prcmBsneSeCd":codes,"bidPbancNm":"","pbancKndCd":kind,
         "fromBidDt":day,"toBidDt":day,
         "bsneAllYn":"Y","frcpYn":"Y","rsrvYn":"Y","laseYn":"Y",
-        "slprRcptDdlnYn":"N","infoSysCd":"정010029",
+        "slprRcptDdlnYn":deadline_filter,"infoSysCd":"정010029",
         "contxtSeCd":"콘010006","bidDateType":"R","srchTy":"0",
         "recordCountPerPage":str(count),"startIndex":start,"endIndex":start+count-1,
         "bidPbancNo":"","bidPbancOrd":"","untyBidPbancNo":"",
@@ -62,13 +62,14 @@ async def main():
             report({"home_http":resp.status if resp else None})
             if not resp or resp.status>=400:raise RuntimeError("G2B homepage blocked")
             for day in DATES:
-                for label,codes,kind,start in (
-                    ("all-codes",ALL_CODES,"",1),
-                    ("all-blank","","",1),
-                    ("default-kind",ALL_CODES,"공440002",1),
-                    ("next-page",ALL_CODES,"",101)):
+                for label,codes,kind,start,deadline_filter in (
+                    ("all-unfiltered",ALL_CODES,"공440002",1,""),
+                    ("all-blank","", "",1,""),
+                    ("deadline-N",ALL_CODES,"공440002",1,"N"),
+                    ("deadline-Y",ALL_CODES,"공440002",1,"Y"),
+                    ("next-page",ALL_CODES,"공440002",101,"")):
                     try:
-                        res=await ctx.request.post(URL,data=json.dumps(payload(day,start,codes=codes,kind=kind),ensure_ascii=False),headers=headers,timeout=35000)
+                        res=await ctx.request.post(URL,data=json.dumps(payload(day,start,codes=codes,kind=kind,deadline_filter=deadline_filter),ensure_ascii=False),headers=headers,timeout=35000)
                         raw=await res.body()
                         digest=sha_write(OUT/(day+"_"+label+".json"),raw)
                         try:j=json.loads(raw)
@@ -80,7 +81,7 @@ async def main():
                         cands=[{"id":r.get("bidPbancUntyNoOrd"),"posted":r.get("pbancPstgDt"),
                                 "category":r.get("prcmBsneSeCdNm")}
                                for r in out[:3] if isinstance(r,dict)]
-                        entry={"day":day,"case":label,"http":res.status,
+                        entry={"day":day,"case":label,"deadline_filter":deadline_filter,"http":res.status,
                                "rows":len(out),"total_reported":j.get("totCnt") if isinstance(j,dict) else None,
                                "api_code":j.get("ErrorCode") if isinstance(j,dict) else None,
                                "api_error":str(j.get("ErrorMsg") or "")[:100] if isinstance(j,dict) else "",
