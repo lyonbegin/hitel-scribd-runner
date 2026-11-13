@@ -1,0 +1,55 @@
+name: ProcureFlow - G2B MAIN nationwide notice list validation
+run-name: "PNPE001 nationwide notice list | historical sample"
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/procureflow-g2b-2y-win-20261114]
+    paths: [.github/workflows/procureflow-main-notice-probe.yml]
+permissions:
+  contents: read
+concurrency:
+  group: procureflow-main-notice-probe
+  cancel-in-progress: false
+jobs:
+  main-notice:
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: powershell
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - name: Check Windows interactive Chrome runner
+        run: |
+          $s=(Get-Process -Id $PID).SessionId
+          Write-Host "GUI_PREFLIGHT runner=$env:RUNNER_NAME session=$s"
+          if ($s -eq 0) { throw 'Windows runner needs logged-in desktop session' }
+      - name: Fetch verified source
+        run: |
+          $ErrorActionPreference='Stop'
+          $folder=Join-Path $env:RUNNER_TEMP "g2bmain-$env:GITHUB_RUN_ID"
+          git clone --depth 1 --branch feature/procureflow-g2b-2y-win-20261114 https://github.com/lyonbegin/hitel-scribd-runner.git $folder
+          if ($LASTEXITCODE -ne 0) { throw 'Source fetch failed' }
+          if ((git -C $folder rev-parse HEAD).Trim() -ne $env:GITHUB_SHA) { throw 'Commit mismatch' }
+          "MAIN_NOTICE_SRC=$folder" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Verify Python and Playwright
+        run: |
+          if (Get-Command py -ErrorAction SilentlyContinue) { py -3 -m pip show playwright; if ($LASTEXITCODE -ne 0) { py -3 -m pip install playwright==1.56.0 } }
+          else { python -m pip show playwright; if ($LASTEXITCODE -ne 0) { python -m pip install playwright==1.56.0 } }
+          if ($LASTEXITCODE -ne 0) { throw 'Missing Playwright' }
+      - name: Fetch G2B main bid notices via real Chrome
+        run: |
+          $script=Join-Path $env:MAIN_NOTICE_SRC 'tools/procureflow/g2b_main_notice_probe.py'
+          if (Get-Command py -ErrorAction SilentlyContinue) { py -3 -m py_compile $script; if ($LASTEXITCODE -ne 0) { throw 'Syntax error' }; py -3 $script }
+          else { python -m py_compile $script; if ($LASTEXITCODE -ne 0) { throw 'Syntax error' }; python $script }
+          if ($LASTEXITCODE -ne 0) { throw 'G2B main listing is not yet working' }
+      - name: Archive page raw evidence and sample report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2b-main-national-notice-probe
+          path: g2b-main-notices-probe/
+          retention-days: 7
+          if-no-files-found: warn
