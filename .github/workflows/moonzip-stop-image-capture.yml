@@ -1,0 +1,26 @@
+name: Stop obsolete Moonzip image download pilot
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/moonzip-stop-image-capture.yml
+permissions:
+  actions: write
+  contents: read
+jobs:
+  stop-only-image-capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Stop old image-saving run without deleting PC files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rid=43448813230
+          status=$(curl -sS -o /tmp/stop.txt -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$rid/cancel")
+          echo "MOONZIP_OLD_IMAGE_CAPTURE_CANCEL run=$rid http=$status"
+          if [[ "$status" != "202" && "$status" != "409" ]]; then cat /tmp/stop.txt; exit 1; fi
