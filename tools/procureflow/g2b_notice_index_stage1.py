@@ -22,7 +22,7 @@ CODES="0000 조070001 조070002 조070003 조070004 조070005 민079999"
 PATTERN=re.compile(r"^(R\d{2}BK\d{8}|\d{11})(?:[-－](\d{3}))?$")
 DATE=re.compile(r"^(\d{4})/(\d{2})/(\d{2})")
 COLUMNS=("bid_no","bid_ord","bid_clsfc_no","bid_prgrs_ord","notice_title",
-         "published","category","agency","status","source_day","evidence_page")
+         "published","category","agency","status","source_day","evidence_page","id_format")
 
 def print_event(key,payload):
     print(key,json.dumps(payload,ensure_ascii=False,sort_keys=True),flush=True)
@@ -86,19 +86,31 @@ def row_to_index(row,day,evidence):
         no=str(row.get("bidPbancUntyNo") or "").strip()
         ordinal=str(row.get("bidPbancUntyOrd") or "000").zfill(3)
         match=PATTERN.fullmatch(no+"-"+ordinal)
-    if not match:raise ValueError("notice_identifier_unrecognized:"+ident[:70])
+    if match:
+        number,ordinal=match.group(1),match.group(2) or "000"
+        id_format="bid_detail_supported"
+    else:
+        # G2B also lists e.g. A102411427-00 (foreign/other procurement).
+        # Preserve those in Stage1 rather than dropping a national notice.
+        other=re.fullmatch(r"([A-Za-z0-9]{5,40})(?:[-－](\d{1,3}))?",ident)
+        if other:
+            number,ordinal=other.group(1),str(other.group(2) or "000").zfill(3)
+        else:
+            number,ordinal=ident,"000"
+        id_format="other_id_unverified_detail"
     posted=str(row.get("pbancPstgDt") or "")
     dmatch=DATE.match(posted)
     if not dmatch or "".join(dmatch.groups())!=day.strftime("%Y%m%d"):
         raise ValueError("notice_outside_requested_day:"+posted[:24])
-    return {"bid_no":match.group(1),"bid_ord":match.group(2) or "000",
+    return {"bid_no":number,"bid_ord":ordinal,
         "bid_clsfc_no":str(row.get("bidClsfNo") or "0"),
         "bid_prgrs_ord":str(row.get("bidPrgrsOrd") or "000"),
         "notice_title":str(row.get("bidPbancNm") or ""),
         "published":posted.split("&")[0],"category":str(row.get("prcmBsneSeCdNm") or ""),
         "agency":str(row.get("oderInstUntyGrpNm") or ""),
         "status":str(row.get("pbancSttsNm") or ""),
-        "source_day":day.isoformat(),"evidence_page":evidence}
+        "source_day":day.isoformat(),"evidence_page":evidence,
+        "id_format":id_format}
 
 def headers():
     return {"Accept":"application/json","Content-Type":"application/json;charset=UTF-8",
@@ -172,6 +184,7 @@ async def collect_day(ctx,gate,out,day,args):
         if state=="complete":
             atomic_csv(folder/"index.csv",index_rows)
         report={"day":day.isoformat(),"status":state,"rows":len(index_rows),
+                "other_format_rows":sum(x["id_format"]!="bid_detail_supported" for x in index_rows),
                 "pages":len(summaries),"source":"G2B_main_PNPE001_01",
                 "page_size":args.page_size,"evidence":summaries,
                 "updated_at":datetime.now(timezone.utc).isoformat()}
