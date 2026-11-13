@@ -1,5 +1,5 @@
-name: Scribd 1149 unresolved - One Chrome 10 Concurrent Tabs
-run-name: "Scribd remaining | Chrome 1 x 10 tabs"
+name: Scribd 2623 backlog - resilient ten-tab public preview review
+run-name: "Scribd 2623 resumed | bounded Chrome 10 tabs"
 on:
   workflow_dispatch:
   push:
@@ -9,16 +9,17 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: scribd-1149-10tabs
+  group: scribd-2623-resilient
   cancel-in-progress: false
 
 jobs:
   audit:
     if: github.repository == 'lyonbegin/hitel-scribd-runner'
     runs-on: self-hosted
-    timeout-minutes: 75
+    timeout-minutes: 180
     defaults:
       run:
         shell: powershell
@@ -38,9 +39,10 @@ jobs:
           }
           foreach ($path in @(
             'src/tools/zocbo/scribd_10tabs_remaining.py',
-            'src/tools/zocbo/pending_1149_ids.zlib64',
+            'src/tools/zocbo/remaining_unclassified_2623_ids.txt',
             'src/tools/zocbo/attempted_43224551981_ids.txt',
-            'src/tools/zocbo/attempted_43344449923_ids.csv'
+            'src/tools/zocbo/attempted_43344449923_ids.csv',
+            'src/tools/zocbo/attempted_43377032832_from_logs.csv'
           )) {
             if (-not (Test-Path $path)) { throw "Missing audited source file: $path" }
           }
@@ -60,44 +62,89 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw 'Playwright installation failed' }
             }
           }
-      - name: Validate remaining queue and both prior visit logs
+      - name: Restore last run artifact with 1066 attempted documents
+        uses: actions/download-artifact@v4
+        with:
+          name: scribd-2623-resilient-resumed-results
+          repository: lyonbegin/hitel-scribd-runner
+          run-id: 43377032832
+          github-token: ${{ github.token }}
+          path: scribd-prior-results
+      - name: Validate original 2623 ID queue, prior CSV and watchdog
         run: |
-          $cmd = @(
-            'src/tools/zocbo/scribd_10tabs_remaining.py',
-            '--ids-file', 'src/tools/zocbo/pending_1149_ids.zlib64',
-            '--skip-prior-file', 'src/tools/zocbo/attempted_43224551981_ids.txt',
-            '--skip-current-file', 'src/tools/zocbo/attempted_43344449923_ids.csv',
-            '--dry-run'
-          )
-          if (Get-Command py -ErrorAction SilentlyContinue) {
-            & py -3 @cmd
-          } else {
-            & python @cmd
+          $ErrorActionPreference = 'Stop'
+          if (-not (Test-Path scribd-prior-results/results.csv)) {
+            throw 'Required 1066-row artifact CSV was not restored; refuse to repeat prior visits'
           }
-          if ($LASTEXITCODE -ne 0) { throw 'Audited remaining queue validation failed' }
-      - name: Run one Chrome with ten concurrent tabs and persist per-result CSV
-        run: |
+          $prior = @(Import-Csv scribd-prior-results/results.csv)
+          if ($prior.Count -ne 1066) {
+            throw "Expected 1066 prior results; got $($prior.Count). Refuse unsafe restart."
+          }
+          $script = 'src/tools/zocbo/scribd_10tabs_remaining.py'
           $cmd = @(
-            'src/tools/zocbo/scribd_10tabs_remaining.py',
-            '--ids-file', 'src/tools/zocbo/pending_1149_ids.zlib64',
+            $script,
+            '--ids-file', 'src/tools/zocbo/remaining_unclassified_2623_ids.txt',
             '--skip-prior-file', 'src/tools/zocbo/attempted_43224551981_ids.txt',
             '--skip-current-file', 'src/tools/zocbo/attempted_43344449923_ids.csv',
-            '--out', 'scribd-review-results',
+            '--skip-latest-file', 'src/tools/zocbo/attempted_43377032832_from_logs.csv',
+            '--prior-results-file', 'scribd-prior-results/results.csv',
+            '--out', 'scribd-remaining-results',
             '--tabs', '10'
           )
           if (Get-Command py -ErrorAction SilentlyContinue) {
-            & py -3 @cmd
+            & py -3 -m py_compile $script
+            if ($LASTEXITCODE -ne 0) { throw 'Python syntax check failed' }
+            & py -3 $script --self-test
+            if ($LASTEXITCODE -ne 0) { throw 'Watchdog/checkpoint self-test failed' }
+            & py -3 @cmd --dry-run
           } else {
-            & python @cmd
+            & python -m py_compile $script
+            if ($LASTEXITCODE -ne 0) { throw 'Python syntax check failed' }
+            & python $script --self-test
+            if ($LASTEXITCODE -ne 0) { throw 'Watchdog/checkpoint self-test failed' }
+            & python @cmd --dry-run
           }
-          if ($LASTEXITCODE -ne 0) { throw 'Chrome ten-tab crawl failed or site challenge stopped it' }
+          if ($LASTEXITCODE -ne 0) { throw '2623 pending IDs or prior checkpoints failed validation' }
+      - name: Real Chrome preflight on first 10 unvisited documents
+        run: |
+          $cmd = @(
+            'src/tools/zocbo/scribd_10tabs_remaining.py',
+            '--ids-file', 'src/tools/zocbo/remaining_unclassified_2623_ids.txt',
+            '--skip-prior-file', 'src/tools/zocbo/attempted_43224551981_ids.txt',
+            '--skip-current-file', 'src/tools/zocbo/attempted_43344449923_ids.csv',
+            '--skip-latest-file', 'src/tools/zocbo/attempted_43377032832_from_logs.csv',
+            '--prior-results-file', 'scribd-prior-results/results.csv',
+            '--out', 'scribd-remaining-results',
+            '--tabs', '10', '--limit', '10'
+          )
+          if (Get-Command py -ErrorAction SilentlyContinue) { & py -3 @cmd } else { & python @cmd }
+          if ($LASTEXITCODE -ne 0) { throw '10-tab Chrome preflight failed' }
+          $probe = Get-Content scribd-remaining-results/summary.json -Raw | ConvertFrom-Json
+          if ($probe.preview_visible_new -lt 1) {
+            throw 'Preflight found no visible preview; halt bulk collection instead of blind processing'
+          }
+      - name: Crawl all remaining unvisited 2623-queue IDs with recycled Chrome
+        run: |
+          $cmd = @(
+            'src/tools/zocbo/scribd_10tabs_remaining.py',
+            '--ids-file', 'src/tools/zocbo/remaining_unclassified_2623_ids.txt',
+            '--skip-prior-file', 'src/tools/zocbo/attempted_43224551981_ids.txt',
+            '--skip-current-file', 'src/tools/zocbo/attempted_43344449923_ids.csv',
+            '--skip-latest-file', 'src/tools/zocbo/attempted_43377032832_from_logs.csv',
+            '--prior-results-file', 'scribd-prior-results/results.csv',
+            '--out', 'scribd-remaining-results',
+            '--tabs', '10', '--batch-size', '80',
+            '--document-timeout', '80', '--batch-timeout', '1200', '--retries', '1'
+          )
+          if (Get-Command py -ErrorAction SilentlyContinue) { & py -3 @cmd } else { & python @cmd }
+          if ($LASTEXITCODE -ne 0) { throw 'Crawl stopped; inspect per-document results and checkpoint' }
       - name: Print actual progress
         if: always()
         run: |
-          if (Test-Path scribd-review-results/summary.json) {
-            Get-Content scribd-review-results/summary.json
-          } elseif (Test-Path scribd-review-results/results.csv) {
-            $lines = @(Get-Content scribd-review-results/results.csv)
+          if (Test-Path scribd-remaining-results/summary.json) {
+            Get-Content scribd-remaining-results/summary.json
+          } elseif (Test-Path scribd-remaining-results/results.csv) {
+            $lines = @(Get-Content scribd-remaining-results/results.csv)
             Write-Host "PARTIAL_RESULTS_CSV_DATA_ROWS=$($lines.Count - 1)"
           } else {
             Write-Host 'No document processing results yet'
@@ -107,6 +154,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: scribd-1149-10tabs-results
-          path: scribd-review-results/
+          path: scribd-remaining-results/
           if-no-files-found: warn
           retention-days: 14
