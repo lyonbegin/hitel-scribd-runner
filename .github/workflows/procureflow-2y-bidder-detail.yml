@@ -1,0 +1,156 @@
+name: ProcureFlow Stage 2 - historical bidder detail from existing index
+run-name: "G2B BIDDER DETAIL | live preflight then 187 ordered batches"
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/procureflow-g2b-2y-win-20261114]
+    paths: [.github/workflows/procureflow-2y-bidder-detail.yml]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: procureflow-2y-bidder-detail
+  cancel-in-progress: false
+jobs:
+  prove-real-bidder-detail:
+    name: "Stage 2 preflight: 100 real notices from saved index, no Stage 1 repeat"
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 160
+    defaults:
+      run:
+        shell: powershell
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: 'utf-8'
+    steps:
+      - name: Confirm Windows runner in interactive session
+        run: |
+          $session=(Get-Process -Id $PID).SessionId
+          Write-Host "DETAIL_GUI_PREFLIGHT runner=$env:RUNNER_NAME session=$session"
+          if ($session -eq 0) { throw 'Interactive Windows runner required' }
+      - name: Download previously captured 731-day index, without rescraping
+        uses: actions/download-artifact@v4
+        with:
+          run-id: '43522481637'
+          github-token: ${{ github.token }}
+          name: g2b-two-year-notice-index-merged
+          path: historical-index
+      - name: Check previously collected index and explicitly retain 10 unverified dates
+        run: |
+          $ErrorActionPreference='Stop'
+          if (-not (Test-Path 'historical-index/notice_queue.csv')) { throw 'Historical index queue artifact missing' }
+          $c=Get-Content 'historical-index/coverage.json' -Raw | ConvertFrom-Json
+          Write-Host "INDEX_INPUT existing_unique=$($c.unique_bid_execution_keys) eligible=$($c.detail_eligible_keys) verified_days=$($c.days_complete) unverified=$($c.required_days - $c.days_complete)"
+          if ($c.detail_eligible_keys -ne 930379) { throw 'Unexpected queue size; refuse silent index substitution' }
+          if ($c.days_complete -ne 721) { throw 'Unexpected validated day count' }
+          Write-Host 'STAGE1_RECOLLECTION=DISABLED; continue on existing verified 721 days only'
+      - name: Clone immutable verified Stage 2 request source
+        run: |
+          $ErrorActionPreference='Stop'
+          $p=Join-Path $env:RUNNER_TEMP "g2b-detail-source-$env:GITHUB_RUN_ID-preflight"
+          git clone --depth 1 --branch feature/procureflow-g2b-2y-win-20261114 https://github.com/lyonbegin/hitel-scribd-runner.git $p
+          if ($LASTEXITCODE -ne 0) { throw 'Source clone failed' }
+          $actual=(git -C $p rev-parse HEAD).Trim()
+          if ($actual -ne $env:GITHUB_SHA) {
+            git -C $p fetch --depth 1 origin $env:GITHUB_SHA
+            if ($LASTEXITCODE -ne 0) { throw 'Pinned SHA fetch failed' }
+            git -C $p checkout --detach $env:GITHUB_SHA
+            if ($LASTEXITCODE -ne 0) { throw 'Pinned SHA checkout failed' }
+          }
+          "DETAIL_SOURCE=$p" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "DETAIL_SOURCE_SHA=$env:GITHUB_SHA"
+      - name: Execute 100 genuine opening-result requests using previously captured numbers
+        run: |
+          $ErrorActionPreference='Stop'
+          $s=Join-Path $env:DETAIL_SOURCE 'tools/procureflow/g2b_bidder_detail_stage2.py'
+          $a=@($s,'--input','historical-index/notice_queue.csv','--start-index','0',
+            '--limit','100','--tabs','10','--max-pages','20','--timeout','3000','--output','detail-preflight')
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m py_compile $s
+            if ($LASTEXITCODE -ne 0) { throw 'Source syntax invalid' }
+            py -3 @a
+          } else {
+            python -m py_compile $s
+            if ($LASTEXITCODE -ne 0) { throw 'Source syntax invalid' }
+            python @a
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Preflight failed; do not launch large-scale extraction' }
+      - name: Save 100-bid opening results and original proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2b-real-detail-preflight-100
+          path: detail-preflight/
+          if-no-files-found: warn
+          retention-days: 14
+
+  collect-saved-index-detail:
+    name: "Detailed bids shard ${{ matrix.segment }} / 186"
+    needs: [prove-real-bidder-detail]
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        segment: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186]
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 160
+    defaults:
+      run:
+        shell: powershell
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: 'utf-8'
+      SEGMENT: ${{ matrix.segment }}
+    steps:
+      - name: Restore already collected 2-year notice numbers (no stage 1)
+        uses: actions/download-artifact@v4
+        with:
+          run-id: '43522481637'
+          github-token: ${{ github.token }}
+          name: g2b-two-year-notice-index-merged
+          path: historical-index
+      - name: Verify source queue is unchanged and pin immutable scraper revision
+        run: |
+          $ErrorActionPreference='Stop'
+          $p=Join-Path $env:RUNNER_TEMP "g2b-detail-source-$env:GITHUB_RUN_ID-$env:SEGMENT"
+          git clone --depth 1 --branch feature/procureflow-g2b-2y-win-20261114 https://github.com/lyonbegin/hitel-scribd-runner.git $p
+          if ($LASTEXITCODE -ne 0) { throw 'Git source clone failed' }
+          if ((git -C $p rev-parse HEAD).Trim() -ne $env:GITHUB_SHA) {
+            git -C $p fetch --depth 1 origin $env:GITHUB_SHA
+            if ($LASTEXITCODE -ne 0) { throw 'SHA fetch failed' }
+            git -C $p checkout --detach $env:GITHUB_SHA
+            if ($LASTEXITCODE -ne 0) { throw 'SHA checkout failed' }
+          }
+          "DETAIL_SOURCE=$p" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          if (-not (Test-Path 'historical-index/notice_queue.csv')) { throw 'Historical 2024-2026 queue absent' }
+          $c=Get-Content 'historical-index/coverage.json' -Raw | ConvertFrom-Json
+          if ($c.detail_eligible_keys -ne 930379) { throw 'Input queue mismatch' }
+      - name: Fetch original bidder amounts, percentages and opening ranks for this chunk
+        run: |
+          $ErrorActionPreference='Stop'
+          $offset=100+5000*[int]$env:SEGMENT
+          $s=Join-Path $env:DETAIL_SOURCE 'tools/procureflow/g2b_bidder_detail_stage2.py'
+          Write-Host "DETAIL_SHARD_PLAN shard=$env:SEGMENT queue_offset=$offset limit=5000"
+          $a=@($s,'--input','historical-index/notice_queue.csv',
+            '--start-index',"$offset",'--limit','5000','--tabs','10',
+            '--max-pages','20','--timeout','9000','--output',"detail-shard-$env:SEGMENT")
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m py_compile $s
+            if ($LASTEXITCODE -ne 0) { throw 'Stage 2 syntax failure' }
+            py -3 @a
+          } else {
+            python -m py_compile $s
+            if ($LASTEXITCODE -ne 0) { throw 'Stage 2 syntax failure' }
+            python @a
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Detail shard incomplete; retain artifacts for diagnosis' }
+      - name: Preserve all original bidder JSON, parsed bidder CSVs and statuses
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2b-real-bidder-details-shard-${{ matrix.segment }}
+          path: detail-shard-${{ matrix.segment }}/
+          if-no-files-found: warn
+          retention-days: 14
