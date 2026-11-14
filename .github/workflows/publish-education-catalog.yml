@@ -1,0 +1,35 @@
+name: Publish HITEL Education Catalog Snapshot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - tools/moonzip/publish_education_catalog.py
+      - .github/workflows/publish-education-catalog.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Extract owned 370-series catalog snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/moonzip/publish_education_catalog.py
+      - name: Publish source-of-truth JSON for HITEL education
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add published/education-catalog-v2
+          if ! git diff --staged --quiet; then
+            git commit -m "Publish verified HITEL catalog JSON snapshot"
+            git push
+          fi
