@@ -1,0 +1,324 @@
+name: G2B Stage 2 - safeguarded archive and resume
+run-name: "G2B recovery | verify, cancel original, archive, resume remaining detail"
+on:
+  push:
+    branches: [fix/procureflow-stage2-safe-recovery-20261115]
+    paths: [.github/workflows/procureflow-stage2-safe-recovery.yml]
+permissions:
+  contents: read
+concurrency:
+  group: procureflow-stage2-safe-recovery-20261115
+  cancel-in-progress: false
+
+jobs:
+  validate-fix:
+    name: Offline regression tests before cancelling original
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify Python source and run offline regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'playwright>=1.45,<2'
+          python -m py_compile tools/procureflow/g2b_bidder_detail_stage2_recovery.py
+          python -m unittest discover -s tests -p test_g2b_bidder_detail_recovery.py -v
+
+  stop-and-archive:
+    name: Cancel original, confirm terminal, preserve old evidence
+    needs: validate-fix
+    runs-on: ubuntu-latest
+    timeout-minutes: 160
+    permissions:
+      actions: write
+      contents: write
+    outputs:
+      segments: ${{ steps.plan.outputs.segments }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ARCHIVE_TAG: procureflow-stage2-evidence-43553991301
+    steps:
+      - name: Cancel original and wait for terminal status
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          original=43553991301
+          status=$(gh api "/repos/$repo/actions/runs/$original" --jq .status)
+          echo "BEFORE_CANCEL=$status"
+          if [[ "$status" != "completed" ]]; then
+            gh api --method POST "/repos/$repo/actions/runs/$original/cancel" >/dev/null
+          fi
+          for n in $(seq 1 120); do
+            status=$(gh api "/repos/$repo/actions/runs/$original" --jq .status)
+            if [[ "$status" == "completed" ]]; then break; fi
+            sleep 10
+          done
+          if [[ "$status" != "completed" ]]; then
+            echo "::error::Original still active; refuse all new collection"
+            exit 1
+          fi
+          conclusion=$(gh api "/repos/$repo/actions/runs/$original" --jq .conclusion)
+          echo "STOP_VERIFIED=$conclusion"
+          gh api "/repos/$repo/actions/runs/$original/artifacts?per_page=100" > old-artifacts.json
+          jq -e '.total_count > 0 and ([.artifacts[].expired] | all(. == false))' old-artifacts.json
+
+      - name: Byte-preserve original ZIPs and existing 721-day queue in a release
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          tag="$ARCHIVE_TAG"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target "$GITHUB_SHA" \
+              --title "G2B Stage 2 preserved original ZIP archives" \
+              --notes "Original run 43553991301 and verified 721-day / 930379-key input. Not a completed extraction." \
+              --latest=false
+          fi
+          mkdir -p archive-tmp
+          for source_run in 43553991301 43522481637; do
+            gh api "/repos/$repo/actions/runs/$source_run/artifacts?per_page=100" > "archive-tmp/source-$source_run.json"
+            if [[ "$source_run" == 43522481637 ]]; then
+              jq -c '.artifacts[] | select(.name == "g2b-two-year-notice-index-merged")' \
+                "archive-tmp/source-$source_run.json" > archive-tmp/selected.jsonl
+              if [[ ! -s archive-tmp/selected.jsonl ]]; then
+                echo "::error::Original validated index missing"; exit 1
+              fi
+            else
+              jq -c '.artifacts[]' "archive-tmp/source-$source_run.json" > archive-tmp/selected.jsonl
+            fi
+            while IFS= read -r item; do
+              id=$(jq -r .id <<< "$item")
+              name=$(jq -r .name <<< "$item")
+              digest=$(jq -r '.digest // ""' <<< "$item")
+              expired=$(jq -r .expired <<< "$item")
+              if [[ "$expired" != false ]]; then
+                echo "::error::Expired original artifact $name"; exit 1
+              fi
+              file="archive-tmp/$name.zip"
+              curl -fLsS --retry 4 --retry-delay 2 \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/$repo/actions/artifacts/$id/zip" -o "$file"
+              actual=$(sha256sum "$file" | cut -d' ' -f1)
+              if [[ -n "$digest" && "$digest" != "sha256:$actual" ]]; then
+                echo "::error::Checksum differs for $name"; exit 1
+              fi
+              if gh release view "$tag" --json assets --jq '.assets[].name' | grep -Fxq "$name.zip"; then
+                mkdir -p archive-tmp/check
+                gh release download "$tag" --pattern "$name.zip" --dir archive-tmp/check --clobber
+                cmp -s "$file" "archive-tmp/check/$name.zip" || {
+                  echo "::error::Archived bytes differ for $name"; exit 1;
+                }
+                rm -f "archive-tmp/check/$name.zip"
+              else
+                gh release upload "$tag" "$file"
+              fi
+              echo "PRESERVED name=$name sha256=$actual bytes=$(stat -c %s "$file")"
+              rm -f "$file"
+            done < archive-tmp/selected.jsonl
+          done
+          count=$(gh release view "$tag" --json assets --jq '.assets | length')
+          if (( count < 2 )); then
+            echo "::error::Preserved asset inventory is empty"; exit 1
+          fi
+          for source_run in 43553991301 43522481637; do
+            file="archive-tmp/source-$source_run.json"
+            if ! gh release view "$tag" --json assets --jq '.assets[].name' | grep -Fxq "source-$source_run.json"; then
+              gh release upload "$tag" "$file"
+            fi
+          done
+          echo "PRESERVATION_VERIFIED release=$tag count=$count"
+
+      - name: Generate shard plan after original preservation
+        id: plan
+        shell: bash
+        run: |
+          echo "segments=$(python -c 'import json;print(json.dumps(list(range(187))))')" >> "$GITHUB_OUTPUT"
+
+  repair:
+    name: Restore and recover shard ${{ matrix.segment }} / 186
+    needs: stop-and-archive
+    if: ${{ needs.stop-and-archive.result == 'success' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        segment: ${{ fromJSON(needs.stop-and-archive.outputs.segments) }}
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 160
+    permissions:
+      contents: read
+      actions: read
+    env:
+      SEGMENT: ${{ matrix.segment }}
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+      ARCHIVE_TAG: procureflow-stage2-evidence-43553991301
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Confirm interactive PC Runner
+        run: |
+          $session=(Get-Process -Id $PID).SessionId
+          Write-Host "RECOVERY_RUNNER=$env:RUNNER_NAME session=$session"
+          if ($session -eq 0) { throw 'Interactive Windows runner required' }
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download original queue from saved artifact, never Stage 1 scrape
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          run-id: '43522481637'
+          github-token: ${{ github.token }}
+          name: g2b-two-year-notice-index-merged
+          path: historical-index
+
+      - name: Restore source archive if original Actions artifact expired
+        run: |
+          if (-not (Test-Path 'historical-index/notice_queue.csv')) {
+            New-Item -ItemType Directory -Force 'historical-index' | Out-Null
+            $url="https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:ARCHIVE_TAG/g2b-two-year-notice-index-merged.zip"
+            curl.exe --fail --location --silent --show-error $url --output index-archive.zip
+            if ($LASTEXITCODE -ne 0) { throw 'Preserved index not downloadable' }
+            Expand-Archive -Path index-archive.zip -DestinationPath historical-index -Force
+            Remove-Item index-archive.zip
+          }
+          $c=Get-Content 'historical-index/coverage.json' -Raw | ConvertFrom-Json
+          if ($c.detail_eligible_keys -ne 930379 -or $c.days_complete -ne 721) {
+            throw 'Unexpected original index; refuse to collect'
+          }
+
+      - name: Download original raw bidder evidence for this same shard
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          run-id: '43553991301'
+          github-token: ${{ github.token }}
+          name: g2b-real-bidder-details-shard-${{ matrix.segment }}
+          path: detail-shard-${{ matrix.segment }}
+
+      - name: Fallback to preserved original shard ZIP when missing or expired
+        run: |
+          $path="detail-shard-$env:SEGMENT"
+          if (-not (Test-Path "$path/bids")) {
+            $name="g2b-real-bidder-details-shard-$env:SEGMENT.zip"
+            $url="https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:ARCHIVE_TAG/$name"
+            curl.exe --fail --location --silent --show-error $url --output old-shard.zip
+            if ($LASTEXITCODE -eq 0) {
+              New-Item -ItemType Directory -Force $path | Out-Null
+              Expand-Archive -Path old-shard.zip -DestinationPath $path -Force
+              Remove-Item old-shard.zip
+              Write-Host "RESTORED_SHARD=$env:SEGMENT"
+            } else {
+              Write-Host "ORIGINAL_SHARD_NOT_AVAILABLE=$env:SEGMENT"
+            }
+          }
+
+      - name: Verify and reuse original pages; fetch only absent/unverified rows
+        run: |
+          $ErrorActionPreference='Stop'
+          $offset=100+5000*[int]$env:SEGMENT
+          $script='tools/procureflow/g2b_bidder_detail_stage2_recovery.py'
+          py -3 -m py_compile $script
+          if ($LASTEXITCODE -ne 0) { throw 'Source syntax failure' }
+          $arguments=@($script,'--input','historical-index/notice_queue.csv',
+            '--start-index',"$offset",'--limit','5000','--tabs','5',
+            '--max-pages','20','--timeout','9000','--output',"detail-shard-$env:SEGMENT")
+          py -3 @arguments
+          if ($LASTEXITCODE -ne 0) {
+            throw "Shard $env:SEGMENT incomplete; raw pages preserved for further repair"
+          }
+
+      - name: Preserve complete and partial repaired shard data for 90 days
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2b-recovery-shard-${{ matrix.segment }}
+          path: detail-shard-${{ matrix.segment }}/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Create audit manifest even for interrupted shard
+        if: always()
+        run: |
+          $src="detail-shard-$env:SEGMENT/detail_summary.json"
+          New-Item -ItemType Directory -Force manifests | Out-Null
+          if (Test-Path $src) {
+            Copy-Item $src "manifests/shard-$env:SEGMENT.json"
+          } else {
+            @{shard=[int]$env:SEGMENT; missing_summary=$true} |
+              ConvertTo-Json | Out-File -Encoding utf8 "manifests/shard-$env:SEGMENT.json"
+          }
+
+      - name: Preserve small shard audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2b-recovery-manifest-shard-${{ matrix.segment }}
+          path: manifests/
+          retention-days: 90
+
+  audit:
+    name: Audit 187 shard manifests; no false complete signal
+    if: always()
+    needs: [stop-and-archive, repair]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: g2b-recovery-manifest-shard-*
+          path: audit-manifests
+          merge-multiple: true
+      - name: Check expected 930279 Stage 2 rows without new notice lookups
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          files=sorted(Path("audit-manifests").glob("shard-*.json"))
+          audit={"manifest_count":len(files),"expected_shards":187,
+                 "processed":0,"verified":0,"no_opening_data":0,
+                 "unknown":0,"verified_bidder_rows":0,"missing_or_unverified":[]}
+          for f in files:
+              part=int(f.stem.split("-")[-1])
+              data=json.loads(f.read_text(encoding="utf-8-sig"))
+              if data.get("missing_summary"):
+                  audit["missing_or_unverified"].append(part)
+                  continue
+              audit["processed"]+=data.get("processed",0)
+              audit["verified"]+=data.get("detail_status_counts",{}).get("verified_complete",0)
+              audit["no_opening_data"]+=data.get("detail_status_counts",{}).get("no_opening_data",0)
+              audit["verified_bidder_rows"]+=data.get("verified_bidder_rows",0)
+              audit["unknown"]+=sum(data.get("detail_status_counts",{}).get(k,0)
+                                    for k in ("error","partial_page_limit","no_bidder_rows_unverified"))
+              if data.get("processed",0)!=data.get("selected",-1) or data.get("interrupted"):
+                  audit["missing_or_unverified"].append(part)
+          audit["stage2_complete"]=(
+              len(files)==187 and audit["processed"]==930279 and
+              audit["unknown"]==0 and not audit["missing_or_unverified"]
+          )
+          Path("audit.json").write_text(json.dumps(audit,indent=2))
+          print(json.dumps(audit))
+          if not audit["stage2_complete"]:
+              raise SystemExit("Stage 2 remains incomplete")
+          PY
+      - name: Retain audit report even if incomplete
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2b-recovery-audit
+          path: audit.json
+          if-no-files-found: warn
+          retention-days: 90
