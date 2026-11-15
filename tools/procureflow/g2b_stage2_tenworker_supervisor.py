@@ -23,6 +23,15 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Windows Python may lack the enterprise/root CA certificates exposed to
+# Windows SChannel, even when PowerShell HTTPS succeeds. Inject the system
+# trust store; never disable TLS certificate verification.
+try:
+    import truststore
+    truststore.inject_into_ssl()
+except ImportError:
+    raise RuntimeError("Install truststore to use the Windows OS certificate store")
+
 import g2b_bidder_detail_stage2_recovery as detail
 
 ORIGINAL_RELEASE = "procureflow-stage2-evidence-43553991301"
