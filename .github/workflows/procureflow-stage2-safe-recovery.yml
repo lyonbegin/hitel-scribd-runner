@@ -41,6 +41,9 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       ARCHIVE_TAG: procureflow-stage2-evidence-43553991301
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Cancel original and wait for terminal status
         shell: bash
         run: |
