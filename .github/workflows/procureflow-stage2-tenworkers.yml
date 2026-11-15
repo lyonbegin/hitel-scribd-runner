@@ -1,0 +1,163 @@
+name: ProcureFlow G2B Stage2 durable 10-worker recovery
+run-name: "G2B 10-worker original-preserving continuous recovery"
+on:
+  push:
+    branches: [fix/procureflow-stage2-tenworkers-resume-20261115]
+    paths: [.github/workflows/procureflow-stage2-tenworkers.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: procureflow-stage2-tenworkers-exclusive
+  cancel-in-progress: false
+
+jobs:
+  stop-previous-and-verify:
+    name: Stop repeatedly failing legacy run; inspect original evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compile collector and run isolated offline regression tests
+        run: |
+          set -euo pipefail
+          python -m pip install 'playwright>=1.45,<2'
+          python -m py_compile tools/procureflow/g2b_bidder_detail_stage2_recovery.py
+          python -m py_compile tools/procureflow/g2b_stage2_tenworker_supervisor.py
+          python -m unittest discover -s tests -p test_g2b_bidder_detail_recovery.py -v
+      - name: Cancel defective 187-job recovery run and verify terminal result
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          for old in 43553991301 43714878700; do
+            status=$(gh api "/repos/$repo/actions/runs/$old" --jq '.status')
+            if [[ "$status" != "completed" ]]; then
+              echo "CANCELLING_OLD_RUN=$old status=$status"
+              gh api -X POST "/repos/$repo/actions/runs/$old/cancel" >/dev/null
+            fi
+            for n in $(seq 1 120); do
+              status=$(gh api "/repos/$repo/actions/runs/$old" --jq '.status')
+              if [[ "$status" == "completed" ]]; then break; fi
+              sleep 5
+            done
+            if [[ "$status" != "completed" ]]; then
+              echo "::error::Previous run $old remains active. Duplicate collection prohibited."
+              exit 1
+            fi
+            echo "PREVIOUS_RUN_STOPPED=$old"
+          done
+      - name: Verify permanent source archive and validated 721-day index are still present
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          gh api "/repos/$repo/releases/tags/procureflow-stage2-evidence-43553991301" > original-release.json
+          jq -e '([.assets[].name] | index("g2b-two-year-notice-index-merged.zip")) != null' original-release.json
+          jq -e '([.assets[].name | select(startswith("g2b-real-bidder-details-shard-"))] | length) >= 35' original-release.json
+          echo "IMMUTABLE_SOURCE_RELEASE_PRESENT=true"
+          gh api "/repos/$repo/actions/runs/43553991301" --jq '"ORIGINAL="+.status+"/"+.conclusion'
+
+  ten-worker-supervisor:
+    name: Continuous single-session Windows runner, ten concurrent API workers
+    needs: stop-previous-and-verify
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 1380
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    outputs:
+      need_continue: ${{ steps.checkpoint.outputs.need_continue }}
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Verify interactive Windows session and avoid actions checkout temp lock
+        run: |
+          $session=(Get-Process -Id $PID).SessionId
+          Write-Host "WIN_RUNNER=$env:RUNNER_NAME session=$session"
+          if ($session -eq 0) { throw 'Interactive session required for Playwright Chrome' }
+          $dir=Join-Path $env:RUNNER_TEMP "g2b-tenworkers-$env:GITHUB_RUN_ID"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          "STAGE2_DIR=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "NO_ACTIONS_CHECKOUT_USE=true"
+
+      - name: Retrieve immutable Python scripts directly, without checkout
+        run: |
+          $ErrorActionPreference='Stop'
+          $base="https://raw.githubusercontent.com/$env:GITHUB_REPOSITORY/$env:GITHUB_SHA/tools/procureflow"
+          Invoke-WebRequest -Uri "$base/g2b_bidder_detail_stage2_recovery.py" -OutFile (Join-Path $env:STAGE2_DIR "g2b_bidder_detail_stage2_recovery.py") -UseBasicParsing
+          Invoke-WebRequest -Uri "$base/g2b_stage2_tenworker_supervisor.py" -OutFile (Join-Path $env:STAGE2_DIR "g2b_stage2_tenworker_supervisor.py") -UseBasicParsing
+          py -3 -m py_compile (Join-Path $env:STAGE2_DIR "g2b_bidder_detail_stage2_recovery.py")
+          if ($LASTEXITCODE -ne 0) { throw 'Python scraper syntax invalid' }
+          py -3 -m py_compile (Join-Path $env:STAGE2_DIR "g2b_stage2_tenworker_supervisor.py")
+          if ($LASTEXITCODE -ne 0) { throw 'Python supervisor syntax invalid' }
+          py -3 -c "import playwright.async_api"
+          if ($LASTEXITCODE -ne 0) { throw 'Python Playwright module missing on Windows runner' }
+          Write-Host "RECOVERY_SOURCE_SHA=$env:GITHUB_SHA"
+
+      - name: Recover original bidder evidence and capture missing shards using ten workers
+        id: collect
+        run: |
+          $ErrorActionPreference='Stop'
+          $script=Join-Path $env:STAGE2_DIR "g2b_stage2_tenworker_supervisor.py"
+          $args=@($script,'--workdir',$env:STAGE2_DIR,'--repo',$env:GITHUB_REPOSITORY,
+                  '--max-shards','12','--threads','10')
+          py -3 @args
+          if ($LASTEXITCODE -ne 0) { throw 'Supervisor stopped; inspect preserved shard manifests' }
+
+      - name: Export checkpoint continuation state
+        id: checkpoint
+        if: always()
+        run: |
+          $file=Join-Path $env:STAGE2_DIR "runner-state.json"
+          if (Test-Path $file) {
+            $state=Get-Content -Raw $file | ConvertFrom-Json
+            $resume=if ($state.need_continue) {'true'} else {'false'}
+            "need_continue=$resume" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "NEEDS_RESUME=$resume"
+          } else {
+            "need_continue=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "SUPERVISOR_STATE_MISSING"
+          }
+
+      - name: Retain the summary of this processing session
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2b-tenworker-session-${{ github.run_id }}
+          path: ${{ env.STAGE2_DIR }}/runner-state.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  continue-if-needed:
+    name: Resume next 12 segments automatically after durable checkpoints
+    needs: ten-worker-supervisor
+    if: ${{ needs.ten-worker-supervisor.result == 'success' && needs.ten-worker-supervisor.outputs.need_continue == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Dispatch next batch without overlapping the current run
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method POST \
+            "/repos/$GITHUB_REPOSITORY/actions/workflows/procureflow-stage2-tenworkers.yml/dispatches" \
+            -f ref="fix/procureflow-stage2-tenworkers-resume-20261115"
+          echo "NEXT_DURABLE_RESUME_REQUESTED=true"
