@@ -257,7 +257,7 @@ async def main(args):
     out.mkdir(parents=True,exist_ok=True)
     queue=asyncio.Queue()
     for item in items:queue.put_nowait(item)
-    gate=asyncio.Semaphore(min(args.tabs,5))
+    gate=asyncio.Semaphore(min(args.tabs,10))
     reports=[]
     interrupted=None
     async with async_playwright() as p:
@@ -321,7 +321,7 @@ if __name__=="__main__":
     p.add_argument("--output",default="g2b-detail-stage2")
     p.add_argument("--start-index",type=int,default=0)
     p.add_argument("--limit",type=int,default=25,help="0 means whole queue")
-    p.add_argument("--tabs",type=int,default=5)
+    p.add_argument("--tabs",type=int,default=10)
     p.add_argument("--max-pages",type=int,default=20)
     p.add_argument("--timeout",type=int,default=3600)
     p.add_argument("--dry-run",action="store_true")
