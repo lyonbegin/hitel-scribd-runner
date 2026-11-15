@@ -215,7 +215,7 @@ def read_original_queue(github, release, folder):
     return queue
 
 
-def choose_segments(checkpoint_assets):
+def choose_segments(github, checkpoint_assets, root):
     manifests = {}
     counts = {}
     for item in checkpoint_assets:
@@ -231,18 +231,24 @@ def choose_segments(checkpoint_assets):
             previous = manifests.get(index)
             if previous is None or item["created_at"] > previous["created_at"]:
                 manifests[index] = item
-    # Always cover every shard at least once before revisiting unresolved rows.
+    # Cover each previously unseen shard before retries. Never re-query
+    # a verified complete shard; the release keeps its original evidence.
     absent = [i for i in range(SHARD_COUNT) if i not in manifests]
     if absent:
-        return absent, "first_pass"
-    # Subsequent passes can retry missing/incomplete manifests up to two times;
-    # do not loop forever on invalid source rows.
+        return absent, "first_pass", counts
     unresolved = []
+    temp = root / "inspect-status.json"
     for index, item in sorted(manifests.items()):
         if counts.get(index, 0) >= 3:
             continue
-        unresolved.append(index)
-    return unresolved, "recheck"
+        github.download(item, temp)
+        try:
+            summary = json.loads(temp.read_text(encoding="utf-8"))
+        finally:
+            temp.unlink(missing_ok=True)
+        if not summary.get("complete"):
+            unresolved.append(index)
+    return unresolved, "recheck", counts
 
 
 def write_chunk_csv(queue, index, filepath):
@@ -375,7 +381,7 @@ def main():
     original_assets = github.assets(original_release)
     checkpoint_assets = github.assets(checkpoint_release)
     queue = read_original_queue(github, original_release, root)
-    pending, phase = choose_segments(checkpoint_assets)
+    pending, phase, prior_attempts = choose_segments(github, checkpoint_assets, root)
     chosen = pending[:args.max_shards]
     runid = os.environ.get("GITHUB_RUN_ID", "manual")
     script = Path(__file__).with_name("g2b_bidder_detail_stage2_recovery.py")
@@ -401,7 +407,10 @@ def main():
         "complete_shards_this_run": sum(x["complete"] for x in done),
         "errors": errors,
         "new_shards_remaining": max(0, len(pending) - len(done)),
-        "need_continue": bool(done and len(pending) > len(done) and not errors),
+        "need_continue": bool(done and not errors and (
+            len(pending) > len(done) or
+            any(not x["complete"] and prior_attempts.get(x["segment"], 0) < 2
+                for x in done))),
         "all_stage2_verified": False,
         "source_index_unchanged": True,
         "award_linkage_verified": False,
