@@ -200,7 +200,9 @@ async def inspect_bid(ctx,gate,out,entry,args):
                 break
             # Exact repeats across different pages indicate broken pagination, not more bids.
             current_signatures={hashlib.sha256(
-                json.dumps(row,sort_keys=True,ensure_ascii=False).encode("utf-8")
+                json.dumps({k:v for k,v in row.items() if k not in
+                            ("nextRowYn","totCnt","currentPage")},
+                           sort_keys=True,ensure_ascii=False).encode("utf-8")
             ).hexdigest() for row in rows}
             if page_signatures.intersection(current_signatures):
                 raise RuntimeError("duplicate_bidder_rows_across_pages")
