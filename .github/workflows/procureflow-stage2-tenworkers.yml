@@ -105,6 +105,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Python supervisor syntax invalid' }
           py -3 -c "import playwright.async_api"
           if ($LASTEXITCODE -ne 0) { throw 'Python Playwright module missing on Windows runner' }
+          py -3 -m pip install --disable-pip-version-check truststore
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Python certificate store adapter install failed' }
+          py -3 -c "import truststore; truststore.inject_into_ssl(); import urllib.request; urllib.request.urlopen('https://api.github.com',timeout=20)"
+          if ($LASTEXITCODE -ne 0) { throw 'Verified GitHub HTTPS connection still unavailable' }
           Write-Host "RECOVERY_SOURCE_SHA=$env:GITHUB_SHA"
 
       - name: Recover original bidder evidence and capture missing shards using ten workers
