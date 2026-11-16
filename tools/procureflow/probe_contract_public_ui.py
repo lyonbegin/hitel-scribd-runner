@@ -88,7 +88,7 @@ def main():
         context = browser.new_context(
             locale="ko-KR", timezone_id="Asia/Seoul",
             viewport={"width": 1440, "height": 900},
-            service_workers="block",
+            service_workers="allow",
             accept_downloads=False,
         )
 
@@ -128,7 +128,7 @@ def main():
 
         def capture(name):
             try:
-                page.wait_for_timeout(4500)
+                page.wait_for_timeout(9500)
                 filename = name + ".png"
                 page.screenshot(path=str(output / filename), full_page=False, timeout=12000)
                 report["screenshots"].append(filename)
