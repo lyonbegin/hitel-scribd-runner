@@ -43,3 +43,12 @@
 6. 최근 2년만 대상으로 하고 투찰·개찰·낙찰·계약·수의계약·납품요구·업체정보 독립 테이블에 원본을 넣은 후 공고집행키/계약키/업체키로 JOIN. 기존 수집기·Release를 무단 수정하지 않음.
 
 **이번 실행이 성립시킨 것은 GitHub-hosted Chrome 조사체계와 실제 인증/빈 화면 증거이다. 신규 계약·쇼핑몰 원본 추출은 아직 성공하지 않았다.**
+
+## 후속 구현·실증 (2026-11-16 21시대)
+
+- `tools/procureflow/schema_2y_core.sql`: 별도 PostgreSQL 스키마 `procureflow_2y`에 원본증빙, 공고차수, 개찰, 업체투찰, 확정낙찰, 계약, 수의계약 속성, 공동수급, 계약변경, 납품요구, 품목, 업체등록이력, 검증된 공고-계약 및 계약-납품 연결 테이블 정의. 기존 `procureflow` 운영 스키마는 변경하지 않음.
+- `tests/test_procureflow_2y_schema.sql`: 임시 Postgres 16에 2건 투찰·1건 낙찰·1건 계약·2개 공동수급·2개 납품품목 fixture를 넣어 중복 투찰행 제거, FK, 개찰 1순위와 최종 낙찰자 구별, 1개 계약 금액 중복합산 방지를 검증. GitHub Actions `43865577998`, `43866703946`의 `validate-two-year-schema` 성공.
+- WebSquare 진단은 세 사이트 모두 200 응답, `document.readyState=complete` 및 WebSquare 객체 존재하지만 첫 화면의 `body.childElementCount=0` 확인. HTTP 4xx/5xx 관측은 없었음. 조달데이터허브 보고서 직접 URL 중 하나에서 DOM body 요소 6개가 일시 관측되어 동적 초기화/화면 상태 문제를 계속 분리해야 함. OIDC 302만으로 전체 공개 화면의 로그인 필수를 단정하지 않음.
+- `tools/procureflow/probe_g2b_public_bundles.py`: 사이트가 제공하는 공개 JS 경로의 HTTP 200·SHA256을 검사하고 노출된 계약 관련 화면단서/읽기 전용 URL만 제한적으로 추출. `43866703946`에서 21개 공개 자바스크립트 응답 HTTP 200, 공통 `bsneComm.js`의 계약법령 조회 팝업 명세 및 데이터허브 `GnbTop.js`의 계약상품 관련 함수 단서를 확인함. 이 소스는 계약 목록/상세조회 자체가 아니므로 실데이터 수집 완료로 간주하지 않음.
+- `tools/procureflow/probe_contract_public_ui.py`의 후속 버전은 최초 90건의 정적 파일 로딩에 가려졌던 **후반부 WebSquare 동적 스크립트·POST 경로**를 별도로 수집한다. 결과가 나오는 즉시 실제 읽기 전용 계약조회 엔드포인트 존재 여부를 따로 판정할 것.
+- 신규 2년 계약 데이터 행의 실제 다운로드/검증·독립 테이블 적재는 현재 **미완료**. 첫 100건 및 Release의 완전성도 별도 검증 필요. GitHub-hosted 외의 PC Runner는 실행하지 않는다.
