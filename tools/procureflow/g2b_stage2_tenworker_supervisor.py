@@ -224,7 +224,7 @@ def read_original_queue(github, release, folder):
     return queue
 
 
-def choose_segments(github, checkpoint_assets, root):
+def choose_segments(github, checkpoint_assets, root, only_unprocessed=False):
     manifests = {}
     counts = {}
     for item in checkpoint_assets:
@@ -256,7 +256,10 @@ def choose_segments(github, checkpoint_assets, root):
         finally:
             temp.unlink(missing_ok=True)
         if not summary.get("complete"):
-            unresolved.append(index)
+            # Recovery step 1: complete interrupted/never-started shards first.
+            # All other partial shards are preserved for error-classified recovery.
+            if not only_unprocessed or int(summary.get("processed") or 0) == 0:
+                unresolved.append(index)
     return unresolved, "recheck", counts
 
 
@@ -377,6 +380,8 @@ def main():
     parser.add_argument("--checkpoint-tag", default="procureflow-stage2-tenworkers-20261115")
     parser.add_argument("--max-shards", type=int, default=12)
     parser.add_argument("--threads", type=int, default=10)
+    parser.add_argument("--repair-only-unprocessed", action="store_true",
+                        help="Process ONLY shards whose latest status has zero processed records")
     args = parser.parse_args()
     if args.threads != 10:
         raise ValueError("Supervisor configured for exactly ten request workers")
@@ -390,7 +395,7 @@ def main():
     original_assets = github.assets(original_release)
     checkpoint_assets = github.assets(checkpoint_release)
     queue = read_original_queue(github, original_release, root)
-    pending, phase, prior_attempts = choose_segments(github, checkpoint_assets, root)
+    pending, phase, prior_attempts = choose_segments(github, checkpoint_assets, root, args.repair_only_unprocessed)
     chosen = pending[:args.max_shards]
     runid = os.environ.get("GITHUB_RUN_ID", "manual")
     script = Path(__file__).with_name("g2b_bidder_detail_stage2_recovery.py")
