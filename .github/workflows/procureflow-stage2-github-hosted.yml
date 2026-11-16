@@ -29,10 +29,8 @@ jobs:
         run: |
           set -euo pipefail
           repo="$GITHUB_REPOSITORY"
-          gh api "/repos/$repo/releases/tags/procureflow-stage2-evidence-43553991301" \
-            --jq '.assets[].name' | grep -Fxq 'g2b-two-year-notice-index-merged.zip'
-          gh api "/repos/$repo/releases/tags/procureflow-stage2-tenworkers-20261115" \
-            --jq '.assets[].name' | grep -q '^g2b-status-shard-'
+          test "$(gh api "/repos/$repo/releases/tags/procureflow-stage2-evidence-43553991301" --jq 'any(.assets[]; .name=="g2b-two-year-notice-index-merged.zip")')" = true
+          test "$(gh api "/repos/$repo/releases/tags/procureflow-stage2-tenworkers-20261115" --jq 'any(.assets[]; .name|startswith("g2b-status-shard-"))')" = true
           echo 'ORIGINAL_INDEX_AND_DURABLE_CHECKPOINTS_PRESENT=true'
       - name: Install existing Python collection dependencies and isolated display
         shell: bash
