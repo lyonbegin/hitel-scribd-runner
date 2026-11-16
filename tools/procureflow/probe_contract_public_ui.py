@@ -81,7 +81,7 @@ def main():
         "scope": "PUBLIC_READ_ONLY_UI_INSPECTION",
         "events": [], "screenshots": [], "pages": [],
         "blocked_non_read_only_requests": [],
-        "errors": [],
+        "errors": [], "console_errors": [], "page_errors": [], "browser_pages": [],
     }
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(channel="chrome", headless=False, timeout=30000)
@@ -112,6 +112,8 @@ def main():
 
         context.route("**/*", guard)
         page = context.new_page()
+        page.on("pageerror", lambda error: report["page_errors"].append(short(error, 200)))
+        page.on("console", lambda msg: report["console_errors"].append(short(msg.text, 220)) if msg.type == "error" and len(report["console_errors"]) < 25 else None)
 
         def on_response(response):
             if len(report["events"]) >= MAX_EVENTS:
@@ -126,7 +128,7 @@ def main():
 
         def capture(name):
             try:
-                page.wait_for_timeout(1800)
+                page.wait_for_timeout(4500)
                 filename = name + ".png"
                 page.screenshot(path=str(output / filename), full_page=False, timeout=12000)
                 report["screenshots"].append(filename)
@@ -136,6 +138,11 @@ def main():
                     "title": short(page.title(), 160),
                     "body_excerpt": short(page.locator("body").inner_text(timeout=5000), 1600),
                     "visible_controls": labels[:80],
+                    "frame_urls": [short(frame.url, 180) for frame in page.frames],
+                    "context_pages": [short(p.url, 180) for p in context.pages],
+                    "script_sources": page.locator("script[src]").evaluate_all("els=>els.map(x=>x.src).slice(0,35)"),
+                    "body_html_prefix": short(page.locator("body").inner_html(timeout=5000), 800),
+
                     "contract_controls": [x for x in labels if PUBLIC_CONTRACT.search(x.get("text", ""))][:30],
                 }
                 report["pages"].append(entry)
@@ -177,6 +184,7 @@ def main():
         except Exception as exc:
             report["errors"].append({"step": "initial_navigation", "error": type(exc).__name__ + ":" + short(exc)})
         finally:
+            report["browser_pages"] = [short(p.url, 200) for p in context.pages]
             browser.close()
 
     (output / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -191,7 +199,13 @@ def main():
         )),
         "request_count": len(report["events"]),
         "block_count": len(report["blocked_non_read_only_requests"]),
-        "errors": report["errors"],
+        "errors": report["errors"], "browser_pages": report["browser_pages"],
+        "page_errors": report["page_errors"], "console_errors": report["console_errors"],
+        "get_paths": sorted(set(x["path"] for x in report["events"] if x["method"] == "GET"))[:70],
+        "context_page_metadata": [{
+            "frames": p.get("frame_urls", []), "scripts": p.get("script_sources", []),
+            "body_html_prefix": p.get("body_html_prefix", "")[:500]
+        } for p in report["pages"]],
     }
     print("PROCUREFLOW_PUBLIC_WEB_PROBE", json.dumps(summary, ensure_ascii=False), flush=True)
 
