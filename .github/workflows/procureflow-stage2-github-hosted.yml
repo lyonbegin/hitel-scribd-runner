@@ -1,0 +1,173 @@
+name: ProcureFlow Stage 2 - GitHub hosted runner resume
+run-name: "G2B Stage2 | GitHub-hosted only | preserved 721-day queue"
+on:
+  push:
+    branches: [fix/procureflow-stage2-tenworkers-resume-20261115]
+    paths: [.github/workflows/procureflow-stage2-github-hosted.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  hosted-preflight:
+    name: Validate hosted Chrome, original evidence and collector before PC handoff
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: \${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify permanent releases exist (no Stage 1 recollection)
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          gh api "/repos/$repo/releases/tags/procureflow-stage2-evidence-43553991301" \
+            --jq '.assets[].name' | grep -Fxq 'g2b-two-year-notice-index-merged.zip'
+          gh api "/repos/$repo/releases/tags/procureflow-stage2-tenworkers-20261115" \
+            --jq '.assets[].name' | grep -q '^g2b-status-shard-'
+          echo 'ORIGINAL_INDEX_AND_DURABLE_CHECKPOINTS_PRESENT=true'
+      - name: Install existing Python collection dependencies and isolated display
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'playwright==1.56.0' truststore
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then
+            python -m playwright install --with-deps chrome
+          fi
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y xvfb
+          fi
+          python -m py_compile tools/procureflow/g2b_bidder_detail_stage2_recovery.py
+          python -m py_compile tools/procureflow/g2b_stage2_tenworker_supervisor.py
+          python -m unittest discover -s tests -p test_g2b_bidder_detail_recovery.py -v
+      - name: Live read-only Chrome smoke before stopping PC run
+        shell: bash
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s '-screen 0 1920x1080x24' python - <<'PY'
+          import asyncio
+          from playwright.async_api import async_playwright
+          async def main():
+              async with async_playwright() as p:
+                  browser=await p.chromium.launch(channel="chrome",headless=False)
+                  context=await browser.new_context(locale="ko-KR",timezone_id="Asia/Seoul")
+                  page=await context.new_page()
+                  response=await page.goto("https://www.g2b.go.kr/",wait_until="domcontentloaded",timeout=35000)
+                  if not response or response.status >= 400:
+                      raise RuntimeError("G2B homepage inaccessible from GitHub-hosted Chrome")
+                  print("GITHUB_HOSTED_CHROME_PREFLIGHT_OK",response.status)
+                  await browser.close()
+          asyncio.run(main())
+          PY
+
+  hosted-capture:
+    name: Run unchanged 10-worker detail collector on GitHub-hosted Ubuntu
+    needs: hosted-preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    concurrency:
+      group: procureflow-stage2-tenworkers-exclusive
+      cancel-in-progress: true
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: \${{ github.token }}
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    outputs:
+      need_continue: \${{ steps.state.outputs.need_continue }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Confirm previous PC-backed run has stopped before accessing any shard
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            status=$(gh api "/repos/$GITHUB_REPOSITORY/actions/runs/43791555655" --jq .status)
+            if [[ "$status" == completed ]]; then
+              echo "OLD_PC_RUN_TERMINATED=true"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo '::error::PC collection is not terminal; refuse concurrent shard access'
+          exit 1
+      - name: Install required dependencies and X virtual display
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'playwright==1.56.0' truststore
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then
+            python -m playwright install --with-deps chrome
+          fi
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y xvfb
+          fi
+      - name: Resume only missing Stage 2 shards from preserved Release (NO index scraping)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/g2b-hosted"
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/g2b_stage2_tenworker_supervisor.py \
+              --workdir "$RUNNER_TEMP/g2b-hosted" --repo "$GITHUB_REPOSITORY" \
+              --max-shards 4 --threads 10
+      - name: Read durable checkpoint continuation state
+        id: state
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          file="$RUNNER_TEMP/g2b-hosted/runner-state.json"
+          if [[ -f "$file" ]]; then
+            cat "$file"
+            echo "need_continue=$(python -c 'import json,sys; print(str(json.load(open(sys.argv[1]))["need_continue"]).lower())' "$file")" >> "$GITHUB_OUTPUT"
+          else
+            echo 'need_continue=false' >> "$GITHUB_OUTPUT"
+            echo '::warning::No supervisor checkpoint; do not auto-resume'
+          fi
+      - name: Preserve per-session operational state
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2b-hosted-session-\${{ github.run_id }}
+          path: \${{ runner.temp }}/g2b-hosted/runner-state.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  continue-if-needed:
+    name: Dispatch next GitHub-hosted batch only after durable checkpoint
+    needs: hosted-capture
+    if: \${{ needs.hosted-capture.result == 'success' && needs.hosted-capture.outputs.need_continue == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: \${{ github.token }}
+    steps:
+      - name: Continue using only the GitHub-hosted workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method POST \
+            "/repos/$GITHUB_REPOSITORY/actions/workflows/procureflow-stage2-github-hosted.yml/dispatches" \
+            -f ref='fix/procureflow-stage2-tenworkers-resume-20261115'
+          echo 'NEXT_HOSTED_RESUME_REQUESTED=true'
