@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/procureflow-contract-web-probe.yml
       - tools/procureflow/probe_contract_public_ui.py
+      - tools/procureflow/probe_websquare_bootstrap.py
       - tools/procureflow/schema_2y_core.sql
       - tools/procureflow/probe_g2b_public_bundles.py
       - tests/test_procureflow_2y_schema.sql
@@ -69,6 +70,45 @@ jobs:
             ${{ runner.temp }}/procureflow-g2b-probe/
             ${{ runner.temp }}/procureflow-data-probe/
             ${{ runner.temp }}/procureflow-shop-probe/
+          if-no-files-found: warn
+          retention-days: 90
+
+  diagnose-websquare-bootstrap:
+    name: Inspect WebSquare empty DOM and OIDC redirects read-only
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Chrome/Xvfb diagnostic dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then
+            python -m playwright install --with-deps chrome
+          fi
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y xvfb
+          fi
+          python -m py_compile tools/procureflow/probe_websquare_bootstrap.py
+      - name: Diagnose each public portal without POST or login
+        run: |
+          set -euo pipefail
+          for site in g2b data shop; do
+            mkdir -p "$RUNNER_TEMP/boot-$site"
+            xvfb-run -a -s '-screen 0 1920x1080x24' python tools/procureflow/probe_websquare_bootstrap.py --site "$site" --outdir "$RUNNER_TEMP/boot-$site"
+          done
+      - name: Retain DOM bytes, hashes, screenshots and redirect evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: procureflow-websquare-bootstrap-${{ github.run_id }}
+          path: ${{ runner.temp }}/boot-*/
           if-no-files-found: warn
           retention-days: 90
 
