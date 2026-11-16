@@ -46,11 +46,25 @@ jobs:
           xvfb-run -a -s '-screen 0 1920x1080x24' \
             python tools/procureflow/probe_contract_public_ui.py \
               --site g2b --outdir "$RUNNER_TEMP/procureflow-g2b-probe"
+      - name: Inspect public report portal and shopping portal in sequence
+        shell: bash
+        run: |
+          set -euo pipefail
+          for site in data shop; do
+            echo "PUBLIC_SITE_START=$site"
+            mkdir -p "$RUNNER_TEMP/procureflow-$site-probe"
+            xvfb-run -a -s '-screen 0 1920x1080x24' \
+              python tools/procureflow/probe_contract_public_ui.py \
+                --site "$site" --outdir "$RUNNER_TEMP/procureflow-$site-probe"
+          done
       - name: Save screenshots, navigation and limited network metadata
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: procureflow-g2b-public-ui-${{ github.run_id }}
-          path: ${{ runner.temp }}/procureflow-g2b-probe/
+          path: |
+            ${{ runner.temp }}/procureflow-g2b-probe/
+            ${{ runner.temp }}/procureflow-data-probe/
+            ${{ runner.temp }}/procureflow-shop-probe/
           if-no-files-found: warn
           retention-days: 90
