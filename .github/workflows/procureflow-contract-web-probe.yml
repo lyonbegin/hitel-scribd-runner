@@ -7,6 +7,7 @@ on:
       - .github/workflows/procureflow-contract-web-probe.yml
       - tools/procureflow/probe_contract_public_ui.py
       - tools/procureflow/schema_2y_core.sql
+      - tools/procureflow/probe_g2b_public_bundles.py
       - tests/test_procureflow_2y_schema.sql
   workflow_dispatch:
 permissions:
@@ -107,3 +108,27 @@ jobs:
         run: |
           psql --set ON_ERROR_STOP=on -Atc \
             "SELECT count(*) FROM information_schema.tables WHERE table_schema='procureflow_2y';"
+
+  inspect-websquare-public-bundles:
+    name: Inspect public WebSquare JS and contract route clues (no login)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install read-only HTTP probe dependencies
+        run: python -m pip install --disable-pip-version-check playwright==1.56.0
+      - name: Fetch only observed public JS assets and extract safe path clues
+        run: python tools/procureflow/probe_g2b_public_bundles.py
+      - name: Save JS status, hashes and safe search results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: procureflow-public-websquare-js-${{ github.run_id }}
+          path: procureflow_bundle_report.json
+          if-no-files-found: warn
+          retention-days: 90
