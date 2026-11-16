@@ -181,6 +181,18 @@ def main():
                                 break
                         except Exception as exc:
                             report["errors"].append({"step": "contract_menu", "error": type(exc).__name__ + ":" + short(exc)})
+            elif args.site == "data":
+                reports = [
+                    ("01_contract_method_report", "https://data.g2b.go.kr/link/AISC001_01/?reptNm=UI-ADOXFA-113R"),
+                    ("02_business_report", "https://data.g2b.go.kr/link/AISC001_01/?reptNm=UI-ADOXFA-112R"),
+                ]
+                for name, target in reports:
+                    try:
+                        r = page.goto(target, wait_until="domcontentloaded", timeout=25000)
+                        report[name + "_http_status"] = r.status if r else None
+                        capture(name)
+                    except Exception as exc:
+                        report["errors"].append({"step": name, "error": type(exc).__name__ + ":" + short(exc)})
         except Exception as exc:
             report["errors"].append({"step": "initial_navigation", "error": type(exc).__name__ + ":" + short(exc)})
         finally:
@@ -202,6 +214,8 @@ def main():
         "errors": report["errors"], "browser_pages": report["browser_pages"],
         "page_errors": report["page_errors"], "console_errors": report["console_errors"],
         "get_paths": sorted(set(x["path"] for x in report["events"] if x["method"] == "GET"))[:70],
+        "report_http_statuses": {k:v for k,v in report.items() if k.endswith("_http_status")},
+        "oidc_responses": [x for x in report["events"] if "/oidc/" in x["path"]][:12],
         "context_page_metadata": [{
             "frames": p.get("frame_urls", []), "scripts": p.get("script_sources", []),
             "body_html_prefix": p.get("body_html_prefix", "")[:500]
