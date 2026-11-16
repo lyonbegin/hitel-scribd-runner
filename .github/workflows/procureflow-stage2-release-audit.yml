@@ -1,0 +1,43 @@
+name: ProcureFlow 2Y - independently audit saved Stage2 bidder assets
+run-name: "G2B 2Y | Release status and sampled ZIP SHA/CRC verification"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-stage2-release-audit.yml
+      - tools/procureflow/audit_2y_stage2_release.py
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: procureflow-stage2-release-read-only-audit
+  cancel-in-progress: false
+
+jobs:
+  evidence-audit:
+    name: Audit 187 status manifests and ZIP samples without recollecting notices
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check Python source and audit read-only asset access
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/procureflow/audit_2y_stage2_release.py
+          test "$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/procureflow-stage2-tenworkers-20261115" --jq '.tag_name')" = 'procureflow-stage2-tenworkers-20261115'
+      - name: Validate actual 187 status JSON asset bytes and 3 ZIP SHA256+CRC
+        run: |
+          set -euo pipefail
+          python3 tools/procureflow/audit_2y_stage2_release.py
+      - name: Retain independent audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: procureflow-stage2-readonly-audit-${{ github.run_id }}
+          path: ${{ runner.temp }}/pf2-release-audit/release-2y-audit.json
+          if-no-files-found: warn
+          retention-days: 90
