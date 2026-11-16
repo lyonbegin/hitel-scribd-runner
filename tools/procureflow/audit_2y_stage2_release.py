@@ -20,8 +20,8 @@ from pathlib import Path
 TAG = "procureflow-stage2-tenworkers-20261115"
 COUNT = 187
 EXPECTED = 930279
-STATUS = re.compile(r"^g2b-status-shard-(\\d+)-(.+)\\.json$")
-ZIP = re.compile(r"^g2b-repair-shard-(\\d+)-(.+)\\.zip$")
+STATUS = re.compile(r"^g2b-status-shard-(\d+)-(.+)\.json$")
+ZIP = re.compile(r"^g2b-repair-shard-(\\d+)-(.+)\.zip$")
 SAMPLES = (0,93,186)
 
 def checksum(path):
