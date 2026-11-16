@@ -27,7 +27,7 @@ SCRIPT_PATHS = (
     "/dtap_com/js/dtap_com.js",
 )
 KEYWORD = re.compile(r"(?i)계약|contract|cntrct|cntrc|ctrt|ctrct|계약실적|계약현황|수의")
-PUBLIC_PATH = re.compile(r"/[A-Za-z0-9_./-]{6,180}\\.(?:do|xml|json|js)")
+PUBLIC_PATH = re.compile(r"/[A-Za-z0-9_./-]{6,180}\.(?:do|xml|json|js)")
 NOISE = re.compile(r"(?i)password|authorization|cookie|token|secret|key|nonce|state|client_id")
 
 
@@ -37,7 +37,7 @@ def inspect_text(text):
     for match in KEYWORD.finditer(text):
         # Only explicitly labeled source hints, not raw script bodies.
         piece = text[max(0, match.start()-95):match.end()+120]
-        piece = re.sub(r"\\s+", " ", piece)
+        piece = re.sub(r"\s+", " ", piece)
         if NOISE.search(piece):
             continue
         if piece in seen:
@@ -65,7 +65,7 @@ def run():
                         body = r.body()
                         result.update(http=r.status,mime=r.headers.get("content-type","").split(";")[0],
                                       bytes=len(body),sha256=hashlib.sha256(body).hexdigest())
-                        if r.status==200 and len(body)<=3_000_000 and b"\\x00" not in body:
+                        if r.status==200 and len(body)<=3_000_000 and b"\x00" not in body:
                             text = body.decode("utf-8-sig",errors="replace")
                             snippets,paths=inspect_text(text)
                             result["safe_keyword_snippets"]=snippets
