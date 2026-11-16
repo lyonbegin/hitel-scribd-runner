@@ -184,6 +184,19 @@ def run():
                                     "response_top_level_keys":sorted(parsed)[:15],
                                     "result_keys":sorted(body)[:20] if isinstance(body,dict) else [],
                                     "bidder_rows":len(body.get("successBidInfo",[])) if isinstance(body,dict) and isinstance(body.get("successBidInfo"),list) else None,
+                                    "bidInfo_type":type(body.get("bidInfo")).__name__ if isinstance(body,dict) else None,
+                                    "bidInfo_keys":sorted(body.get("bidInfo"))[:35] if isinstance(body,dict) and isinstance(body.get("bidInfo"),dict) else [],
+                                    "etcData_type":type(body.get("etcData")).__name__ if isinstance(body,dict) else None,
+                                    "etcData_keys":sorted(body.get("etcData"))[:35] if isinstance(body,dict) and isinstance(body.get("etcData"),dict) else [],
+                                    "safe_numeric_flags":{
+                                        part+"."+key:str(val)[:28]
+                                        for part in ("bidInfo","etcData")
+                                        for key,val in (body.get(part) or {}).items()
+                                        if isinstance(body,dict) and isinstance(body.get(part),dict)
+                                          and re.search("(?i)^(totCnt|totalCount|.*(?:count|cnt|pgstCd|sttsCd|onbsCnt|rowNum|pageNo))$",str(key))
+                                          and isinstance(val,(str,int,float,bool))
+                                          and len(str(val))<29
+                                    },
                                     "http_error_code":parsed.get("ErrorCode")
                                 })
                     except Exception as exc:
