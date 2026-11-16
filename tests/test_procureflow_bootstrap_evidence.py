@@ -10,10 +10,21 @@ class BootstrapEvidenceTest(unittest.TestCase):
              "request_failures":[{"method":"POST","failure":"net::ERR_ABORTED"}],
              "responses":[{"method":"GET","status":200}]}
         item=classify({"data":[row]})[0]
-        self.assertEqual(item["blocked_post_count"],1)
+        self.assertEqual(item["failed_post_count"],1)
+        self.assertEqual(item["ambiguous_post_failure_count"],1)
+        self.assertEqual(item["confirmed_client_guard_post_count"],0)
+        self.assertEqual(item["reason"],"post_failure_origin_unverified")
         self.assertEqual(item["observed_post_count"],0)
         self.assertEqual(item["verified_data_rows"],0)
         self.assertEqual(item["classification"],"NOT_VERIFIED")
+    def test_explicit_client_guard_marker_is_distinguished(self):
+        row={"requested_url":"https://data.g2b.go.kr/","http_status":200,
+             "request_failures":[{"method":"POST","failure":"net::ERR_BLOCKED_BY_CLIENT","client_guard_blocked":True}]}
+        item=classify({"data":[row]})[0]
+        self.assertEqual(item["confirmed_client_guard_post_count"],1)
+        self.assertEqual(item["ambiguous_post_failure_count"],0)
+        self.assertEqual(item["reason"],"client_blocked_post_not_server_failure")
+
     def test_successful_http_200_post_is_not_data_validation(self):
         row={"requested_url":"https://www.g2b.go.kr/","http_status":200,
              "dom":{"bodyChildren":0,"websquare":"object"},
