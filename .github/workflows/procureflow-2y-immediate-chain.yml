@@ -1,0 +1,138 @@
+name: ProcureFlow 2Y - immediate sequential public website inspection
+run-name: "PF2 NEXT | ${{ inputs.stage || 'g2b' }} | no hourly wait"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-2y-immediate-chain.yml
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "Next read-only public website to inspect; no login or API key"
+        type: choice
+        options: [g2b, data, shop]
+        default: g2b
+        required: true
+
+permissions:
+  contents: read
+concurrency:
+  group: procureflow-2y-sequential-public-site-probe
+  cancel-in-progress: false
+
+jobs:
+  inspect-one-site:
+    name: "Inspect one site and persist evidence before next dispatch"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      next_stage: ${{ steps.next.outputs.next_stage }}
+      stage: ${{ steps.next.outputs.stage }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install GitHub-hosted Chrome and Xvfb only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then
+            python -m playwright install --with-deps chrome
+          fi
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y xvfb
+          fi
+          python -m py_compile tools/procureflow/probe_contract_public_ui.py
+          python -m py_compile tools/procureflow/probe_websquare_bootstrap.py
+      - name: Read-only public page and bootstrap inspection for one site
+        id: capture
+        shell: bash
+        env:
+          REQUESTED_STAGE: ${{ inputs.stage || 'g2b' }}
+        run: |
+          set -euo pipefail
+          case "$REQUESTED_STAGE" in
+            g2b|data|shop) ;;
+            *) echo '::error::Unrecognized website stage'; exit 2 ;;
+          esac
+          out="$RUNNER_TEMP/pf2-chain/$REQUESTED_STAGE"
+          mkdir -p "$out/ui" "$out/bootstrap"
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/probe_contract_public_ui.py \
+              --site "$REQUESTED_STAGE" --outdir "$out/ui"
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/probe_websquare_bootstrap.py \
+              --site "$REQUESTED_STAGE" --outdir "$out/bootstrap"
+          python - "$out/ui/report.json" "$REQUESTED_STAGE" <<'PY'
+          import json, sys
+          from pathlib import Path
+          report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          if report.get("site") != sys.argv[2] or "homepage_status" not in report:
+              raise SystemExit("Read-only probe did not produce a valid navigation report")
+          verified = report.get("verified_public_contract_data", False)
+          print("PF2_SINGLE_SITE_PROBE",json.dumps({
+              "site": sys.argv[2],
+              "homepage_http": report.get("homepage_status"),
+              "observed_pages": len(report.get("pages",[])),
+              "read_only_post_paths": len([x for x in report.get("events",[]) if x.get("method")=="POST"]),
+              "actual_contract_data_verified": bool(verified),
+              "note": "Homepage HTTP 200 and successful diagnostic are not procurement record extraction"
+          },ensure_ascii=False))
+          PY
+      - name: Upload original diagnostic evidence before dispatching another website
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf2-website-stage-${{ inputs.stage || 'g2b' }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/pf2-chain/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Choose next DISTINCT website only (never loop a blocked site)
+        id: next
+        shell: bash
+        env:
+          STAGE: ${{ inputs.stage || 'g2b' }}
+        run: |
+          set -euo pipefail
+          case "$STAGE" in
+            g2b) next=data ;;
+            data) next=shop ;;
+            shop) next='' ;;
+            *) exit 2 ;;
+          esac
+          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
+          echo "next_stage=$next" >> "$GITHUB_OUTPUT"
+          if [[ -z "$next" ]]; then
+            echo 'CHAIN_COMPLETE_FOR_THIS_EVIDENCE_REVISION=true'
+            echo 'NO_AUTOMATIC_REPEAT_WITHOUT_NEW_COLLECTOR_CODE_OR_NEW_PUBLIC_ENDPOINT=true'
+          else
+            echo "NEXT_DISTINCT_PUBLIC_SITE=$next"
+          fi
+
+  dispatch-next-immediately:
+    name: "Immediately dispatch next stage after evidence artifact was saved"
+    needs: inspect-one-site
+    if: ${{ needs.inspect-one-site.result == 'success' && needs.inspect-one-site.outputs.next_stage != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NEXT_STAGE: ${{ needs.inspect-one-site.outputs.next_stage }}
+    steps:
+      - name: GitHub workflow_dispatch without waiting for an hourly automation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$NEXT_STAGE" = data -o "$NEXT_STAGE" = shop
+          gh api --method POST \
+            "/repos/$GITHUB_REPOSITORY/actions/workflows/procureflow-2y-immediate-chain.yml/dispatches" \
+            -f ref='research/procureflow-contract-web-probe-20261116' \
+            -f "inputs[stage]=$NEXT_STAGE"
+          echo "NEXT_GITHUB_HOSTED_STAGE_DISPATCHED=$NEXT_STAGE"
