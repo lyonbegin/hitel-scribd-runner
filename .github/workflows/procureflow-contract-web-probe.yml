@@ -10,8 +10,10 @@ on:
       - tools/procureflow/audit_bootstrap_evidence.py
       - tests/test_procureflow_bootstrap_evidence.py
       - tools/procureflow/schema_2y_core.sql
+      - tools/procureflow/schema_2y_mas_extension.sql
       - tools/procureflow/probe_g2b_public_bundles.py
       - tests/test_procureflow_2y_schema.sql
+      - tests/test_procureflow_2y_mas_extension.sql
   workflow_dispatch:
 permissions:
   contents: read
@@ -154,6 +156,10 @@ jobs:
         run: psql --set ON_ERROR_STOP=on --file tools/procureflow/schema_2y_core.sql
       - name: Check distinct bidder rows, award non-identity and contracts not multiplied
         run: psql --set ON_ERROR_STOP=on --file tests/test_procureflow_2y_schema.sql
+      - name: Validate separate MAS agreement, supplier, catalog and delivery entities
+        run: |
+          psql --set ON_ERROR_STOP=on --file tools/procureflow/schema_2y_mas_extension.sql
+          psql --set ON_ERROR_STOP=on --file tests/test_procureflow_2y_mas_extension.sql
       - name: Confirm resulting table count
         run: |
           psql --set ON_ERROR_STOP=on -Atc \
