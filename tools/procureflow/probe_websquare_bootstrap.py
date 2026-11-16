@@ -24,7 +24,7 @@ def run(site, out):
         context.route("**/*", lambda route: route.continue_() if route.request.method in ("GET", "HEAD", "OPTIONS") else route.abort("blockedbyclient"))
         for idx, url in enumerate(URLS[site]):
             page = context.new_page()
-            events, errors = [], []
+            events, errors, failed_requests = [], [], []
             def on_response(res):
                 u = urlsplit(res.url)
                 if u.hostname and (u.hostname.endswith("g2b.go.kr")):
@@ -34,6 +34,7 @@ def run(site, out):
                                    "location_host":urlsplit(res.headers.get("location","")).hostname,
                                    "mime":res.headers.get("content-type","").split(";")[0]})
             page.on("response", on_response)
+            page.on("requestfailed", lambda req: failed_requests.append({"url":req.url.split("?")[0][:240], "method":req.method, "failure":req.failure}))
             page.on("pageerror", lambda exc: errors.append(str(exc)[:300]))
             page.on("console", lambda msg: errors.append("console:"+msg.text[:300]) if msg.type=="error" else None)
             status = None
@@ -48,6 +49,10 @@ def run(site, out):
                     htmlLength: document.documentElement?.outerHTML.length ?? null,
                     websquare: typeof window.WebSquare,
                     scriptCount: document.scripts.length,
+                    websquareVersion: window.WebSquare?.version || null,
+                    documentBase: document.baseURI,
+                    activeElement: document.activeElement?.tagName || null,
+                    scripts: [...document.scripts].map(x=>({src:x.src.split("?")[0], loaded:!!x.src, type:x.type})).slice(-45),
                     frames: [...document.querySelectorAll('iframe')].map(x=>x.src).slice(0,15)
                 })""")
                 html = page.content().encode("utf-8")
@@ -60,7 +65,7 @@ def run(site, out):
                 dom = {"error":type(exc).__name__ + ":" + str(exc)[:300]}
             report.append({"requested_url":url,"final_url":page.url,"http_status":status,
                            "dom":dom,"errors":errors[:40],"responses":events[-180:],
-                           "response_total":len(events),
+                           "response_total":len(events),"request_failures":failed_requests[:40],
                            "get_302":[e for e in events if e["status"]==302][-20:],
                            "non_static":[e for e in events if e["type"] in ("xhr","fetch","document")][-60:]})
             page.close()
