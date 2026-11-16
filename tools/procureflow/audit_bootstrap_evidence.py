@@ -13,6 +13,8 @@ def classify(reports):
             failures = row.get("request_failures") or []
             non_static = row.get("non_static") or []
             aborted_posts = [f for f in failures if f.get("method") == "POST"]
+            confirmed_guard = [f for f in aborted_posts if f.get("client_guard_blocked") is True]
+            ambiguous_failures = [f for f in aborted_posts if f.get("client_guard_blocked") is not True]
             observed_posts = [r for r in responses if r.get("method") == "POST"]
             successful_posts = [r for r in observed_posts if r.get("status") == 200]
             # A POST aborted by the read-only guard is not an HTTP error from the server.
@@ -23,13 +25,16 @@ def classify(reports):
                 "dom_empty": dom.get("bodyChildren") == 0,
                 "websquare_loaded": dom.get("websquare") == "object",
                 "oidc_302_count": len(row.get("get_302") or []),
-                "blocked_post_count": len(aborted_posts),
+                "failed_post_count": len(aborted_posts),
+                "confirmed_client_guard_post_count": len(confirmed_guard),
+                "ambiguous_post_failure_count": len(ambiguous_failures),
                 "observed_post_count": len(observed_posts),
                 "http_200_post_count": len(successful_posts),
                 "non_static_response_count": len(non_static),
                 "verified_data_rows": 0,
                 "classification": "NOT_VERIFIED",
-                "reason": ("client_blocked_post_not_server_failure" if aborted_posts
+                "reason": ("post_failure_origin_unverified" if ambiguous_failures
+                           else "client_blocked_post_not_server_failure" if confirmed_guard
                            else "no_validated_list_detail_pagination")
             })
     return result
