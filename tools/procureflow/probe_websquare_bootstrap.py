@@ -41,7 +41,23 @@ def run(site, out):
             try:
                 response = page.goto(url, wait_until="domcontentloaded", timeout=35000)
                 status = response.status if response else None
-                page.wait_for_timeout(12000)
+                # Capture timed, non-interactive DOM snapshots to explain intermittent homepage rendering.
+                timeline = []
+                for elapsed in (2000, 5000, 9000, 12000):
+                    page.wait_for_timeout(elapsed - (timeline[-1]["elapsed_ms"] if timeline else 0))
+                    snapshot = page.evaluate("""() => ({
+                        ready: document.readyState,
+                        children: document.body?.childElementCount ?? null,
+                        textLength: document.body?.innerText?.length ?? null,
+                        controls: document.querySelectorAll('a,button,input,[role="button"]').length,
+                        frameCount: document.querySelectorAll('iframe').length,
+                        websquare: typeof window.WebSquare,
+                        visibleLabels: [...document.querySelectorAll('a,button,[role="button"]')]
+                            .filter(e => e.getClientRects().length)
+                            .map(e => (e.innerText || e.getAttribute('aria-label') || '').trim())
+                            .filter(Boolean).slice(0,40)
+                    })""")
+                    timeline.append({"elapsed_ms":elapsed, **snapshot})
                 dom = page.evaluate("""() => ({
                     ready: document.readyState,
                     bodyChildren: document.body?.childElementCount ?? null,
@@ -59,6 +75,7 @@ def run(site, out):
                 filename = f"{site}_{idx}_dom.html"
                 (out/filename).write_bytes(html)
                 dom["html_sha256"] = hashlib.sha256(html).hexdigest()
+                dom["timeline"] = timeline
                 dom["html_file"] = filename
                 page.screenshot(path=str(out/f"{site}_{idx}.png"), timeout=12000)
             except Exception as exc:
