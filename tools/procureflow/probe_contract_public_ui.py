@@ -83,7 +83,7 @@ def main():
         "blocked_non_read_only_requests": [],
         "errors": [], "console_errors": [], "page_errors": [], "browser_pages": [],
         "request_failures": [], "http_errors": [], "tracked_post_responses": [],
-        "response_count_total": 0,
+        "response_count_total": 0, "late_script_paths": [], "xhr_paths": [],
     }
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(channel="chrome", headless=False, timeout=30000)
@@ -125,6 +125,12 @@ def main():
             # Collect late failures and POST metadata independently of the static resource flood.
             if response.status >= 400 and len(report["http_errors"]) < 60:
                 report["http_errors"].append(info)
+            if info["method"] in ("GET","POST") and len(report["late_script_paths"]) < 240:
+                if info["path"].endswith((".js",".xml",".json",".do",".wq")):
+                    report["late_script_paths"].append(info)
+            if info["method"] == "POST" or (".do" in info["path"] and response.status == 200):
+                if len(report["xhr_paths"]) < 100:
+                    report["xhr_paths"].append(info)
             if response.request.method == "POST" and len(report["tracked_post_responses"]) < 40:
                 report["tracked_post_responses"].append(info)
             if len(report["events"]) < MAX_EVENTS:
@@ -234,6 +240,8 @@ def main():
         "request_count": len(report["events"]),
         "response_count_total": report["response_count_total"],
         "http_errors": report["http_errors"], "request_failures": report["request_failures"],
+        "observed_script_paths": sorted(set(x["path"] for x in report["late_script_paths"]))[-110:],
+        "xhr_paths": report["xhr_paths"][:30],
         "tracked_post_responses": report["tracked_post_responses"],
         "document_probes": [p.get("document_probe") for p in report["pages"]],
         "block_count": len(report["blocked_non_read_only_requests"]),
