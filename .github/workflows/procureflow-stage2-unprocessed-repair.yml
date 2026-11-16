@@ -1,0 +1,106 @@
+name: ProcureFlow 2Y - recover only zero-processed Stage2 shards
+run-name: "G2B 2Y | GitHub-hosted 10-worker | recover missing processed rows only"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-stage2-unprocessed-repair.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  recover-zero-processed:
+    name: Repair a single verified-zero shard from preserved original notice queue
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    concurrency:
+      group: procureflow-stage2-tenworkers-exclusive
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONUTF8: '1'
+    outputs:
+      need_continue: ${{ steps.state.outputs.need_continue }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check cancelled PC run and immutable source queue
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "/repos/$GITHUB_REPOSITORY/actions/runs/43791555655" --jq .status)" = completed
+          test "$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/procureflow-stage2-evidence-43553991301" --jq 'any(.assets[]; .name=="g2b-two-year-notice-index-merged.zip")')" = true
+          echo 'PC_RUN_TERMINAL_AND_ORIGINAL_RELEASE_PRESENT=true'
+      - name: Install unchanged ten-worker collector dependencies on GitHub-hosted Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0 truststore
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then
+            python -m playwright install --with-deps chrome
+          fi
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y xvfb
+          fi
+          python -m py_compile tools/procureflow/g2b_bidder_detail_stage2_recovery.py
+          python -m py_compile tools/procureflow/g2b_stage2_tenworker_supervisor.py
+      - name: Repair ONLY previous zero-processed shards, one shard per run
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pf2-zero-shards"
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/g2b_stage2_tenworker_supervisor.py \
+              --workdir "$RUNNER_TEMP/pf2-zero-shards" --repo "$GITHUB_REPOSITORY" \
+              --max-shards 1 --threads 10 --repair-only-unprocessed
+      - name: Inspect safely retained next-step state
+        id: state
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          f="$RUNNER_TEMP/pf2-zero-shards/runner-state.json"
+          if [[ -f "$f" ]]; then
+            cat "$f"
+            echo "need_continue=$(python -c 'import json,sys; print(str(json.load(open(sys.argv[1]))["need_continue"]).lower())' "$f")" >> "$GITHUB_OUTPUT"
+          else
+            echo 'need_continue=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Preserve session report without altering original releases
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf2-zero-shard-repair-${{ github.run_id }}
+          path: ${{ runner.temp }}/pf2-zero-shards/runner-state.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  continue-if-unprocessed:
+    name: Continue only while evidence shows remaining zero-processed shards
+    needs: recover-zero-processed
+    if: ${{ needs.recover-zero-processed.result == 'success' && needs.recover-zero-processed.outputs.need_continue == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Dispatch only this isolated hosted recovery workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method POST \
+            "/repos/$GITHUB_REPOSITORY/actions/workflows/procureflow-stage2-unprocessed-repair.yml/dispatches" \
+            -f ref='research/procureflow-contract-web-probe-20261116'
+          echo 'NEXT_REPAIR_FOR_ZERO_PROCESSED_SHARDS_REQUESTED=true'
