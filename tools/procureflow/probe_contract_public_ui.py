@@ -82,6 +82,8 @@ def main():
         "events": [], "screenshots": [], "pages": [],
         "blocked_non_read_only_requests": [],
         "errors": [], "console_errors": [], "page_errors": [], "browser_pages": [],
+        "request_failures": [], "http_errors": [], "tracked_post_responses": [],
+        "response_count_total": 0,
     }
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(channel="chrome", headless=False, timeout=30000)
@@ -116,15 +118,22 @@ def main():
         page.on("console", lambda msg: report["console_errors"].append(short(msg.text, 220)) if msg.type == "error" and len(report["console_errors"]) < 25 else None)
 
         def on_response(response):
-            if len(report["events"]) >= MAX_EVENTS:
-                return
+            report["response_count_total"] += 1
             info = network_info(response.request)
             info["status"] = response.status
             info["mime"] = (response.headers.get("content-type") or "").split(";")[0]
-            # Request metadata only: never log auth headers or full post bodies.
-            report["events"].append(info)
+            # Collect late failures and POST metadata independently of the static resource flood.
+            if response.status >= 400 and len(report["http_errors"]) < 60:
+                report["http_errors"].append(info)
+            if response.request.method == "POST" and len(report["tracked_post_responses"]) < 40:
+                report["tracked_post_responses"].append(info)
+            if len(report["events"]) < MAX_EVENTS:
+                report["events"].append(info)
 
         page.on("response", on_response)
+        page.on("requestfailed", lambda req: report["request_failures"].append(
+            {**network_info(req), "failure": short(req.failure, 180)}
+        ) if len(report["request_failures"]) < 40 else None)
 
         def capture(name):
             try:
@@ -137,6 +146,14 @@ def main():
                     "step": name, "current_url": page.url,
                     "title": short(page.title(), 160),
                     "body_excerpt": short(page.locator("body").inner_text(timeout=5000), 1600),
+                    "document_probe": page.evaluate("""() => ({
+                        ready: document.readyState,
+                        htmlLength: document.documentElement?.outerHTML?.length || 0,
+                        bodyCount: document.body?.childElementCount || 0,
+                        bodyTextLength: document.body?.innerText?.length || 0,
+                        webSquareDefined: typeof window.WebSquare !== 'undefined',
+                        websquareObject: typeof window.$w !== 'undefined'
+                    })"""),
                     "visible_controls": labels[:80],
                     "frame_urls": [short(frame.url, 180) for frame in page.frames],
                     "context_pages": [short(p.url, 180) for p in context.pages],
@@ -210,6 +227,10 @@ def main():
             x["path"] for x in report["events"] if x["method"] == "POST"
         )),
         "request_count": len(report["events"]),
+        "response_count_total": report["response_count_total"],
+        "http_errors": report["http_errors"], "request_failures": report["request_failures"],
+        "tracked_post_responses": report["tracked_post_responses"],
+        "document_probes": [p.get("document_probe") for p in report["pages"]],
         "block_count": len(report["blocked_non_read_only_requests"]),
         "errors": report["errors"], "browser_pages": report["browser_pages"],
         "page_errors": report["page_errors"], "console_errors": report["console_errors"],
