@@ -5,6 +5,9 @@ on:
     branches: [research/procureflow-contract-web-probe-20261116]
     paths:
       - .github/workflows/procureflow-2y-immediate-chain.yml
+      - tools/procureflow/probe_contract_public_ui.py
+      - tools/procureflow/probe_websquare_bootstrap.py
+      - tools/procureflow/probe_g2b_public_bundles.py
   workflow_dispatch:
     inputs:
       stage:
