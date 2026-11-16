@@ -54,7 +54,7 @@ def run():
     report = {"at":dt.datetime.now(dt.timezone.utc).isoformat(),"description":"public-bundle-readonly",
               "results":[]}
     with sync_playwright() as pw:
-        req = pw.request.new_context(locale="ko-KR",ignore_https_errors=False,timeout=20000)
+        req = pw.request.new_context(ignore_https_errors=False,timeout=20000)
         try:
             for origin in ROOTS:
                 for path in SCRIPT_PATHS:
