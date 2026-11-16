@@ -6,6 +6,8 @@ on:
     paths:
       - .github/workflows/procureflow-contract-web-probe.yml
       - tools/procureflow/probe_contract_public_ui.py
+      - tools/procureflow/schema_2y_core.sql
+      - tests/test_procureflow_2y_schema.sql
   workflow_dispatch:
 permissions:
   contents: read
@@ -68,3 +70,40 @@ jobs:
             ${{ runner.temp }}/procureflow-shop-probe/
           if-no-files-found: warn
           retention-days: 90
+
+  validate-two-year-schema:
+    name: Validate isolated PostgreSQL tables, duplicate policy, FK and join arithmetic
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: proc_test
+          POSTGRES_PASSWORD: proc_test
+          POSTGRES_DB: proc_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U proc_test -d proc_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: proc_test
+      PGPASSWORD: proc_test
+      PGDATABASE: proc_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Apply isolated schema in disposable database
+        run: psql --set ON_ERROR_STOP=on --file tools/procureflow/schema_2y_core.sql
+      - name: Check distinct bidder rows, award non-identity and contracts not multiplied
+        run: psql --set ON_ERROR_STOP=on --file tests/test_procureflow_2y_schema.sql
+      - name: Confirm resulting table count
+        run: |
+          psql --set ON_ERROR_STOP=on -Atc \
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema='procureflow_2y';"
