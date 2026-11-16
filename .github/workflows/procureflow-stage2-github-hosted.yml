@@ -16,7 +16,7 @@ jobs:
     permissions:
       contents: read
     env:
-      GH_TOKEN: \${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -81,11 +81,11 @@ jobs:
       contents: write
       actions: read
     env:
-      GH_TOKEN: \${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
       PYTHONUTF8: '1'
       PYTHONIOENCODING: utf-8
     outputs:
-      need_continue: \${{ steps.state.outputs.need_continue }}
+      need_continue: ${{ steps.state.outputs.need_continue }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -146,22 +146,22 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: g2b-hosted-session-\${{ github.run_id }}
-          path: \${{ runner.temp }}/g2b-hosted/runner-state.json
+          name: g2b-hosted-session-${{ github.run_id }}
+          path: ${{ runner.temp }}/g2b-hosted/runner-state.json
           if-no-files-found: warn
           retention-days: 90
 
   continue-if-needed:
     name: Dispatch next GitHub-hosted batch only after durable checkpoint
     needs: hosted-capture
-    if: \${{ needs.hosted-capture.result == 'success' && needs.hosted-capture.outputs.need_continue == 'true' }}
+    if: ${{ needs.hosted-capture.result == 'success' && needs.hosted-capture.outputs.need_continue == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       actions: write
       contents: read
     env:
-      GH_TOKEN: \${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Continue using only the GitHub-hosted workflow
         shell: bash
