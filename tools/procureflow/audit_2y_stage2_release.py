@@ -7,6 +7,8 @@ for independent byte SHA256 and CRC checks. Does NOT re-query G2B notices.
 """
 from __future__ import annotations
 import datetime as dt
+import collections
+import gzip
 import hashlib
 import json
 import os
@@ -161,6 +163,34 @@ def run():
                 entry["files"]=len(members)
                 entry["status_files"]=sum(x.endswith("/status.json") for x in members)
                 entry["bidder_csv_files"]=sum(x.endswith("/bidders.csv") for x in members)
+                statuses=collections.Counter()
+                error_classes=collections.Counter()
+                zero_row_original_examples=[]
+                for name in members:
+                    if not name.endswith("/status.json"):
+                        continue
+                    try:
+                        st=json.loads(z.read(name).decode("utf-8-sig"))
+                        kind=str(st.get("status") or "unknown")
+                        statuses[kind]+=1
+                        if kind=="error":
+                            error_classes[str(st.get("error") or "error").split(":")[0]]+=1
+                        if kind=="no_bidder_rows_unverified" and len(zero_row_original_examples)<3:
+                            rawpath=name[:-len("status.json")]+"raw_00001.json.gz"
+                            if rawpath in z.namelist():
+                                parsed=json.loads(gzip.decompress(z.read(rawpath)))
+                                body=parsed.get("result") if isinstance(parsed,dict) else None
+                                zero_row_original_examples.append({
+                                    "response_top_level_keys":sorted(parsed)[:15],
+                                    "result_keys":sorted(body)[:20] if isinstance(body,dict) else [],
+                                    "bidder_rows":len(body.get("successBidInfo",[])) if isinstance(body,dict) and isinstance(body.get("successBidInfo"),list) else None,
+                                    "http_error_code":parsed.get("ErrorCode")
+                                })
+                    except Exception as exc:
+                        error_classes["parse_"+type(exc).__name__]+=1
+                entry["internal_status_counts"]=dict(statuses)
+                entry["internal_error_classes"]=dict(error_classes)
+                entry["zero_bidder_original_examples"]=zero_row_original_examples
             report["zip_samples"].append(entry)
             if not all(entry[k] for k in ("sha_match","byte_match","zip_crc_ok")):
                 report["errors"].append("bad-zip-sample:"+str(i))
