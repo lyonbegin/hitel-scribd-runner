@@ -152,7 +152,12 @@ def main():
                         bodyCount: document.body?.childElementCount || 0,
                         bodyTextLength: document.body?.innerText?.length || 0,
                         webSquareDefined: typeof window.WebSquare !== 'undefined',
-                        websquareObject: typeof window.$w !== 'undefined'
+                        websquareObject: typeof window.$w !== 'undefined',
+                        inlinePathHints: [...new Set(
+                            Array.from(document.documentElement.outerHTML.matchAll(/\\/(?:[a-zA-Z0-9_-]+\\/){2,9}[a-zA-Z0-9_-]+\\.(?:do|xml|json)/g))
+                              .map(x => x[0])
+                        )].filter(s => s.length < 170).slice(0,90),
+                        inlineScriptCount: Array.from(document.scripts).filter(x => !x.src).length
                     })"""),
                     "visible_controls": labels[:80],
                     "frame_urls": [short(frame.url, 180) for frame in page.frames],
