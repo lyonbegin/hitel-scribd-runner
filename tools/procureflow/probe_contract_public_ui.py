@@ -184,7 +184,7 @@ def main():
         "site": args.site,
         "homepage_status": report.get("homepage_status"),
         "pages": [{"step": p["step"], "url": p["current_url"],
-                   "title": p["title"], "contract_labels": [c.get("text") for c in p["contract_controls"]]}
+                   "title": p["title"], "body_excerpt": p["body_excerpt"], "visible_controls": [x.get("text") for x in p["visible_controls"][:35]], "contract_labels": [c.get("text") for c in p["contract_controls"]]}
                   for p in report["pages"]],
         "post_paths": sorted(set(
             x["path"] for x in report["events"] if x["method"] == "POST"
