@@ -1,0 +1,56 @@
+name: ProcureFlow - read-only G2B contract UI reconnaissance
+run-name: "G2B CONTRACT WEB | hosted Chrome | UI/network proof"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-contract-web-probe.yml
+      - tools/procureflow/probe_contract_public_ui.py
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: procureflow-public-contract-probe
+  cancel-in-progress: false
+
+jobs:
+  inspect-public-g2b:
+    name: Inspect public G2B contract navigation without login or data modification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install isolated Chrome and playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then
+            python -m playwright install --with-deps chrome
+          fi
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y xvfb
+          fi
+          python -m py_compile tools/procureflow/probe_contract_public_ui.py
+      - name: Inspect only public G2B pages and network metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/procureflow-g2b-probe"
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/probe_contract_public_ui.py \
+              --site g2b --outdir "$RUNNER_TEMP/procureflow-g2b-probe"
+      - name: Save screenshots, navigation and limited network metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: procureflow-g2b-public-ui-${{ github.run_id }}
+          path: ${{ runner.temp }}/procureflow-g2b-probe/
+          if-no-files-found: warn
+          retention-days: 90
