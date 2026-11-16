@@ -2,13 +2,13 @@
 DO $$
 DECLARE
   missing text;
-  table_name text;
+  tbl_name text;
 BEGIN
-  FOREACH table_name IN ARRAY ARRAY[
+  FOREACH tbl_name IN ARRAY ARRAY[
     'mas_agreements','mas_suppliers','mas_catalog_items','mas_delivery_links'
   ] LOOP
-    IF to_regclass('procureflow_2y.'||table_name) IS NULL THEN
-      RAISE EXCEPTION 'Missing MAS table %',table_name;
+    IF to_regclass('procureflow_2y.'||tbl_name) IS NULL THEN
+      RAISE EXCEPTION 'Missing MAS table %',tbl_name;
     END IF;
   END LOOP;
   IF NOT EXISTS (
