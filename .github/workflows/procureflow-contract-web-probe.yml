@@ -7,6 +7,8 @@ on:
       - .github/workflows/procureflow-contract-web-probe.yml
       - tools/procureflow/probe_contract_public_ui.py
       - tools/procureflow/probe_websquare_bootstrap.py
+      - tools/procureflow/audit_bootstrap_evidence.py
+      - tests/test_procureflow_bootstrap_evidence.py
       - tools/procureflow/schema_2y_core.sql
       - tools/procureflow/probe_g2b_public_bundles.py
       - tests/test_procureflow_2y_schema.sql
@@ -103,12 +105,20 @@ jobs:
             mkdir -p "$RUNNER_TEMP/boot-$site"
             xvfb-run -a -s '-screen 0 1920x1080x24' python tools/procureflow/probe_websquare_bootstrap.py --site "$site" --outdir "$RUNNER_TEMP/boot-$site"
           done
+      - name: Classify blocked POST versus server response and test non-verification rules
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_procureflow_bootstrap_evidence.py
+          mkdir -p "$RUNNER_TEMP/procureflow-audit"
+          python tools/procureflow/audit_bootstrap_evidence.py --root "$RUNNER_TEMP" --out "$RUNNER_TEMP/procureflow-audit/classification.json"
       - name: Retain DOM bytes, hashes, screenshots and redirect evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: procureflow-websquare-bootstrap-${{ github.run_id }}
-          path: ${{ runner.temp }}/boot-*/
+          path: |
+            ${{ runner.temp }}/boot-*/
+            ${{ runner.temp }}/procureflow-audit/
           if-no-files-found: warn
           retention-days: 90
 
