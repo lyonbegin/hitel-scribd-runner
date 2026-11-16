@@ -191,7 +191,7 @@ def run():
                                     "safe_numeric_flags":{
                                         part+"."+key:str(val)[:28]
                                         for part in ("bidInfo","etcData")
-                                        for key,val in (body.get(part) or {}).items()
+                                        for key,val in ((body.get(part) or {}) if isinstance(body.get(part),dict) else {}).items()
                                         if isinstance(body,dict) and isinstance(body.get(part),dict)
                                           and re.search("(?i)^(totCnt|totalCount|.*(?:count|cnt|pgstCd|sttsCd|onbsCnt|rowNum|pageNo))$",str(key))
                                           and isinstance(val,(str,int,float,bool))
