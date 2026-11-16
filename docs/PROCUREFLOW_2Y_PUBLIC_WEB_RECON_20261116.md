@@ -52,3 +52,21 @@
 - `tools/procureflow/probe_g2b_public_bundles.py`: 사이트가 제공하는 공개 JS 경로의 HTTP 200·SHA256을 검사하고 노출된 계약 관련 화면단서/읽기 전용 URL만 제한적으로 추출. `43866703946`에서 21개 공개 자바스크립트 응답 HTTP 200, 공통 `bsneComm.js`의 계약법령 조회 팝업 명세 및 데이터허브 `GnbTop.js`의 계약상품 관련 함수 단서를 확인함. 이 소스는 계약 목록/상세조회 자체가 아니므로 실데이터 수집 완료로 간주하지 않음.
 - `tools/procureflow/probe_contract_public_ui.py`의 후속 버전은 최초 90건의 정적 파일 로딩에 가려졌던 **후반부 WebSquare 동적 스크립트·POST 경로**를 별도로 수집한다. 결과가 나오는 즉시 실제 읽기 전용 계약조회 엔드포인트 존재 여부를 따로 판정할 것.
 - 신규 2년 계약 데이터 행의 실제 다운로드/검증·독립 테이블 적재는 현재 **미완료**. 첫 100건 및 Release의 완전성도 별도 검증 필요. GitHub-hosted 외의 PC Runner는 실행하지 않는다.
+
+## Stage2 원본 저장과 실제 완료 상태 재분리 — 2026-11-16 독립 감사
+
+독립 GitHub-hosted 감사 실행: https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/43868804861
+
+- Release의 ZIP 187개 + 상태 JSON 187개 전부 보존 확인.
+- **상태 JSON 187개 실제 바이트를 다운로드하여 GitHub SHA256과 독립 재계산 대조 통과**.
+- 각 상태 JSON의 ZIP 크기·SHA256과 대응 ZIP의 GitHub 메타데이터 187개 대조 통과. 이는 ZIP 187개를 전부 실다운로드하여 재해시한 것은 아님.
+- 실제 ZIP 0, 93, 186번만 다운로드하여 **바이트 길이, 독립 SHA256, 전체 ZIP CRC 모두 통과**.
+- 상태 파일에서 원본 queue 930,379건 중 Stage2 대상 930,279건으로 합계 일치.
+- 반면 **완료 상태가 확인된 샤드는 7/187개**이며, 각 샤드의 상태 기록 기준 처리된 공고는 910,279/930,279개. 169~172번 샤드 4개가 `processed=0`으로 총 20,000건 미처리.
+- 처리된 공고 가운데 `unknown` 누계 9,509건. 검증된 업체별 투찰행 76,417,810행과 `no_opening_data` 262,222건은 **상태 파일에 기록된 합계**이며, Release의 전체 187 ZIP 원본행을 독립 재집계한 총계는 아직 아님.
+- 샘플 93번 ZIP의 상태 5,000건은 `verified_complete=3,614`, `no_opening_data=1,331`, `no_bidder_rows_unverified=55`이고 HTTP 성공 JSON의 `result.successBidInfo=[]` 형태가 관측됨. **성공 응답의 0개 투찰행은 공식적으로 무응찰이 확정되었다는 증거가 아니므로 55건을 0건 낙찰/무응찰로 분류하지 않는다.** `result.bidInfo` 및 `result.etcData` 안의 개찰 진행·상태를 별도 검증해야 한다.
+- 최초의 `187개 ZIP 보존=상세 전체 100% 검증`이라는 표현은 부정확하다. 저장 완료 187개와 실데이터 187개 완료는 분리해야 한다.
+
+우선 복구: 연구 브랜치의 `.github/workflows/procureflow-stage2-unprocessed-repair.yml`에서 10-worker Chrome+Xvfb로 기존 공식 큐 중 `processed=0`인 169~172번 샤드 **네 개만** 선택 복구하고 원본 Release는 그대로 두며 지속 보존 Release에는 새 수정 시도 ZIP+상태 JSON을 추가한다. 실제 자동 재개 실행 `43868699164`를 시작했으며, 불완전 샤드 176여 개를 일률적으로 재실행하지 않는다. 외부 요청은 복구 대상의 실패 원본에 한정한다. 9,509건의 미확인 결과는 `no_bidder_rows_unverified`의 공식 상태 의미와 원본을 확인하여 개별적으로 분류·검증한다.
+
+해당 수치는 ZIP 3개만 본문 해시를 확인한 현 단계의 감사 결과이며, 운영 DB 적재·수의계약·최종 낙찰·납품연계 및 엑셀 검증은 완료 근거가 없다. 완료 선언·전체 전수검증 100% 표기를 금지한다.
