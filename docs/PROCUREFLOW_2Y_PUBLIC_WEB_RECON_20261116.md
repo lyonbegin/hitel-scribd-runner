@@ -2,6 +2,7 @@
 
 ## 범위 / 실행 증거
 - 실행: https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/43862566462
+- 추가 교차시험: https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/43863132538 — service worker 허용, 9.5초 WebSquare 대기 후에도 나라장터/데이터허브/쇼핑몰 및 직접 보고서 113R·112R 모두 빈 DOM, 읽기용 POST 0. OIDC 응답 302 지속. **브라우저 실행 100% 성공과 공개 자료 수집 가능을 동일시하지 않음.**
 - 별도 연구 브랜치: `research/procureflow-contract-web-probe-20261116`
 - 워크플로: `.github/workflows/procureflow-contract-web-probe.yml`
 - 도구: `tools/procureflow/probe_contract_public_ui.py`
