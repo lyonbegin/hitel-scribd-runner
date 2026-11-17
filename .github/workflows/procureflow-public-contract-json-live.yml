@@ -1,0 +1,43 @@
+name: ProcureFlow 2Y - real PUBLIC contract list JSON
+run-name: "PF2 PUBLIC signed contracts JSON | srchCtrtSttus.do | actual rows SHA256"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-public-contract-json-live.yml
+      - tools/procureflow/test_real_g2b_public_contract_list_json.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-contract-query:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then python -m playwright install --with-deps chrome; fi
+          if ! command -v xvfb-run >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y xvfb; fi
+          python -m py_compile tools/procureflow/test_real_g2b_public_contract_list_json.py
+      - name: Same-session direct POST to observed public contract JSON search
+        shell: bash
+        run: |
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/test_real_g2b_public_contract_list_json.py
+      - name: Preserve original JSON and checksum evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf2-public-contract-json-${{ github.run_id }}
+          path: ${{ runner.temp }}/pf2-real-public-contract-list/
+          if-no-files-found: warn
+          retention-days: 90
