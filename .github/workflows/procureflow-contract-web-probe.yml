@@ -9,6 +9,7 @@ on:
       - tools/procureflow/probe_websquare_bootstrap.py
       - tools/procureflow/audit_bootstrap_evidence.py
       - tests/test_procureflow_bootstrap_evidence.py
+      - tests/test_procureflow_post_response_accounting.py
       - tools/procureflow/schema_2y_core.sql
       - tools/procureflow/schema_2y_mas_extension.sql
       - tools/procureflow/probe_g2b_public_bundles.py
@@ -111,6 +112,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest discover -s tests -p test_procureflow_bootstrap_evidence.py
+          python -m unittest discover -s tests -p test_procureflow_post_response_accounting.py
           mkdir -p "$RUNNER_TEMP/procureflow-audit"
           python tools/procureflow/audit_bootstrap_evidence.py --root "$RUNNER_TEMP" --out "$RUNNER_TEMP/procureflow-audit/classification.json"
       - name: Retain DOM bytes, hashes, screenshots and redirect evidence
