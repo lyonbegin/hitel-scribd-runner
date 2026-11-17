@@ -15,6 +15,8 @@ SITES = {
     "data": "https://data.g2b.go.kr/",
     "shop": "https://shop.g2b.go.kr/",
 }
+PUBLIC_SHOP_SEARCH = re.compile(r"상품검색|물품검색|상품조회|상품정보|종합쇼핑몰")
+PUBLIC_DELIVERY = re.compile(r"납품요구|납품실적|납품현황")
 PUBLIC_CONTRACT = re.compile(
     r"계약정보|계약실적검색|계약현황|계약조회|수의계약현황|계약결과|계약실적|계약정보조회"
 )
@@ -247,6 +249,30 @@ def main():
                                 break
                         except Exception as exc:
                             report["errors"].append({"step": "contract_menu", "error": type(exc).__name__ + ":" + short(exc)})
+            elif args.site == "shop" and start:
+                # Only inspect public search navigation; never click a delivery
+                # request, which may be a buyer-only transaction.
+                report["shop_public_search_candidates"] = [
+                    c for c in start.get("visible_controls", [])
+                    if PUBLIC_SHOP_SEARCH.search(c.get("text", ""))
+                    and not EXCLUDE_CLICK.search(c.get("text", ""))
+                    and not PUBLIC_DELIVERY.search(c.get("text", ""))
+                ][:30]
+                report["shop_delivery_labels_not_clicked"] = [
+                    c.get("text", "") for c in start.get("visible_controls", [])
+                    if PUBLIC_DELIVERY.search(c.get("text", ""))
+                ][:30]
+                for candidate in report["shop_public_search_candidates"]:
+                    label = candidate.get("text", "")
+                    try:
+                        target = page.get_by_text(label, exact=True).first
+                        if target.count() and target.is_visible(timeout=2500):
+                            target.click(timeout=9000)
+                            capture("01_public_product_search_navigation")
+                            break
+                    except Exception as exc:
+                        report["errors"].append({"step": "shop_public_search_navigation",
+                                                 "error": type(exc).__name__ + ":" + short(exc)})
             elif args.site == "data":
                 reports = [
                     ("01_contract_method_report", "https://data.g2b.go.kr/link/AISC001_01/?reptNm=UI-ADOXFA-113R"),
@@ -291,6 +317,8 @@ def main():
         "errors": report["errors"], "browser_pages": report["browser_pages"],
         "page_errors": report["page_errors"], "console_errors": report["console_errors"],
         "get_paths": sorted(set(x["path"] for x in report["events"] if x["method"] == "GET"))[:70],
+        "shop_public_search_candidates": report.get("shop_public_search_candidates", []),
+        "shop_delivery_labels_not_clicked": report.get("shop_delivery_labels_not_clicked", []),
         "report_http_statuses": {k:v for k,v in report.items() if k.endswith("_http_status")},
         "oidc_responses": [x for x in report["events"] if "/oidc/" in x["path"]][:12],
         "context_page_metadata": [{
