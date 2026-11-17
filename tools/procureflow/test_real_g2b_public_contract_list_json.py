@@ -26,6 +26,25 @@ def shape(raw):
  d.update(error_code=r.get("ErrorCode"),error_message=str(r.get("ErrorMsg") or "")[:180],keys=list(r)[:30])
  result=r.get("result")
  d["result_type"]=type(result).__name__
+ # WebSquare unified search returns output DataList/DataMap at JSON ROOT,
+ # unlike Stage2 bidder JSON that wraps rows under result.
+ direct=r.get("dlTotalSrchL")
+ rows=(direct if isinstance(direct,list) else
+       direct.get("row") if isinstance(direct,dict) and isinstance(direct.get("row"),list) else
+       direct.get("rows") if isinstance(direct,dict) and isinstance(direct.get("rows"),list) else [])
+ d["top_level_shapes"]={k:{"type":type(v).__name__,
+   "count":len(v) if isinstance(v,(list,dict)) else None}
+   for k,v in r.items() if k in ("dlTotalSrchL","dlSetParamM")}
+ d["direct_contract_row_count"]=len(rows)
+ d["direct_contract_row_keys"]=sorted(rows[0])[:65] if rows and isinstance(rows[0],dict) else []
+ if rows and isinstance(rows[0],dict):
+  public_fields=("bizNo","bizNm","ctrtNo","ctrtAmt","ctrtCntgYmd","bizYmd",
+                 "untyCtrtMngNo","untySrchSeCd","ctrtSrchItm16")
+  d["first_row_public_fields"]={k:str(rows[0][k])[:150] for k in public_fields if k in rows[0]}
+ info=r.get("dlSetParamM")
+ if isinstance(info,dict):
+  d["paging_total"]={k:info[k] for k in ("totalSize","currentPage","recordCountPerPage") if k in info}
+ d["real_contract_rows"]=len(rows)
  if isinstance(result,dict):
   d["result_keys"]=list(result)[:45]
   d["lists"]={k:len(v) for k,v in result.items() if isinstance(v,list)}
@@ -36,7 +55,7 @@ def shape(raw):
      for k,v in result.items() if isinstance(v,dict) and ("Param" in k or "Set" in k)}
   d["real_contract_rows"]=sum(len(v) for k,v in result.items()
       if isinstance(v,list) and len(v)>0 and ("ctrt" in str(k).lower() or "srch" in str(k).lower()))
- else:d["real_contract_rows"]=0
+ else:d["real_contract_rows"]=len(rows)
  return d
 
 async def main():
