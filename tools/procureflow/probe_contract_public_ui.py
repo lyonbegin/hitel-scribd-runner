@@ -89,7 +89,7 @@ def main():
         "blocked_non_read_only_requests": [],
         "errors": [], "console_errors": [], "page_errors": [], "browser_pages": [],
         "request_failures": [], "http_errors": [], "tracked_post_responses": [],
-        "response_count_total": 0, "late_script_paths": [], "xhr_paths": [],
+        "response_count_total": 0, "post_response_count_total": 0, "late_script_paths": [], "xhr_paths": [],
     }
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(channel="chrome", headless=False, timeout=30000)
@@ -137,8 +137,10 @@ def main():
             if info["method"] == "POST" or (".do" in info["path"] and response.status == 200):
                 if len(report["xhr_paths"]) < 100:
                     report["xhr_paths"].append(info)
-            if response.request.method == "POST" and len(report["tracked_post_responses"]) < 40:
-                report["tracked_post_responses"].append(info)
+            if response.request.method == "POST":
+                report["post_response_count_total"] += 1
+                if len(report["tracked_post_responses"]) < 40:
+                    report["tracked_post_responses"].append(info)
             if len(report["events"]) < MAX_EVENTS:
                 report["events"].append(info)
 
@@ -243,8 +245,9 @@ def main():
         # The first MAX_EVENTS are often static assets. Do not silently report
         # zero POSTs when a later tracked response exists.
         "post_paths": summarize_post_paths(report),
-        "post_response_count_observed": len(report["tracked_post_responses"]),
-        "post_response_sample_truncated": len(report["tracked_post_responses"]) >= 40,
+        "post_response_count_observed": report["post_response_count_total"],
+        "post_response_sample_count": len(report["tracked_post_responses"]),
+        "post_response_sample_truncated": report["post_response_count_total"] > len(report["tracked_post_responses"]),
         "request_count": len(report["events"]),
         "response_count_total": report["response_count_total"],
         "http_errors": report["http_errors"], "request_failures": report["request_failures"],
