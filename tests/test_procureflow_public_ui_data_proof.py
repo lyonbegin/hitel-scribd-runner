@@ -23,6 +23,23 @@ class PublicAuditTests(unittest.TestCase):
             {"status": 200, "body_bytes": 0, "body_sha256": "0"*64}]})
         self.assertIn("HTTP_200_EMPTY_BODY", r["issues"])
 
+    def test_post_302_is_not_data(self):
+        r = module.classify({"post_response_count_total": 1,
+            "tracked_post_responses": [{"method": "POST", "status": 302}]})
+        self.assertIn("POST_REDIRECT_NOT_DATA", r["issues"])
+        self.assertEqual(r["verified_list_records"], 0)
+
+    def test_http_status_missing_and_sample_truncation(self):
+        r = module.classify({"post_response_count_total": 2,
+            "tracked_post_responses": [{"method": "POST"}]})
+        self.assertIn("POST_HTTP_STATUS_MISSING", r["issues"])
+        self.assertIn("POST_RESPONSE_SAMPLE_TRUNCATED", r["issues"])
+
+    def test_post_count_inconsistent(self):
+        r = module.classify({"post_response_count_total": 0,
+            "tracked_post_responses": [{"method": "POST", "status": 200}]})
+        self.assertIn("POST_RESPONSE_COUNT_INCONSISTENT", r["issues"])
+
     def test_missing_proof_is_not_success(self):
         self.assertEqual(module.classify({})["status"], "NOT_VERIFIED")
 
