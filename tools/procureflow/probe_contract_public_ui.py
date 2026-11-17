@@ -190,6 +190,21 @@ def main():
         try:
             response = page.goto(SITES[args.site], wait_until="domcontentloaded", timeout=45000)
             report["homepage_status"] = response.status if response else None
+            # WebSquare public navigation can appear after 12 seconds.
+            import time
+            started = time.monotonic()
+            report["visible_navigation_wait"] = {"timeout_ms": 20000, "visible": False}
+            for _ in range(40):
+                try:
+                    count = page.locator('a:visible, button:visible, [role="menuitem"]:visible, [role="button"]:visible').count()
+                    if count:
+                        report["visible_navigation_wait"] = {"timeout_ms": 20000, "visible": True,
+                            "elapsed_ms": int((time.monotonic() - started) * 1000),
+                            "visible_control_count": count}
+                        break
+                except Exception as exc:
+                    report["visible_navigation_wait_error"] = type(exc).__name__ + ":" + short(exc, 120)
+                page.wait_for_timeout(500)
             start = capture("00_home")
             if args.site == "g2b" and start:
                 # Navigate only to one demonstrably public CONTRACT READ link.
@@ -239,6 +254,7 @@ def main():
     summary = {
         "site": args.site,
         "homepage_status": report.get("homepage_status"),
+        "visible_navigation_wait": report.get("visible_navigation_wait"),
         "pages": [{"step": p["step"], "url": p["current_url"],
                    "title": p["title"], "body_excerpt": p["body_excerpt"], "visible_controls": [x.get("text") for x in p["visible_controls"][:35]], "contract_labels": [c.get("text") for c in p["contract_controls"]]}
                   for p in report["pages"]],
