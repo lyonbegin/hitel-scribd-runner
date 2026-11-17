@@ -1,9 +1,25 @@
 #!/usr/bin/env python3
 """Regression checks: blocked POST and empty data cannot be marked complete."""
 import unittest
-from tools.procureflow.audit_bootstrap_evidence import classify
+from tools.procureflow.audit_bootstrap_evidence import classify, missing_targets
 
 class BootstrapEvidenceTest(unittest.TestCase):
+    def test_missing_site_or_report_is_not_silent_success(self):
+        self.assertEqual(len(missing_targets({})), 5)
+        self.assertEqual(len(missing_targets({"g2b":[{"requested_url":"https://www.g2b.go.kr/"}]})), 4)
+
+    def test_complete_five_target_coverage(self):
+        reports = {
+            "g2b": [{"requested_url": "https://www.g2b.go.kr/"}],
+            "data": [
+                {"requested_url": "https://data.g2b.go.kr/"},
+                {"requested_url": "https://data.g2b.go.kr/link/AISC001_01/?reptNm=UI-ADOXFA-112R"},
+                {"requested_url": "https://data.g2b.go.kr/link/AISC001_01/?reptNm=UI-ADOXFA-113R"},
+            ],
+            "shop": [{"requested_url": "https://shop.g2b.go.kr/"}],
+        }
+        self.assertEqual(missing_targets(reports), [])
+
     def test_client_blocked_post_is_not_server_http_failure(self):
         row={"requested_url":"https://data.g2b.go.kr/","http_status":200,
              "dom":{"bodyChildren":0,"websquare":"object"},
