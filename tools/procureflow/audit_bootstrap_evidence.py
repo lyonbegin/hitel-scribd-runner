@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Classify read-only WebSquare bootstrap evidence without inferring public data success."""
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -57,6 +58,30 @@ def missing_targets(reports):
         if url not in {row.get("requested_url") for row in reports.get(site, [])}
     )
 
+def verify_dom_bytes(root, reports):
+    """Independently verify saved DOM bytes; never treat a missing file as evidence."""
+    issues = []
+    for site, rows in reports.items():
+        for row in rows:
+            dom = row.get("dom") or {}
+            name, expected = dom.get("html_file"), dom.get("html_sha256")
+            url = row.get("requested_url") or "<unknown>"
+            if not name or not expected:
+                issues.append({"site": site, "url": url, "reason": "missing_dom_file_or_sha256"})
+                continue
+            # Only a basename in the expected site's output directory is allowed.
+            if Path(name).name != name or not name.endswith("_dom.html"):
+                issues.append({"site": site, "url": url, "reason": "unsafe_dom_filename"})
+                continue
+            path = root / ("boot-" + site) / name
+            if not path.is_file():
+                issues.append({"site": site, "url": url, "reason": "missing_dom_bytes"})
+                continue
+            actual = hashlib.sha256(path.read_bytes()).hexdigest()
+            if actual != expected:
+                issues.append({"site": site, "url": url, "reason": "dom_sha256_mismatch"})
+    return issues
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--root", type=Path, required=True)
@@ -66,13 +91,17 @@ def main():
     for site in ("g2b", "data", "shop"):
         path = args.root / ("boot-" + site) / "bootstrap_report.json"
         data[site] = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
-    result = {"version": 2, "policy": "no_200_or_empty_list_implies_no_bidder_or_verified_data",
+    integrity_issues = verify_dom_bytes(args.root, data)
+    result = {"version": 3, "dom_bytes_verified": not integrity_issues,
+              "dom_integrity_issues": integrity_issues, "policy": "no_200_or_empty_list_implies_no_bidder_or_verified_data",
               "complete_probe_coverage": not missing_targets(data),
               "missing_targets": missing_targets(data),
               "coverage": classify(data)}
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print("BOOTSTRAP_CLASSIFICATION", json.dumps(result, ensure_ascii=False))
+    if integrity_issues:
+        raise SystemExit("DOM_BYTE_INTEGRITY_FAILED: " + json.dumps(integrity_issues, ensure_ascii=False))
     if result["missing_targets"]:
         raise SystemExit("INCOMPLETE_PROBE_COVERAGE: " + ", ".join(result["missing_targets"]))
 
