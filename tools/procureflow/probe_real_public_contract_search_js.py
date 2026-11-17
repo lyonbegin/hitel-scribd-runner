@@ -33,6 +33,8 @@ async def main():
    for mat in list(PAT.finditer(txt))[:120]:
     q=" ".join(txt[max(0,mat.start()-90):mat.end()+170].split())[:290]
     if q not in report["snippets"]:report["snippets"].append(q)
+   report["contract_list_action_context"]=[txt[max(0,m.start()-2400):m.end()+1100] for m in list(re.finditer("srchCtrtSttus.do",txt))[:7]]
+   report["list_query_function_context"]=[txt[m.start():m.start()+6500] for m in list(re.finditer("this.selectUntySrchList = async",txt))[:1]]
    (OUT/"fiCommonUntySrchLib.js").write_bytes(raw)
    (OUT/"report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
    print("PF2_PUBLIC_CONTRACT_SEARCH_LIBRARY",json.dumps({
@@ -41,6 +43,8 @@ async def main():
     "do_paths":report["do_paths"],
     "function_segments":report["function_segments"],
     "snippets":report["snippets"][:60],
+    "contract_list_action_context":report["contract_list_action_context"],
+    "list_query_function_context":report["list_query_function_context"],
    },ensure_ascii=False),flush=True)
   finally:await ctx.close();await browser.close()
 if __name__=="__main__":asyncio.run(main())
