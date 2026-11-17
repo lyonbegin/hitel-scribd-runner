@@ -90,6 +90,7 @@ def main():
         "errors": [], "console_errors": [], "page_errors": [], "browser_pages": [],
         "request_failures": [], "http_errors": [], "tracked_post_responses": [],
         "response_count_total": 0, "post_response_count_total": 0, "late_script_paths": [], "xhr_paths": [],
+        "read_only_response_proofs": [],
     }
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(channel="chrome", headless=False, timeout=30000)
@@ -137,6 +138,20 @@ def main():
             if info["method"] == "POST" or (".do" in info["path"] and response.status == 200):
                 if len(report["xhr_paths"]) < 100:
                     report["xhr_paths"].append(info)
+            # Digest observed public read responses without retaining body or credentials.
+            path = info["path"]
+            eligible = (info["method"] == "POST" and READ_ONLY_POST.search(path)
+                        and not DANGEROUS.search(path)
+                        and info["host"] and info["host"].endswith(".g2b.go.kr"))
+            if eligible and len(report["read_only_response_proofs"]) < 30:
+                proof = {**info, "status": response.status, "mime": info["mime"]}
+                try:
+                    payload = response.body()
+                    proof["body_bytes"] = len(payload)
+                    proof["body_sha256"] = hashlib.sha256(payload).hexdigest()
+                except Exception as exc:
+                    proof["body_hash_error"] = type(exc).__name__
+                report["read_only_response_proofs"].append(proof)
             if response.request.method == "POST":
                 report["post_response_count_total"] += 1
                 if len(report["tracked_post_responses"]) < 40:
@@ -270,6 +285,7 @@ def main():
         "observed_script_paths": sorted(set(x["path"] for x in report["late_script_paths"]))[-110:],
         "xhr_paths": report["xhr_paths"][:30],
         "tracked_post_responses": report["tracked_post_responses"],
+        "read_only_response_proofs": report["read_only_response_proofs"],
         "document_probes": [p.get("document_probe") for p in report["pages"]],
         "block_count": len(report["blocked_non_read_only_requests"]),
         "errors": report["errors"], "browser_pages": report["browser_pages"],
