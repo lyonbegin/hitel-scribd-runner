@@ -23,7 +23,7 @@ EXPLICIT_PUBLIC_ASSETS=(
  "/_wpack_/kn/layout/GnbMenuDev.js",
 )
 CONTRACT_TERMS=re.compile(r"(?i)cntrct|contract|ctrt|cntr|계약현황|계약정보|계약관리|계약실적")
-PATH_RE=re.compile(r"/[A-Za-z0-9_/-]{3,180}\\.(?:do|xml|js)")
+PATH_RE=re.compile(r"/[A-Za-z0-9_/-]{3,180}\.(?:do|xml|js)")
 BLOCK_TERMS=re.compile(r"(?i)(insert|update|delete|save|submit|payment|sign|login|logout)")
 ROOT=Path(os.environ.get("RUNNER_TEMP","."))/"pf2-direct-post-contract"
 ROOT.mkdir(parents=True,exist_ok=True)
