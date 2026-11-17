@@ -122,6 +122,44 @@ async def main():
        doc["second_page"]={"http":nxt.status,"bytes":len(original),
           "sha256":digest(original),**shape(original)}
        log("PF2_PUBLIC_REAL_CONTRACT_PAGE2_JSON",doc["second_page"])
+       first_rows=json.loads(raw).get("dlTotalSrchL",[])
+       second_rows=json.loads(original).get("dlTotalSrchL",[])
+       def stable_key(row):
+        return (str(row.get("untySrchSeCd","")),str(row.get("bizNo","")),str(row.get("bizOrd","")))
+       first_keys={stable_key(row) for row in first_rows if isinstance(row,dict)}
+       second_keys={stable_key(row) for row in second_rows if isinstance(row,dict)}
+       cross={"page1_rows":len(first_rows),"page2_rows":len(second_rows),
+              "page1_distinct_keys":len(first_keys),"page2_distinct_keys":len(second_keys),
+              "crosspage_key_overlap":len(first_keys & second_keys),
+              "page1_date_min":min((str(row.get("bizYmd","")) for row in first_rows if isinstance(row,dict)),default=""),
+              "page1_date_max":max((str(row.get("bizYmd","")) for row in first_rows if isinstance(row,dict)),default=""),
+              "page2_date_min":min((str(row.get("bizYmd","")) for row in second_rows if isinstance(row,dict)),default=""),
+              "page2_date_max":max((str(row.get("bizYmd","")) for row in second_rows if isinstance(row,dict)),default=""),
+              "date_filter_confirmed":all(
+                 START<=str(row.get("bizYmd",""))<=END for row in first_rows+second_rows if isinstance(row,dict)
+              )}
+       doc["crosspage_check"]=cross
+       log("PF2_PUBLIC_CONTRACT_CROSSPAGE_CHECK",cross)
+       # A narrower independent date request determines whether request filtering
+       # is actually honored rather than silently returning today's records.
+       narrow={"dlSrchParamM":{"startBizYmd":"20261110","endBizYmd":"20261110",
+                "currentPage":1,"recordCountPerPage":"100"}}
+       try:
+        narrow_resp=await ctx.request.post(API,data=json.dumps(narrow,ensure_ascii=False),
+          headers=headers,timeout=30000)
+        narrow_raw=await narrow_resp.body()
+        (OUT/"contract_list_narrow_date.json").write_bytes(narrow_raw)
+        parsed_narrow=json.loads(narrow_raw)
+        nr=parsed_narrow.get("dlTotalSrchL",[]) if isinstance(parsed_narrow,dict) else []
+        narrow_entry={"http":narrow_resp.status,"bytes":len(narrow_raw),
+          "sha256":digest(narrow_raw),"rows":len(nr) if isinstance(nr,list) else None,
+          "reported_total":(parsed_narrow.get("dlSetParamM") or {}).get("totalSize") if isinstance(parsed_narrow,dict) else None,
+          "sample_dates":sorted(set(str(x.get("bizYmd","")) for x in nr if isinstance(x,dict)))[:12]}
+        doc["narrow_date_check"]=narrow_entry
+        log("PF2_PUBLIC_CONTRACT_NARROW_DATE_CHECK",narrow_entry)
+       except Exception as e:
+        doc["narrow_date_error"]=type(e).__name__+":"+str(e)[:200]
+
       except Exception as e:doc["page2_error"]=str(e)[:190]
       break
     if doc["data_received"]:break
