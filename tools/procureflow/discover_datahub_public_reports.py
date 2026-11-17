@@ -50,7 +50,8 @@ async def main():
      (OUT/f"entry_{idx}.html").write_bytes(raw)
      print("PF2_DATAHUB_HTML",json.dumps(entry,ensure_ascii=False),flush=True)
     except Exception as e:
-     rep["urls"].append({"url":url,"error":type(e).__name__+":"+str(e)[:140]})
+     rep["urls"].append({"url":url,"error":type(e).__name__+":"+str(e)[:240]})
+     print("PF2_DATAHUB_HTML_ERROR",json.dumps({"url":url,"error":type(e).__name__+":"+str(e)[:240]},ensure_ascii=False),flush=True)
     finally:await page.close()
    # Derive screen JS candidates from actual public menu definitions; don't
    # assume source file exists merely because a menu uses it.
