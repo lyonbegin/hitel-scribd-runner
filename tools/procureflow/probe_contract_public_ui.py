@@ -51,6 +51,12 @@ def network_info(req):
     }
 
 
+def summarize_post_paths(report):
+    """Use the independent POST-response buffer, not the capped first events."""
+    return sorted({x["path"] for x in report.get("tracked_post_responses", [])
+                   if x.get("method") == "POST" and x.get("path")})
+
+
 def nav_candidates(page):
     try:
         return page.locator("a,button,[role=menuitem],[role=button]").evaluate_all(
@@ -236,9 +242,7 @@ def main():
                   for p in report["pages"]],
         # The first MAX_EVENTS are often static assets. Do not silently report
         # zero POSTs when a later tracked response exists.
-        "post_paths": sorted(set(
-            x["path"] for x in report["tracked_post_responses"]
-        )),
+        "post_paths": summarize_post_paths(report),
         "post_response_count_observed": len(report["tracked_post_responses"]),
         "post_response_sample_truncated": len(report["tracked_post_responses"]) >= 40,
         "request_count": len(report["events"]),
