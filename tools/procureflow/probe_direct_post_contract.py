@@ -119,6 +119,31 @@ async def main():
      entry["error"]=type(e).__name__+":"+str(e)[:150]
     summary["asset_checks"].append(entry)
    summary["contract_route_candidates"]=sorted(set(summary["contract_route_candidates"]))
+   # The only contract deep-link path tested below is published in official
+   # procurement contract URL fields. No invented query, login, or mutation.
+   public_contract_link=HOME+"link/FIU"
+   try:
+    response=await ctx.request.get(public_contract_link,timeout=20000,max_redirects=5)
+    raw=await response.body()
+    target=ROOT/"official_contract_link_FIU.html"
+    target.write_bytes(raw)
+    summary["contract_link_probe"]={
+      "published_url":public_contract_link,
+      "http":response.status,
+      "final_url":response.url.split("?")[0],
+      "mime":response.headers.get("content-type","").split(";")[0],
+      "bytes":len(raw),"sha256":hashlib.sha256(raw).hexdigest(),
+      "saved_raw":target.name,
+      "has_contract_content":bool(
+        CONTRACT_TERMS.search(raw.decode("utf-8",errors="replace"))
+        and response.status==200
+      ),
+      "note":"Keyword in HTML is not verified contract data; absent contract ID/link params"
+    }
+    log("PF2_DIRECT_CONTRACT_LINK",summary["contract_link_probe"])
+   except Exception as e:
+    summary["contract_link_probe"]={"url":public_contract_link,"error":type(e).__name__+":"+str(e)[:180]}
+    log("PF2_DIRECT_CONTRACT_LINK",summary["contract_link_probe"])
   finally:
    await ctx.close()
    await browser.close()
