@@ -7,6 +7,20 @@ from pathlib import Path
 from tools.procureflow.audit_bootstrap_evidence import classify, missing_targets, verify_dom_bytes
 
 class BootstrapEvidenceTest(unittest.TestCase):
+    def test_late_post_paths_are_not_lost_to_first_90_static_events(self):
+        from tools.procureflow.probe_contract_public_ui import summarize_post_paths
+        report = {
+            "events": [{"method": "GET", "path": "/static/app.js"}] * 90,
+            "tracked_post_responses": [
+                {"method": "POST", "path": "/public/selectContractList.do"},
+                {"method": "POST", "path": "/public/selectContractList.do"},
+                {"method": "GET", "path": "/irrelevant"},
+            ],
+        }
+        self.assertEqual(summarize_post_paths(report), ["/public/selectContractList.do"])
+        self.assertEqual(summarize_post_paths({"events": report["events"]}), [])
+
+
     def test_duplicate_targets_are_not_accepted(self):
         from tools.procureflow.audit_bootstrap_evidence import duplicate_targets
         rows = [{"requested_url": "https://www.g2b.go.kr/"}] * 2
