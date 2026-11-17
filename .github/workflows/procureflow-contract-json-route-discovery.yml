@@ -1,0 +1,54 @@
+name: ProcureFlow 2Y - discover public contract JSON routes
+run-name: "PF2 CONTRACT JSON ROUTE | hosted Chrome | public JS source proof"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-contract-json-route-discovery.yml
+      - tools/procureflow/discover_g2b_contract_json_routes.py
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pf2-contract-json-route-discovery
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    name: Probe actual public WebSquare contracts UI HTML and scripts read-only
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Chrome and Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then
+            python -m playwright install --with-deps chrome
+          fi
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y xvfb
+          fi
+          python -m py_compile tools/procureflow/discover_g2b_contract_json_routes.py
+      - name: Inspect served HTML, static JS and official .do path names
+        shell: bash
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/discover_g2b_contract_json_routes.py
+      - name: Save exact public HTML and JS response bytes with SHA256 and source paths
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf2-contract-json-route-${{ github.run_id }}
+          path: ${{ runner.temp }}/pf2-contract-json-discovery/
+          if-no-files-found: warn
+          retention-days: 90
