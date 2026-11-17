@@ -39,6 +39,24 @@ def classify(reports):
             })
     return result
 
+EXPECTED_TARGETS = {
+    "g2b": {"https://www.g2b.go.kr/"},
+    "data": {
+        "https://data.g2b.go.kr/",
+        "https://data.g2b.go.kr/link/AISC001_01/?reptNm=UI-ADOXFA-112R",
+        "https://data.g2b.go.kr/link/AISC001_01/?reptNm=UI-ADOXFA-113R",
+    },
+    "shop": {"https://shop.g2b.go.kr/"},
+}
+
+def missing_targets(reports):
+    """Fail closed if a probe did not run or its report was silently lost."""
+    return sorted(
+        url for site, urls in EXPECTED_TARGETS.items()
+        for url in urls
+        if url not in {row.get("requested_url") for row in reports.get(site, [])}
+    )
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--root", type=Path, required=True)
@@ -48,11 +66,15 @@ def main():
     for site in ("g2b", "data", "shop"):
         path = args.root / ("boot-" + site) / "bootstrap_report.json"
         data[site] = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
-    result = {"version": 1, "policy": "no_200_or_empty_list_implies_no_bidder_or_verified_data",
+    result = {"version": 2, "policy": "no_200_or_empty_list_implies_no_bidder_or_verified_data",
+              "complete_probe_coverage": not missing_targets(data),
+              "missing_targets": missing_targets(data),
               "coverage": classify(data)}
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print("BOOTSTRAP_CLASSIFICATION", json.dumps(result, ensure_ascii=False))
+    if result["missing_targets"]:
+        raise SystemExit("INCOMPLETE_PROBE_COVERAGE: " + ", ".join(result["missing_targets"]))
 
 if __name__ == "__main__":
     main()
