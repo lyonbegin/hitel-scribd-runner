@@ -157,7 +157,7 @@ def main():
             if response.request.method == "POST":
                 report["post_response_count_total"] += 1
                 if len(report["tracked_post_responses"]) < 40:
-                    report["tracked_post_responses"].append(info)
+                    report["tracked_post_responses"].append({**info, "status": response.status})
             if len(report["events"]) < MAX_EVENTS:
                 report["events"].append(info)
 
