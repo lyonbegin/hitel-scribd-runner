@@ -9,6 +9,19 @@ def classify(report):
     proofs = report.get("read_only_response_proofs") or []
     counted = report.get("post_response_count_total", 0)
     issues = []
+    tracked = report.get("tracked_post_responses") or []
+    if counted < len(tracked):
+        issues.append("POST_RESPONSE_COUNT_INCONSISTENT")
+    if counted > len(tracked):
+        issues.append("POST_RESPONSE_SAMPLE_TRUNCATED")
+    for event in tracked:
+        status = event.get("status")
+        if status is None:
+            issues.append("POST_HTTP_STATUS_MISSING")
+        elif 300 <= status < 400:
+            issues.append("POST_REDIRECT_NOT_DATA")
+        elif status >= 400:
+            issues.append("POST_HTTP_ERROR_NOT_DATA")
     for p in proofs:
         if p.get("status") == 200 and p.get("body_bytes", 0) == 0:
             issues.append("HTTP_200_EMPTY_BODY")
@@ -19,7 +32,7 @@ def classify(report):
         "site": report.get("site"),
         "http_200_is_not_data_proof": True,
         "observed_post_responses": counted,
-        "sampled_post_responses": len(report.get("tracked_post_responses") or []),
+        "sampled_post_responses": len(tracked),
         "read_only_response_digests": len(proofs),
         "issues": sorted(set(issues)),
         "verified_list_records": 0,
