@@ -77,10 +77,28 @@ def verify_dom_bytes(root, reports):
             if not path.is_file():
                 issues.append({"site": site, "url": url, "reason": "missing_dom_bytes"})
                 continue
+            if not path.resolve().is_relative_to((root / ("boot-" + site)).resolve()) or path.is_symlink():
+                issues.append({"site": site, "url": url, "reason": "unsafe_dom_symlink"})
+                continue
+            if not isinstance(expected, str) or len(expected) != 64 or any(c not in "0123456789abcdef" for c in expected):
+                issues.append({"site": site, "url": url, "reason": "invalid_dom_sha256"})
+                continue
             actual = hashlib.sha256(path.read_bytes()).hexdigest()
             if actual != expected:
                 issues.append({"site": site, "url": url, "reason": "dom_sha256_mismatch"})
     return issues
+
+def duplicate_targets(reports):
+    """Repeated target entries must not silently masquerade as distinct observations."""
+    duplicates = []
+    for site, rows in reports.items():
+        seen = set()
+        for row in rows:
+            url = row.get("requested_url")
+            if url in seen:
+                duplicates.append({"site": site, "url": url})
+            seen.add(url)
+    return duplicates
 
 def main():
     p = argparse.ArgumentParser()
@@ -92,7 +110,8 @@ def main():
         path = args.root / ("boot-" + site) / "bootstrap_report.json"
         data[site] = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
     integrity_issues = verify_dom_bytes(args.root, data)
-    result = {"version": 3, "dom_bytes_verified": not integrity_issues,
+    duplicates = duplicate_targets(data)
+    result = {"version": 4, "duplicate_targets": duplicates, "dom_bytes_verified": not integrity_issues,
               "dom_integrity_issues": integrity_issues, "policy": "no_200_or_empty_list_implies_no_bidder_or_verified_data",
               "complete_probe_coverage": not missing_targets(data),
               "missing_targets": missing_targets(data),
@@ -100,6 +119,8 @@ def main():
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print("BOOTSTRAP_CLASSIFICATION", json.dumps(result, ensure_ascii=False))
+    if duplicates:
+        raise SystemExit("DUPLICATE_PROBE_TARGETS: " + json.dumps(duplicates, ensure_ascii=False))
     if integrity_issues:
         raise SystemExit("DOM_BYTE_INTEGRITY_FAILED: " + json.dumps(integrity_issues, ensure_ascii=False))
     if result["missing_targets"]:
