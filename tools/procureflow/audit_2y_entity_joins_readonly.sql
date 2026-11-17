@@ -47,4 +47,26 @@ SELECT (SELECT count(*) FROM procureflow_2y.source_evidence WHERE completeness_s
        (SELECT count(*) FROM procureflow_2y.source_evidence WHERE completeness_status IN ('unknown','partial','error')) AS unresolved_evidence,
        (SELECT count(*) FROM procureflow_2y.contracts) AS stored_contracts,
        (SELECT count(*) FROM procureflow_2y.delivery_orders) AS stored_delivery_orders;
+-- 7. Contract links missing from a notice are review candidates, NOT proof of missing contracts.
+-- Exact composite keys must be used; names, amounts and dates are not JOIN keys.
+SELECT n.bid_no,n.bid_ord,n.bid_clsfc_no,n.bid_prgrs_ord
+FROM procureflow_2y.notice_rounds n
+WHERE NOT EXISTS (
+ SELECT 1 FROM procureflow_2y.notice_contract_links l
+ WHERE (l.bid_no,l.bid_ord,l.bid_clsfc_no,l.bid_prgrs_ord)
+     = (n.bid_no,n.bid_ord,n.bid_clsfc_no,n.bid_prgrs_ord)
+);
+-- 8. Separate unresolved official supplier identities across all three sources.
+SELECT 'bidder' AS entity, count(*) AS unresolved
+FROM procureflow_2y.bid_participations WHERE supplier_id IS NULL
+UNION ALL
+SELECT 'contract_partner', count(*)
+FROM procureflow_2y.contract_partners WHERE supplier_id IS NULL
+UNION ALL
+SELECT 'delivery', count(*)
+FROM procureflow_2y.delivery_orders WHERE supplier_id IS NULL;
+-- 9. MAS contract dates are a fourth distinct axis, not delivery-request dates.
+SELECT count(*) AS mas_with_signed_date, min(agreement_signed_at) AS earliest,
+       max(agreement_signed_at) AS latest
+FROM procureflow_2y.mas_agreements WHERE agreement_signed_at IS NOT NULL;
 COMMIT;
