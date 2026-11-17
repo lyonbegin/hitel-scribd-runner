@@ -162,6 +162,13 @@ jobs:
         run: |
           psql --set ON_ERROR_STOP=on --file tools/procureflow/schema_2y_mas_extension.sql
           psql --set ON_ERROR_STOP=on --file tests/test_procureflow_2y_mas_extension.sql
+      - name: Execute read-only evidence and official-key audit on disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          psql --set ON_ERROR_STOP=on --file tools/procureflow/audit_2y_entity_joins_readonly.sql
+          # Fixture tests roll back. No live evidence exists in this ephemeral DB.
+          psql --set ON_ERROR_STOP=on -Atc \
+            "SELECT CASE WHEN (SELECT count(*) FROM procureflow_2y.source_evidence)=0 AND (SELECT count(*) FROM procureflow_2y.contracts)=0 AND (SELECT count(*) FROM procureflow_2y.delivery_orders)=0 THEN 'EMPTY_FIXTURE_NOT_LIVE_VERIFIED' ELSE 'UNEXPECTED_ROWS' END;" | grep -Fx 'EMPTY_FIXTURE_NOT_LIVE_VERIFIED'
       - name: Confirm resulting table count
         run: |
           psql --set ON_ERROR_STOP=on -Atc \
