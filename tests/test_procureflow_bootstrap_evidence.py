@@ -7,6 +7,27 @@ from pathlib import Path
 from tools.procureflow.audit_bootstrap_evidence import classify, missing_targets, verify_dom_bytes
 
 class BootstrapEvidenceTest(unittest.TestCase):
+    def test_duplicate_targets_are_not_accepted(self):
+        from tools.procureflow.audit_bootstrap_evidence import duplicate_targets
+        rows = [{"requested_url": "https://www.g2b.go.kr/"}] * 2
+        self.assertEqual(len(duplicate_targets({"g2b": rows})), 1)
+
+    def test_symlink_and_malformed_sha_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            site = root / "boot-g2b"
+            site.mkdir()
+            outside = root / "outside_dom.html"
+            outside.write_bytes(b"outside")
+            (site / "g2b_0_dom.html").symlink_to(outside)
+            row = {"requested_url": "https://www.g2b.go.kr/", "dom": {
+                "html_file": "g2b_0_dom.html", "html_sha256": hashlib.sha256(b"outside").hexdigest()}}
+            self.assertEqual(verify_dom_bytes(root, {"g2b": [row]})[0]["reason"], "unsafe_dom_symlink")
+            (site / "g2b_0_dom.html").unlink()
+            (site / "g2b_0_dom.html").write_bytes(b"outside")
+            row["dom"]["html_sha256"] = "bad"
+            self.assertEqual(verify_dom_bytes(root, {"g2b": [row]})[0]["reason"], "invalid_dom_sha256")
+
     def test_dom_bytes_integrity_and_missing_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
