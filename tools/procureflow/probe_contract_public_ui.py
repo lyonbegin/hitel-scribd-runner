@@ -190,7 +190,7 @@ def main():
                         )].filter(s => s.length < 170).slice(0,90),
                         inlineScriptCount: Array.from(document.scripts).filter(x => !x.src).length
                     })"""),
-                    "visible_controls": labels[:80],
+                    "visible_controls": labels[:300],
                     "frame_urls": [short(frame.url, 180) for frame in page.frames],
                     "context_pages": [short(p.url, 180) for p in context.pages],
                     "script_sources": page.locator("script[src]").evaluate_all("els=>els.map(x=>x.src).slice(0,35)"),
