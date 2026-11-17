@@ -1,0 +1,106 @@
+name: HITEL Windows PC Visible Chrome Saved URLs
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/hitel-windows-visible-chrome-original-urls.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hitel-windows-visible-chrome-saved-urls
+  cancel-in-progress: false
+
+jobs:
+  windows-pc-chrome-check:
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Require real interactive Windows desktop session
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $session = (Get-Process -Id $PID).SessionId
+          Write-Host "WINDOWS_PC_SESSION session=$session runner=$env:RUNNER_NAME"
+          if ($session -eq 0) { throw 'Interactive Windows desktop required, service session 0 rejected' }
+      - name: Download existing exact original document URLs and Playwright script
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $branch = 'feature/ypt-study-group-learning-nav-20261108'
+          $repo = 'https://github.com/lyonbegin/hitel-room.git'
+          $path = 'hitel-education-source'
+          if (Test-Path "$path\.git") {
+            git -C $path fetch --depth 1 origin $branch
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot fetch education source branch' }
+            git -C $path reset --hard FETCH_HEAD
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot reset education source branch' }
+          } else {
+            git clone --depth 1 --branch $branch $repo $path
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot clone education source branch' }
+          }
+          $ids = @((Get-Content "$path\tools\education_catalog_v3\investigation-1208-ids.txt" | Where-Object { $_.Trim() }))
+          if ($ids.Count -ne 1208) { throw "Expected 1208 stored original document IDs; got $($ids.Count)" }
+          Write-Host "INPUT_VERIFIED count=$($ids.Count) source=stored_original_urls"
+      - name: Use existing PC Google Chrome and Playwright
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $chrome = @(
+            "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+            "$([Environment]::GetEnvironmentVariable('ProgramFiles(x86)'))\Google\Chrome\Application\chrome.exe",
+            "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $chrome) { throw 'Google Chrome not found on local Windows PC' }
+          & $chrome --version
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m pip show playwright
+            if ($LASTEXITCODE -ne 0) {
+              py -3 -m pip install --disable-pip-version-check playwright==1.56.0
+              if ($LASTEXITCODE -ne 0) { throw 'Install Playwright failed' }
+            }
+          } else {
+            python -m pip show playwright
+            if ($LASTEXITCODE -ne 0) {
+              python -m pip install --disable-pip-version-check playwright==1.56.0
+              if ($LASTEXITCODE -ne 0) { throw 'Install Playwright failed' }
+            }
+          }
+      - name: Open saved original URL in VISIBLE Windows Google Chrome (3-item smoke)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $cmd = @(
+            'hitel-education-source/tools/education_catalog_v3/chrome_original_links_probe.py',
+            '--limit','3',
+            '--headed',
+            '--out','hitel-pc-chrome-original'
+          )
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            & py -3 @cmd
+          } else {
+            & python @cmd
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Visible Chrome original URL test failed' }
+          $result = Get-Content 'hitel-pc-chrome-original/summary.json' -Raw | ConvertFrom-Json
+          if ($result.checked -ne 3 -or $result.headless -ne $false) {
+            throw 'Browser result is not a verified visible Windows Chrome test'
+          }
+          Write-Host "WINDOWS_VISIBLE_CHROME_VERIFIED checked=$($result.checked)"
+      - name: Print visible Chrome result summary
+        if: always()
+        run: |
+          if (Test-Path 'hitel-pc-chrome-original\summary.json') {
+            Get-Content 'hitel-pc-chrome-original\summary.json'
+            Get-Content 'hitel-pc-chrome-original\rows.csv' | Select-Object -First 5
+          }
+      - name: Preserve actual Windows PC Chrome screenshots and log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-windows-visible-chrome-real-3-urls
+          path: hitel-pc-chrome-original/
+          retention-days: 7
+          if-no-files-found: warn
