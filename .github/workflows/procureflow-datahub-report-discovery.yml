@@ -1,0 +1,41 @@
+name: ProcureFlow 2Y - data hub report API discovery
+run-name: "PF2 DATAHUB | published report screen/compiled JS route evidence"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-datahub-report-discovery.yml
+      - tools/procureflow/discover_datahub_public_reports.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Setup Chrome and Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then python -m playwright install --with-deps chrome; fi
+          if ! command -v xvfb-run >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y xvfb; fi
+          python -m py_compile tools/procureflow/discover_datahub_public_reports.py
+      - name: Extract official data.g2b WebSquare report screen source
+        shell: bash
+        run: |
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/discover_datahub_public_reports.py
+      - name: Upload raw report screen HTML and public JS evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf2-datahub-report-discovery-${{ github.run_id }}
+          path: ${{ runner.temp }}/pf2-datahub-discovery/
+          retention-days: 90
+          if-no-files-found: warn
