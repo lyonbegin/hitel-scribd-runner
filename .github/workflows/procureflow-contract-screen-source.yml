@@ -1,0 +1,51 @@
+name: ProcureFlow 2Y - official contract screen source extraction
+run-name: "PF2 | G2B contract WebSquare XML and compiled JS | read-only"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-contract-screen-source.yml
+      - tools/procureflow/probe_official_contract_screen_js.py
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pf2-g2b-contract-screen-source
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Chrome and Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then
+            python -m playwright install --with-deps chrome
+          fi
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y xvfb
+          fi
+          python -m py_compile tools/procureflow/probe_official_contract_screen_js.py
+      - name: Retrieve known actual contract screen JS and XML without posting
+        shell: bash
+        run: |
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/probe_official_contract_screen_js.py
+      - name: Upload exact source bytes and evidence hashes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf2-g2b-contract-screens-${{ github.run_id }}
+          path: ${{ runner.temp }}/pf2-contract-screen-source/
+          if-no-files-found: warn
+          retention-days: 90
