@@ -45,7 +45,7 @@ async def main():
        "mime":response.headers.get("content-type","") if response else None,
        "bytes":len(raw),"sha256":sha(raw),"target_snippets":excerpts(txt,TARGET,30),
        "screen_paths":sorted(set(SCREEN.findall(txt)))[:95],
-       "script_paths":await page.locator("script[src]").evaluate_all("xs=>xs.map(x=>x.getAttribute('src')).filter(Boolean)")[:45]}
+       "script_paths":(await page.locator("script[src]").evaluate_all("xs=>xs.map(x=>x.getAttribute('src')).filter(Boolean)"))[:45]}
      rep["urls"].append(entry)
      (OUT/f"entry_{idx}.html").write_bytes(raw)
      print("PF2_DATAHUB_HTML",json.dumps(entry,ensure_ascii=False),flush=True)
