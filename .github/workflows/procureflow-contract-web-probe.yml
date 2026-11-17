@@ -6,6 +6,8 @@ on:
     paths:
       - .github/workflows/procureflow-contract-web-probe.yml
       - tools/procureflow/probe_contract_public_ui.py
+      - tools/procureflow/audit_public_ui_data_proof.py
+      - tests/test_procureflow_public_ui_data_proof.py
       - tools/procureflow/probe_websquare_bootstrap.py
       - tools/procureflow/audit_bootstrap_evidence.py
       - tests/test_procureflow_bootstrap_evidence.py
@@ -66,6 +68,12 @@ jobs:
               python tools/procureflow/probe_contract_public_ui.py \
                 --site "$site" --outdir "$RUNNER_TEMP/procureflow-$site-probe"
           done
+      - name: Classify network metadata without claiming contract records
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_procureflow_public_ui_data_proof.py
+          python tools/procureflow/audit_public_ui_data_proof.py --root "$RUNNER_TEMP" --out "$RUNNER_TEMP/procureflow-g2b-probe/public_data_proof_audit.json"
       - name: Save screenshots, navigation and limited network metadata
         if: always()
         uses: actions/upload-artifact@v4
