@@ -234,9 +234,13 @@ def main():
         "pages": [{"step": p["step"], "url": p["current_url"],
                    "title": p["title"], "body_excerpt": p["body_excerpt"], "visible_controls": [x.get("text") for x in p["visible_controls"][:35]], "contract_labels": [c.get("text") for c in p["contract_controls"]]}
                   for p in report["pages"]],
+        # The first MAX_EVENTS are often static assets. Do not silently report
+        # zero POSTs when a later tracked response exists.
         "post_paths": sorted(set(
-            x["path"] for x in report["events"] if x["method"] == "POST"
+            x["path"] for x in report["tracked_post_responses"]
         )),
+        "post_response_count_observed": len(report["tracked_post_responses"]),
+        "post_response_sample_truncated": len(report["tracked_post_responses"]) >= 40,
         "request_count": len(report["events"]),
         "response_count_total": report["response_count_total"],
         "http_errors": report["http_errors"], "request_failures": report["request_failures"],
