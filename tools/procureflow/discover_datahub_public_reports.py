@@ -40,7 +40,8 @@ async def main():
      response=await page.goto(url,wait_until="domcontentloaded",timeout=35000)
      # Source response body is more reliable than WebSquare empty DOM.
      raw=await response.body() if response else b""
-     txt=raw.decode("utf-8",errors="replace")
+     txt=raw.decode("utf-8",errors="replace").replace("\\/","/")
+     menu_codes=[txt[max(0,m.start()-250):m.end()+700] for m in list(TARGET.finditer(txt)) if "AISC001_01" in m.group(0)][:6]
      entry={"url":url,"http":response.status if response else None,
        "mime":response.headers.get("content-type","") if response else None,
        "bytes":len(raw),"sha256":sha(raw),"target_snippets":excerpts(txt,TARGET,30),
@@ -48,7 +49,7 @@ async def main():
        "script_paths":(await page.locator("script[src]").evaluate_all("xs=>xs.map(x=>x.getAttribute('src')).filter(Boolean)"))[:45]}
      rep["urls"].append(entry)
      (OUT/f"entry_{idx}.html").write_bytes(raw)
-     print("PF2_DATAHUB_HTML",json.dumps(entry,ensure_ascii=False),flush=True)
+     print("PF2_DATAHUB_HTML",json.dumps({**entry,"menu_screen_names":[x for x in entry.get("menu_screen_names",[]) if any(w in x.lower() for w in ("ai/","report","rept"))][:50]},ensure_ascii=False),flush=True)
     except Exception as e:
      rep["urls"].append({"url":url,"error":type(e).__name__+":"+str(e)[:240]})
      print("PF2_DATAHUB_HTML_ERROR",json.dumps({"url":url,"error":type(e).__name__+":"+str(e)[:240]},ensure_ascii=False),flush=True)
@@ -57,7 +58,7 @@ async def main():
    # assume source file exists merely because a menu uses it.
    paths=set()
    for entry in rep["urls"]:
-    for x in entry.get("screen_paths",[]):
+    for x in entry.get("screen_paths",[])+entry.get("menu_screen_names",[]):
      x=x.lstrip("/")
      if any(s in x.lower() for s in ("aisc","data","report","rept","ado","stats","stat")):
       if x.endswith(".xml"): paths.add("/_wpack_/"+x[:-4]+".js")
