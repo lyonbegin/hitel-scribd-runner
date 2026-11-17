@@ -17,7 +17,7 @@ SITES={
  "shop":"https://shop.g2b.go.kr/",
 }
 KEYWORD=re.compile(r"(?i)계약현황|계약정보|계약체결|수의계약|계약내역|cntrct|cntrc|contract|ctrt|ctrct|prvtcntrct")
-ENDPOINT=re.compile(r'(?i)(?:https?://[a-z0-9_.-]+)?/[a-z0-9_-]+(?:/[a-z0-9_-]+){2,9}/[a-z0-9_-]+\\.(?:do|xml|wq|js)')
+ENDPOINT=re.compile(r'(?i)(?:https?://[a-z0-9_.-]+)?/[a-z0-9_-]+(?:/[a-z0-9_-]+){2,9}/[a-z0-9_-]+\.(?:do|xml|wq|js)')
 READ=re.compile(r"(?i)(select|search|list|inq|query|find|retrieve|detail|detl)")
 RISK=re.compile(r"(?i)(submit|insert|delete|update|save|pay|purchase|login|logout|register|write|upload|sign)")
 AUTH=re.compile(r"(?i)(password|Authorization|client_secret|access_token|id_token|refresh_token|sessionid|JSESSIONID)")
