@@ -1,4 +1,4 @@
-name: HITEL Scribd PC Login - Continue Anyway - 10 Tabs
+name: HITEL Scribd PC CDP Attach - Prelogged Chrome - 10 Tabs
 on:
   workflow_dispatch:
     inputs:
@@ -15,14 +15,10 @@ on:
         options: [smoke, full]
         default: smoke
       test_download_one:
-        description: "Test one authorized download after manual login"
+        description: "Test exactly one permitted download with the prelogged-in Chrome"
         required: true
         type: boolean
         default: true
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/scribd-pc-signed-in-10tabs.yml
 permissions:
   contents: read
 concurrency:
@@ -56,7 +52,7 @@ jobs:
             git clone --depth 1 --branch main https://github.com/lyonbegin/hitel-scribd-runner.git $dir
             if ($LASTEXITCODE -ne 0) { throw 'Crawler clone failed' }
           }
-          if (-not (Test-Path "$dir\tools\zocbo\scribd_pc_signed_in_10tabs.py")) {
+          if (-not (Test-Path "$dir\tools\zocbo\scribd_pc_cdp_attach.py")) {
             throw 'Expected manually signed-in Chrome crawler file is missing'
           }
       - name: Fetch existing original HITEL document links and catalog
@@ -80,6 +76,16 @@ jobs:
           $ids = @(Get-Content "$catalog\investigation-1208-ids.txt" | Where-Object { $_.Trim() })
           if ($ids.Count -ne 1208) { throw "Original 1208 document ID queue invalid: $($ids.Count)" }
           Write-Host "SAVED_1208_ORIGINAL_DOCUMENT_IDS_VERIFIED"
+      - name: Require independent Chrome already running on localhost CDP (no browser launch here)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          try {
+            $response = Invoke-RestMethod -Uri 'http://127.0.0.1:9222/json/version' -TimeoutSec 5
+          } catch {
+            throw 'LOCAL_CDP_NOT_RUNNING: First open standalone Chrome with ops/start-scribd-cdp-chrome.ps1, sign into Scribd in that Chrome, then Run workflow.'
+          }
+          if ($response.Browser -notmatch '^Chrome/') { throw 'LOCAL_CDP_WRONG_BROWSER: port 9222 does not expose Google Chrome' }
+          Write-Host "LOCAL_CDP_AVAILABLE port=9222 browser=$($response.Browser) profile=on-PC-only"
       - name: Verify installed Windows Google Chrome and Playwright
         run: |
           $ErrorActionPreference = 'Stop'
@@ -103,7 +109,7 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw 'Playwright install failed' }
             }
           }
-      - name: Manual Scribd sign-in and Continue anyway before opening ten links
+      - name: Attach to already signed-in local Chrome over 127.0.0.1:9222, then inspect ten original links
         env:
           PYTHONUNBUFFERED: '1'
         run: |
@@ -116,17 +122,17 @@ jobs:
           if (-not $test) { $test = 'true' }
           $limit = if ($mode -eq 'full') { '0' } else { '10' }
           $cmd = @(
-            'hitel-scribd-session-src/tools/zocbo/scribd_pc_signed_in_10tabs.py',
+            'hitel-scribd-session-src/tools/zocbo/scribd_pc_cdp_attach.py',
             '--catalog-dir','hitel-scribd-session-catalog/tools/education_catalog_v3',
             '--scope',$scope,
             '--limit',$limit,
-            '--login-wait-seconds','900',
+            '--cdp-endpoint','http://127.0.0.1:9222',
             '--output-dir','hitel-scribd-signed-in-results',
             '--resume'
           )
           if ($test -eq 'true') { $cmd += '--test-download-one' }
-          Write-Host "WINDOWS_CHROME_HEADLESS_FALSE scope=$scope mode=$mode 10_tabs=true one_download=$test"
-          Write-Host "The user signs in on the local desktop, then clicks the HITEL start tab. Do not put credentials or cookies in GitHub."
+          Write-Host "LOCAL_CDP_ATTACH_ONLY scope=$scope mode=$mode ten_tabs=true one_download=$test (no Chrome launch)"
+          Write-Host "The user signs in BEFORE this action, using standalone Chrome with local CDP. No credentials or cookies are accessed or uploaded."
           if (Get-Command py -ErrorAction SilentlyContinue) {
             & py -3 @cmd
           } else {
@@ -144,7 +150,7 @@ jobs:
           if (Test-Path 'hitel-scribd-signed-in-results\single-download-test.json') {
             Get-Content 'hitel-scribd-signed-in-results\single-download-test.json'
           }
-      - name: Upload metadata and audit screenshots only (never profile or downloaded books)
+      - name: Upload document status logs only (never Chrome profile or downloaded documents)
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -153,7 +159,5 @@ jobs:
             hitel-scribd-signed-in-results/rows.csv
             hitel-scribd-signed-in-results/summary.json
             hitel-scribd-signed-in-results/single-download-test.json
-            hitel-scribd-signed-in-results/single-download-test.png
-            hitel-scribd-signed-in-results/screenshots/
           if-no-files-found: warn
           retention-days: 7
