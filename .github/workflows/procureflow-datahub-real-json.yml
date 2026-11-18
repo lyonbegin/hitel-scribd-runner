@@ -1,0 +1,41 @@
+name: ProcureFlow - live datahub report JSON direct POST
+run-name: "PF2 DATA HUB | ReptLst official JSON row proof | direct POST"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-datahub-real-json.yml
+      - tools/procureflow/test_real_datahub_report_json.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  datahub:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Install Chrome and Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then python -m playwright install --with-deps chrome; fi
+          if ! command -v xvfb-run >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y xvfb; fi
+          python -m py_compile tools/procureflow/test_real_datahub_report_json.py
+      - name: Same Chrome session POST to actual G2B data hub report JSON
+        shell: bash
+        run: |
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/test_real_datahub_report_json.py
+      - name: Preserve actual report JSON and SHA256
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf2-datahub-real-json-${{ github.run_id }}
+          path: ${{ runner.temp }}/pf2-datahub-real-json/
+          retention-days: 90
+          if-no-files-found: warn
