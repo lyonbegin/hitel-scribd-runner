@@ -1,4 +1,4 @@
-name: Moonzip 370 series - resume existing 120 incomplete
+name: Moonzip 370 series - targeted last 12 books
 
 on:
   workflow_dispatch:
@@ -33,10 +33,10 @@ jobs:
       - name: Restore last verified metadata checkpoint
         uses: actions/download-artifact@v4
         with:
-          name: moonzip-370-series-cover-links-and-book-metadata
-          run-id: 43450489443
+          name: moonzip-resume-checkpoint-all-series-and-unresolved
+          run-id: 44299269838
           github-token: ${{ github.token }}
-          path: .
+          path: moonzip-catalog-results
 
       - name: Validate restored series and book counts
         run: |
@@ -49,8 +49,8 @@ jobs:
           b=json.loads((p/"books.json").read_text(encoding="utf-8"))
           pages=json.loads((p/"search_pages.json").read_text(encoding="utf-8"))
           complete=sum(bool(v.get("complete")) for v in s.values())
-          assert len(s)==370 and complete==250,(len(s),complete)
-          assert len(b)==1739 and len(pages)==31,(len(b),len(pages))
+          assert len(s)==370 and complete==259,(len(s),complete)
+          assert len(b)==1839 and len(pages)==31,(len(b),len(pages))
           print("MOONZIP_RESTORED",len(s),complete,len(b),len(pages))
           '@ | py -3 -
           if($LASTEXITCODE -ne 0){throw 'Checkpoint verification failed; refusing fresh crawl'}
@@ -75,7 +75,7 @@ jobs:
         run: |
           $ErrorActionPreference='Stop'
           $env:PYTHONIOENCODING='utf-8'
-          py -3 -u src/tools/moonzip/moonzip_parallel.py --mode full --out moonzip-catalog-results
+          py -3 -u src/tools/moonzip/moonzip_parallel.py --mode full --out moonzip-catalog-results --only-series-id af778954-a08c-4d65-a4d0-32c8079ab7cf
           if($LASTEXITCODE -ne 0){throw 'Resume failed - the checkpoint will still be retained'}
 
       - name: Print precise progress and unresolved IDs
@@ -105,7 +105,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: moonzip-resume-checkpoint-all-series-and-unresolved
+          name: moonzip-targeted-final-12-checkpoint
           path: |
             moonzip-catalog-results/*.json
             moonzip-catalog-results/*.csv
