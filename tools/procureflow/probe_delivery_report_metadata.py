@@ -23,6 +23,18 @@ def parse(raw):
  except ValueError:return {"valid_json":False,"prefix":raw[:120].decode("utf-8",errors="replace")}
  if not isinstance(d,dict):return {"type":type(d).__name__}
  p={"valid_json":True,"keys":list(d),"ErrorCode":d.get("ErrorCode"),"ErrorMsg":str(d.get("ErrorMsg") or "")[:140]}
+ result=d.get("result")
+ if isinstance(result,dict):
+  p["result_type"]="dict"
+  p["result_keys"]=list(result)
+  p["result_fields"]={k:(str(v)[:230] if isinstance(v,(str,int,float,bool)) else type(v).__name__)
+     for k,v in result.items() if not re.search(r"(?i)password|secret|accessToken|sessionKey",k)}
+ elif isinstance(result,list):
+  p["result_type"]="list"
+  p["result_rows"]=len(result)
+  if result and isinstance(result[0],dict):
+   p["result_first_keys"]=list(result[0])
+
  for k,v in d.items():
   if isinstance(v,list):
    p[k+"_rows"]=len(v)
@@ -82,6 +94,6 @@ async def main():
  (OUT/"report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
  show("PF2_038R_METADATA_FINAL",{"report":report.get("report"),"flow":report.get("execution_flow"),
       "results":[{"variant":x.get("variant"),"http":x.get("http"),
-         "ErrorCode":x.get("ErrorCode"),"fields":list(x.get("dlReptInfoM_fields",{}))}
+         "ErrorCode":x.get("ErrorCode"),"result_keys":x.get("result_keys"),"result_fields":x.get("result_fields")}
          for x in report["results"]]})
 if __name__=="__main__":asyncio.run(main())
