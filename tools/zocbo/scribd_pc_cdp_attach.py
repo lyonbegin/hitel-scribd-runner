@@ -197,6 +197,7 @@ async def one_permitted_download_test(context, item, destination: Path, results_
         "status": "not_started", "download_saved_on_pc": False,
         "download_clicked": False, "payment_modal_seen": False,
         "continue_anyway_clicked": False, "format_selected": False,
+        "final_download_document_clicked": False,
         "retry_download_clicked": False, "steps": []
     }
     page = await context.new_page()
@@ -250,9 +251,40 @@ async def one_permitted_download_test(context, item, destination: Path, results_
                 result["modal_error"] = type(exc).__name__
             await page.wait_for_timeout(500)
 
-        # Step 3: Continue may release a download, open a format selector,
-        # or keep the account on hold. Handle the site UI without guessing URLs.
+        # Step 3: User screenshot (2026-11-18) shows a SECOND modal:
+        # heading "Download document", "Download as: PDF (4.96 MB)", and a
+        # green button with exact accessible name "Download document".
+        # The format defaults to PDF. This FINAL button must be clicked;
+        # do NOT mistake its display for a completed browser download.
+        async def click_final_download_document():
+            try:
+                final_button = page.get_by_role(
+                    "button", name=re.compile(r"^Download document$", re.I))
+                if await final_button.count() and await final_button.first.is_visible(timeout=700):
+                    result["steps"].append("download_document_modal_visible")
+                    # Respect the existing "Download as" selection (PDF in the
+                    # supplied screenshot); do not select paid/other formats.
+                    result["format_selected"] = True
+                    result["steps"].append("selected_format_preserved")
+                    await final_button.first.click(timeout=4500)
+                    result["final_download_document_clicked"] = True
+                    result["steps"].append("final_download_document_clicked")
+                    return True
+            except Exception as exc:
+                result["final_button_error"] = type(exc).__name__
+            return False
+
         if not downloaded.done():
+            for _ in range(12):
+                if downloaded.done() or await click_final_download_document():
+                    break
+                await page.wait_for_timeout(450)
+
+        # An older Scribd variant instead exposes a "Download PDF" control.
+        # Only try that alternative if the new "Download document" modal was
+        # not found.
+        if not downloaded.done() and not result["final_download_document_clicked"]:
+
             for _ in range(12):
                 if downloaded.done():
                     break
@@ -285,7 +317,7 @@ async def one_permitted_download_test(context, item, destination: Path, results_
         # When the membership hold dialog simply closes and leaves the user on
         # the page, one explicit second Download click is permitted for this
         # single test document. Avoid repeated loops/payment handling.
-        if not downloaded.done() and result["continue_anyway_clicked"] and not result["format_selected"]:
+        if not downloaded.done() and result["continue_anyway_clicked"] and not result["format_selected"] and not result["final_download_document_clicked"]:
             try:
                 again = page.get_by_role("button", name=re.compile(r"^download(?:\s|$)", re.I))
                 if await again.count() and await again.first.is_visible(timeout=600):
@@ -295,8 +327,16 @@ async def one_permitted_download_test(context, item, destination: Path, results_
                     await page.wait_for_timeout(750)
                     if await dismiss_continue_anyway(page):
                         result["steps"].append("payment_modal_reappeared_after_retry")
+                    # The repeat click can open the same final PDF dialog.
+                    if not downloaded.done():
+                        await click_final_download_document()
             except Exception as exc:
                 result["retry_error"] = type(exc).__name__
+
+        # Some UI versions show the final Download document dialog only
+        # after choosing PDF or after the membership message closes.
+        if not downloaded.done() and not result["final_download_document_clicked"]:
+            await click_final_download_document()
 
         # A browser-managed download event is the ONLY proof that this document
         # was permitted to download. Showing a button is not evidence.
