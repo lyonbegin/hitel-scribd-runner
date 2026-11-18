@@ -64,17 +64,33 @@ def audit(manifest, root):
         except (ValueError, UnicodeDecodeError):
             issues.append(f"{tag}:RAW_NOT_JSON")
             continue
-        def source_strings(node):
-            if isinstance(node, dict):
-                for value in node.values():
-                    yield from source_strings(value)
-            elif isinstance(node, list):
-                for value in node:
-                    yield from source_strings(value)
-            elif isinstance(node, (str, int)):
-                yield str(node)
-        raw_values = set(source_strings(payload))
-        if any(key not in raw_values for key in keys):
+        # Only explicit, entity-scoped row identifiers count as evidence.
+        # A matching value in metadata or an unrelated entity is never proof.
+        row_path = entry.get("record_path")
+        key_field = entry.get("official_key_field")
+        if not isinstance(row_path, list) or not row_path or not isinstance(key_field, str) or not key_field:
+            issues.append(f"{tag}:OFFICIAL_KEY_MAPPING_REQUIRED")
+            continue
+        try:
+            rows = payload
+            for segment in row_path:
+                if isinstance(rows, dict) and isinstance(segment, str):
+                    rows = rows[segment]
+                elif isinstance(rows, list) and type(segment) is int:
+                    rows = rows[segment]
+                else:
+                    raise KeyError(segment)
+            if isinstance(rows, dict):
+                rows = [rows]
+            if not isinstance(rows, list) or not rows or any(not isinstance(r, dict) for r in rows):
+                raise ValueError("not entity rows")
+            observed = [str(r[key_field]) for r in rows if key_field in r and r[key_field] is not None]
+            if len(observed) != len(rows) or not observed:
+                raise ValueError("missing row identifier")
+        except (KeyError, IndexError, TypeError, ValueError):
+            issues.append(f"{tag}:OFFICIAL_KEY_ROW_MAPPING_INVALID")
+            continue
+        if sorted(observed) != sorted(keys):
             issues.append(f"{tag}:OFFICIAL_KEYS_NOT_IN_RAW")
         if len(set(keys)) != len(keys):
             issues.append(f"{tag}:DUPLICATE_WITHIN_PAGE")
