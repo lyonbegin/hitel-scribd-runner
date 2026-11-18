@@ -16,16 +16,19 @@ $endpoint = "http://127.0.0.1:$Port/json/version"
 $existing = $null
 try { $existing = Invoke-RestMethod -Uri $endpoint -TimeoutSec 2 } catch {}
 if ($existing) {
-    $activePortFile = Join-Path $profile 'DevToolsActivePort'
-    if (-not (Test-Path $activePortFile)) {
-        throw "Port $Port is in use but cannot be verified as the HITEL Chrome profile. Close the other debugging browser first."
-    }
-    $activePort = (Get-Content $activePortFile -TotalCount 1).Trim()
-    if ($activePort -ne [string]$Port) {
-        throw "Port $Port does not match the existing HITEL Chrome profile. Refusing to attach to another browser."
+    # Identify the independently launched dedicated-profile Chrome without
+    # relying on DevToolsActivePort, which is not present in every Chrome build.
+    $running = @(Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" |
+        Where-Object {
+            $_.CommandLine -and
+            $_.CommandLine.Contains("--remote-debugging-port=$Port") -and
+            $_.CommandLine.Contains($profile)
+        })
+    if ($running.Count -eq 0) {
+        throw "Port $Port is in use, but it does not belong to a verifiable HITEL profile Chrome process."
     }
     Write-Host "HITEL_CDP_ALREADY_RUNNING port=$Port profile=$profile"
-    Write-Host 'Use the existing Chrome window and sign in to Scribd if required.'
+    Write-Host 'Use this existing Chrome window and sign into Scribd if needed.'
     exit 0
 }
 $arguments = @(
