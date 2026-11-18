@@ -1,0 +1,55 @@
+name: Moonzip publish verified 370 series and 1961 book metadata
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/moonzip-publish-verified-catalog.yml
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore exact verified final ZIP metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: moonzip-zero-series-audit-checkpoint
+          run-id: 44302765953
+          github-token: ${{ github.token }}
+          path: _moonzip_verified
+      - name: Check row counts and permanently archive CSV and JSON
+        run: |
+          python3 - <<'PY'
+          import csv, json, shutil
+          from pathlib import Path
+          src=Path('_moonzip_verified')
+          dst=Path('ops/moonzip')
+          summary=json.loads((src/'summary.json').read_text(encoding='utf-8'))
+          with (src/'series.csv').open(encoding='utf-8-sig',newline='') as f: series=list(csv.DictReader(f))
+          with (src/'books.csv').open(encoding='utf-8-sig',newline='') as f: books=list(csv.DictReader(f))
+          assert len(series)==370 and len(books)==1961,(len(series),len(books))
+          assert len({x['series_id'] for x in series})==370
+          assert len({x['book_id'] for x in books})==1961
+          assert summary['series_crawled']==370 and summary['series_incomplete']==0
+          assert summary['book_details_checked']==1961 and summary['book_cover_urls']==1961
+          assert summary['image_files_downloaded']==0
+          dst.mkdir(parents=True,exist_ok=True)
+          shutil.copyfile(src/'series.csv',dst/'series_370_20261118.csv')
+          shutil.copyfile(src/'books.csv',dst/'books_1961_20261118.csv')
+          shutil.copyfile(src/'summary.json',dst/'summary_20261118.json')
+          print('MOONZIP_PUBLIC_ARCHIVE',len(series),len(books),str(dst))
+          PY
+      - name: Publish stable GitHub metadata URLs
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ops/moonzip/series_370_20261118.csv ops/moonzip/books_1961_20261118.csv ops/moonzip/summary_20261118.json
+          if git diff --cached --quiet; then echo 'Metadata already archived'; exit 0; fi
+          git commit -m 'Archive verified Moonzip 370 series and 1961 book URL metadata'
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
