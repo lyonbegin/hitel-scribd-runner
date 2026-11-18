@@ -28,11 +28,22 @@ jobs:
           Write-Host "TEN_PARALLEL_DESKTOP_SESSION id=$session runner=$env:RUNNER_NAME"
           if ($session -eq 0) { throw 'Needs local interactive Windows desktop session' }
 
-      - name: Fetch current Scribd 10-tab download code
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          path: src
+      - name: Fetch current Scribd 10-tab download code with proven PowerShell Git
+        run: |
+          $ErrorActionPreference='Stop'
+          $dir='hitel-scribd-10p-src'
+          if (Test-Path "$dir\.git") {
+            git -C $dir fetch --depth 1 origin main
+            if ($LASTEXITCODE -ne 0) { throw 'Crawler fetch failed' }
+            git -C $dir reset --hard FETCH_HEAD
+            if ($LASTEXITCODE -ne 0) { throw 'Crawler reset failed' }
+          } else {
+            git clone --depth 1 --branch main https://github.com/lyonbegin/hitel-scribd-runner.git $dir
+            if ($LASTEXITCODE -ne 0) { throw 'Crawler clone failed' }
+          }
+          if (-not (Test-Path "$dir\tools\zocbo\scribd_pc_10parallel_download_smoke.py")) {
+            throw 'Ten-parallel test script missing'
+          }
 
       - name: Fetch ORIGINAL HITEL 1208 document URLs
         run: |
@@ -82,7 +93,7 @@ jobs:
         run: |
           $ErrorActionPreference='Stop'
           $params=@(
-            'src/tools/zocbo/scribd_pc_10parallel_download_smoke.py',
+            'hitel-scribd-10p-src/tools/zocbo/scribd_pc_10parallel_download_smoke.py',
             '--catalog','catalog/tools/education_catalog_v3',
             '--cdp','http://127.0.0.1:9222',
             '--out','hitel-scribd-10parallel-results',
