@@ -6,6 +6,8 @@ on:
     paths:
       - .github/workflows/procureflow-contract-web-probe.yml
       - tools/procureflow/probe_contract_public_ui.py
+      - tools/procureflow/public_readonly_raw.py
+      - tests/test_procureflow_public_readonly_raw.py
       - tools/procureflow/audit_public_ui_data_proof.py
       - tests/test_procureflow_public_ui_data_proof.py
       - tools/procureflow/probe_websquare_bootstrap.py
@@ -76,6 +78,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python -m unittest discover -s tests -p test_procureflow_public_readonly_raw.py
           python -m unittest discover -s tests -p test_procureflow_public_ui_data_proof.py
           python -m unittest discover -s tests -p test_procureflow_stage2_empty_bidder_response.py
           python -m unittest discover -s tests -p test_procureflow_2y_public_raw_manifest.py
