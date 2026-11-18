@@ -98,6 +98,28 @@ class PublicRawManifestTests(unittest.TestCase):
         self.assertIn("entry[1]:CROSS_PAGE_DUPLICATE",
                       audit_module.audit(items, self.root)["issues"])
 
+    def test_relabelled_second_page_bytes_are_not_pagination(self):
+        items = [self.entry(1), self.entry(2),
+                 self.entry(1, "detail", key="contract-list-1")]
+        # Even if a malicious manifest relabels row keys, identical response
+        # bytes cannot establish two independently retrieved pages.
+        raw = (self.root / items[0]["raw_path"]).read_bytes()
+        (self.root / items[1]["raw_path"]).write_bytes(raw)
+        items[1]["sha256"] = items[0]["sha256"]
+        items[1]["record_keys"] = items[0]["record_keys"]
+        result = audit_module.audit(items, self.root)
+        self.assertIn("entry[1]:REUSED_LIST_RESPONSE_BYTES", result["issues"])
+        self.assertFalse(result["pass_sample_evidence"])
+
+    def test_same_raw_file_cannot_prove_two_pages(self):
+        items = [self.entry(1), self.entry(2),
+                 self.entry(1, "detail", key="contract-list-1")]
+        items[1]["raw_path"] = items[0]["raw_path"]
+        items[1]["sha256"] = items[0]["sha256"]
+        result = audit_module.audit(items, self.root)
+        self.assertIn("entry[1]:REUSED_LIST_RAW_PATH", result["issues"])
+        self.assertFalse(result["pass_sample_evidence"])
+
     def test_manifest_key_not_in_raw_is_rejected(self):
         items = [self.entry(1), self.entry(2), self.entry(1, "detail")]
         items[0]["record_keys"] = ["invented-key"]
