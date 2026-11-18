@@ -35,7 +35,7 @@ jobs:
         with:
           name: moonzip-370-series-cover-links-and-book-metadata
           run-id: 43450489443
-          github-token: \${{ github.token }}
+          github-token: ${{ github.token }}
           path: .
 
       - name: Validate restored series and book counts
