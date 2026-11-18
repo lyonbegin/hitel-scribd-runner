@@ -1,0 +1,41 @@
+name: ProcureFlow - shop public goods routes
+run-name: "PF2 SHOP | official product list JSON route source verification"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-shop-goods-route-discovery.yml
+      - tools/procureflow/discover_shop_public_goods_routes.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  discovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Install Chrome and Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then python -m playwright install --with-deps chrome; fi
+          if ! command -v xvfb-run >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y xvfb; fi
+          python -m py_compile tools/procureflow/discover_shop_public_goods_routes.py
+      - name: Inspect officially published public shop catalog screen and .do actions
+        shell: bash
+        run: |
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/discover_shop_public_goods_routes.py
+      - name: Preserve actual JS source bytes and SHA256
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf2-shop-goods-route-${{ github.run_id }}
+          path: ${{ runner.temp }}/pf2-shop-route-discovery/
+          retention-days: 90
+          if-no-files-found: warn
