@@ -1,0 +1,82 @@
+name: Moonzip last 12 books - public page expansion diagnostic
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/moonzip-final12-diagnostic.yml
+permissions:
+  contents: read
+concurrency:
+  group: moonzip-final12-diagnostic
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Inspect only one public series page and its expand control
+        run: |
+          $ErrorActionPreference='Stop'
+          $env:PYTHONIOENCODING='utf-8'
+          @'
+          import asyncio, json
+          from pathlib import Path
+          from urllib.parse import urlparse
+          from playwright.async_api import async_playwright
+          TARGET="https://moonzip.kr/series/af778954-a08c-4d65-a4d0-32c8079ab7cf"
+          SNAP="""() => ({
+            location:location.href,
+            title:document.title,
+            h1:document.querySelector('h1')?.innerText||'',
+            book_links:Array.from(document.querySelectorAll('a[href*="/books/"]')).map(a=>({href:a.href,text:(a.innerText||'').trim().slice(0,180)})).slice(0,90),
+            expand_controls:Array.from(document.querySelectorAll('button,a,[role="button"]')).filter(n=>(n.innerText||'').includes('전체 보기')).map(n=>n.outerHTML.slice(0,1300)).slice(0,10),
+            dialogs:Array.from(document.querySelectorAll('[role="dialog"],[aria-modal="true"]')).map(n=>({text:(n.innerText||'').slice(0,1200),html:n.outerHTML.slice(0,1200)})).slice(0,4),
+            list_items:Array.from(document.querySelectorAll('li')).map(n=>(n.innerText||'').trim()).filter(Boolean).slice(-35),
+            body_tail:(document.body?.innerText||'').slice(-4600)
+          })"""
+          async def main():
+            out={"target":TARGET,"events":[]}
+            async with async_playwright() as p:
+              browser=await p.chromium.launch(channel="chrome",headless=False)
+              context=await browser.new_context(locale="ko-KR",viewport={"width":1366,"height":900})
+              async def block_image(route):
+                if route.request.resource_type in ("image","font","media"):await route.abort()
+                else:await route.continue_()
+              await context.route("**/*",block_image)
+              page=await context.new_page()
+              page.on("response",lambda resp:out["events"].append({"path":urlparse(resp.url).path,"status":resp.status}) if "moonzip.kr" in resp.url and len(out["events"])<80 else None)
+              try:
+                resp=await page.goto(TARGET,wait_until="domcontentloaded",timeout=30000)
+                await page.wait_for_timeout(1000)
+                out["http_status"]=resp.status if resp else None
+                out["before"]=await page.evaluate(SNAP)
+                ctrl=page.get_by_text("전체 보기",exact=False)
+                out["control_match_count"]=await ctrl.count()
+                if await ctrl.count():
+                  try:
+                    await ctrl.last.click(timeout=3000)
+                    out["click_status"]="clicked"
+                  except Exception as e:out["click_error"]=f"{type(e).__name__}:{str(e)[:350]}"
+                await page.wait_for_timeout(1800)
+                out["after"]=await page.evaluate(SNAP)
+                print("MOONZIP_LAST12_DIAG",json.dumps({"initial_links":len(out["before"]["book_links"]),"after_links":len(out["after"]["book_links"]),"controls":out["control_match_count"],"click":out.get("click_status"),"error":out.get("click_error"),"after_url":out["after"]["location"]},ensure_ascii=False),flush=True)
+              finally:
+                await context.close()
+                await browser.close()
+            Path("moonzip-final12-diagnostic.json").write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding="utf-8")
+          asyncio.run(main())
+          '@ | py -3 -
+          if($LASTEXITCODE -ne 0){throw 'Diagnostic failed'}
+
+      - name: Preserve public-page DOM diagnostic only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonzip-one-series-expansion-diagnostic
+          path: moonzip-final12-diagnostic.json
+          retention-days: 7
+          if-no-files-found: warn
