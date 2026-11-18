@@ -1,0 +1,117 @@
+name: HITEL Scribd - ONE-TIME 10 Parallel PDF Download Test
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/scribd-cdp-10parallel-download-smoke.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hitel-scribd-pc-manual-login-session
+  cancel-in-progress: false
+
+jobs:
+  ten-parallel-pdf-download:
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Ensure Windows GUI session, not an unattended cloud browser
+        run: |
+          $ErrorActionPreference='Stop'
+          $session = (Get-Process -Id $PID).SessionId
+          Write-Host "TEN_PARALLEL_DESKTOP_SESSION id=$session runner=$env:RUNNER_NAME"
+          if ($session -eq 0) { throw 'Needs local interactive Windows desktop session' }
+
+      - name: Fetch current Scribd 10-tab download code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: src
+
+      - name: Fetch ORIGINAL HITEL 1208 document URLs
+        run: |
+          $ErrorActionPreference='Stop'
+          $dir='catalog'
+          $branch='feature/ypt-study-group-learning-nav-20261108'
+          if (Test-Path "$dir\.git") {
+            git -C $dir fetch --depth 1 origin $branch
+            if ($LASTEXITCODE -ne 0) { throw 'Catalog fetch failed' }
+            git -C $dir reset --hard FETCH_HEAD
+            if ($LASTEXITCODE -ne 0) { throw 'Catalog reset failed' }
+          } else {
+            git clone --depth 1 --branch $branch https://github.com/lyonbegin/hitel-room.git $dir
+            if ($LASTEXITCODE -ne 0) { throw 'Catalog clone failed' }
+          }
+          $ids=@(Get-Content "$dir\tools\education_catalog_v3\investigation-1208-ids.txt" | Where-Object {$_.Trim()})
+          if ($ids.Count -ne 1208) { throw "Expected 1208 original document IDs, got $($ids.Count)" }
+
+      - name: Verify independent, already signed-in Chrome on local debugging port
+        run: |
+          $ErrorActionPreference='Stop'
+          $v=Invoke-RestMethod -Uri 'http://127.0.0.1:9222/json/version' -TimeoutSec 5
+          if ($v.Browser -notmatch '^Chrome/') { throw 'Chrome remote debugger not ready' }
+          Write-Host "SAVED_PROFILE_CHROME_ATTACHED browser=$($v.Browser) local_port=9222"
+          Write-Host 'No browser launched; no login attempted; no profile/cookies copied.'
+
+      - name: Verify Python Playwright
+        run: |
+          $ErrorActionPreference='Stop'
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m pip show playwright
+            if ($LASTEXITCODE -ne 0) {
+              py -3 -m pip install --disable-pip-version-check playwright==1.56.0
+              if ($LASTEXITCODE -ne 0) { throw 'Playwright dependency failed' }
+            }
+          } else {
+            python -m pip show playwright
+            if ($LASTEXITCODE -ne 0) {
+              python -m pip install --disable-pip-version-check playwright==1.56.0
+              if ($LASTEXITCODE -ne 0) { throw 'Playwright dependency failed' }
+            }
+          }
+
+      - name: TEST EXACTLY TEN distinct original documents in TEN CONCURRENT tabs
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: |
+          $ErrorActionPreference='Stop'
+          $params=@(
+            'src/tools/zocbo/scribd_pc_10parallel_download_smoke.py',
+            '--catalog','catalog/tools/education_catalog_v3',
+            '--cdp','http://127.0.0.1:9222',
+            '--out','hitel-scribd-10parallel-results',
+            '--per-document-timeout','145'
+          )
+          if (Get-Command py -ErrorAction SilentlyContinue) { & py -3 @params }
+          else { & python @params }
+          if ($LASTEXITCODE -ne 0) { throw 'Ten parallel downloads test failed before summary; see logs' }
+
+      - name: Report and validate 10 individual downloaded-file outcomes
+        if: always()
+        run: |
+          $file='hitel-scribd-10parallel-results\summary.json'
+          if (Test-Path $file) {
+            Get-Content $file -Raw
+            $obj=Get-Content $file -Raw | ConvertFrom-Json
+            if ($obj.attempted_documents -ne 10 -or $obj.simultaneous_tabs -ne 10) {
+              throw 'Expected exactly ten parallel attempted documents'
+            }
+            Write-Host "TEN_PARALLEL_FINAL attempted=$($obj.attempted_documents) verified_pdf=$($obj.pdf_saved_verified) failures=$($obj.failed_or_unconfirmed)"
+          } else { Write-Host 'No ten-document summary was produced' }
+
+      - name: Upload results ONLY - never PDFs, credentials, cookies or profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-scribd-10parallel-pdf-verification
+          path: |
+            hitel-scribd-10parallel-results/summary.json
+            hitel-scribd-10parallel-results/ten-download-results.json
+          if-no-files-found: warn
+          retention-days: 7
