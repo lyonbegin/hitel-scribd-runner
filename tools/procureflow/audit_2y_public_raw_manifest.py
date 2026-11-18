@@ -121,7 +121,7 @@ def audit(manifest, root):
             issues.append(f"{family}:TWO_PAGES_NOT_VERIFIED")
         if not group["detail"]:
             issues.append(f"{family}:DETAIL_NOT_VERIFIED")
-        elif not group["keys"].intersection(group["detail_keys"]):
+        elif not group["detail_keys"].issubset(group["keys"]):
             issues.append(f"{family}:DETAIL_NOT_LINKED_TO_LIST")
     # No claim of full 2-year coverage or JOIN validation from sample evidence.
     return {"pass_sample_evidence": not issues and bool(groups),
