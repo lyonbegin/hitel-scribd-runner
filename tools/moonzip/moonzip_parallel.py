@@ -267,7 +267,13 @@ async def main(args):
         await context.route("**/*",abort_images)
         try:
             seeds=await discover(context,args.mode,out)
-            series,books=await collect_series(context,seeds,out,args.series_limit)
+            scoped=seeds
+            if args.only_series_id:
+                sid=args.only_series_id.strip().lower()
+                if sid not in seeds:raise ValueError("Target series ID not found in saved 370-series search index")
+                scoped={sid:seeds[sid]}
+                print("MOONZIP_TARGETED_SERIES",json.dumps({"series_id":sid}),flush=True)
+            series,books=await collect_series(context,scoped,out,args.series_limit)
             books=await collect_books(context,books,out,args.book_limit)
             summary=export(series,books,out,seeds,args.mode)
             if args.mode=="probe" and (summary["series_crawled"]<5 or
@@ -281,6 +287,7 @@ if __name__=="__main__":
     parser=argparse.ArgumentParser()
     parser.add_argument("--mode",choices=["probe","full"],default="probe")
     parser.add_argument("--out",default="moonzip-results-parallel")
+    parser.add_argument("--only-series-id",default="",help="Retry just one known series, preserving all existing checkpoints")
     parser.add_argument("--series-limit",type=int,default=0)
     parser.add_argument("--book-limit",type=int,default=0)
     args=parser.parse_args()
