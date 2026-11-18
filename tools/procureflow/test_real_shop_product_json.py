@@ -44,11 +44,8 @@ def parse(raw):
     "first_row":{key:str(v[0][key])[:150] for key in fields if key in v[0]}
       if v and isinstance(v[0],dict) else {}}
    for k,v in arrays][:24]
- res["real_goods_rows"]=sum(len(v) for k,v in arrays
-   if v and isinstance(v[0],dict) and
-      any(any(s in str(field).lower() for s in ("goods","item","prod","prce","etps","ctrt"))
-          for field in v[0].keys())
-   )
+ res["real_goods_rows"]=len(j.get("rsltList",[])) if isinstance(j.get("rsltList"),list) else 0
+ res["auxiliary_facet_row_count"]=sum(len(v) for k,v in arrays if k!="rsltList")
  return res
 
 async def main():
@@ -106,6 +103,17 @@ async def main():
       (OUT/"shop_products_page2.json").write_bytes(content)
       report["page2"]={"http":nextresp.status,"bytes":len(content),"sha256":sha(content),**parse(content)}
       log("PF2_SHOP_PRODUCT_PAGE2",report["page2"])
+      first_products=json.loads(raw).get("rsltList",[])
+      page2_products=json.loads(content).get("rsltList",[])
+      def rowid(p):
+       return (str(p.get("ctrtItemMngNo","")),str(p.get("itemIdnfNo","")),str(p.get("ctrtNo","")))
+      ids1={rowid(x) for x in first_products if isinstance(x,dict)}
+      ids2={rowid(x) for x in page2_products if isinstance(x,dict)}
+      report["cross_page_check"]={"page1_rows":len(first_products),"page2_rows":len(page2_products),
+         "page1_distinct_ids":len(ids1),"page2_distinct_ids":len(ids2),
+         "cross_page_overlap":len(ids1 & ids2),"query":search.get("searchKeyword"),
+         "reported_total":entry.get("totalSize")}
+      log("PF2_SHOP_CROSSPAGE_CHECK",report["cross_page_check"])
       break
     if report["verified_goods_rows"]>0:break
   finally:await ctx.close();await br.close()
