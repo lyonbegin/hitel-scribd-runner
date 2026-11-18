@@ -105,8 +105,12 @@ def audit(manifest, root):
         else:
             group["detail"] += 1
         date_field = DATE_FIELDS.get(family)
-        if date_field and not entry.get(date_field):
-            issues.append(f"{tag}:MISSING_{date_field.upper()}")
+        if date_field:
+            declared_date = entry.get(date_field)
+            if not declared_date:
+                issues.append(f"{tag}:MISSING_{date_field.upper()}")
+            elif any(str(row.get(date_field, "")) != str(declared_date) for row in rows):
+                issues.append(f"{tag}:DATE_NOT_IN_ENTITY_ROWS")
         if family == "delivery_order" and entry.get("source_type") == "product_catalog":
             issues.append(f"{tag}:CATALOG_NOT_DELIVERY")
         if family == "bidder" and entry.get("classification") == "no_bidders" and entry.get("successBidInfo") == []:
