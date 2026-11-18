@@ -1,0 +1,41 @@
+name: ProcureFlow - anonymous public 038R report runtime
+run-name: "PF2 038R | anonymous browser report runtime readiness"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-038R-browser-runtime.yml
+      - tools/procureflow/probe_report_public_browser_runtime.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then python -m playwright install --with-deps chrome; fi
+          if ! command -v xvfb-run >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y xvfb; fi
+          python -m py_compile tools/procureflow/probe_report_public_browser_runtime.py
+      - name: Run anonymous-only public report browser readiness test
+        shell: bash
+        run: |
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/probe_report_public_browser_runtime.py
+      - name: Save public runtime route/DOM evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf2-038r-public-browser-${{ github.run_id }}
+          path: ${{ runner.temp }}/pf2-public-report-browser/
+          if-no-files-found: warn
+          retention-days: 90
