@@ -120,6 +120,16 @@ class PublicRawManifestTests(unittest.TestCase):
         self.assertIn("entry[1]:REUSED_LIST_RAW_PATH", result["issues"])
         self.assertFalse(result["pass_sample_evidence"])
 
+    def test_non_integral_page_labels_are_rejected(self):
+        for invalid_page in (True, 1.5, 2.9, "1.5", "1e0", -1, 0):
+            with self.subTest(page=invalid_page):
+                items = [self.entry(1), self.entry(2),
+                         self.entry(1, "detail", key="contract-list-1")]
+                items[0]["page"] = invalid_page
+                result = audit_module.audit(items, self.root)
+                self.assertIn("entry[0]:INVALID_PAGE", result["issues"])
+                self.assertFalse(result["pass_sample_evidence"])
+
     def test_manifest_key_not_in_raw_is_rejected(self):
         items = [self.entry(1), self.entry(2), self.entry(1, "detail")]
         items[0]["record_keys"] = ["invented-key"]
