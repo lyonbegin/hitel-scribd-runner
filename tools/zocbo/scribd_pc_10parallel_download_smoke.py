@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""ONE-TIME 10 concurrent Scribd downloads in user's already signed-in Windows Chrome.
+"""ONE-TIME ten downloads, running at most FIVE concurrent tabs in user Chrome.
 
 Use only the local CDP bridge; never start a browser or access its profile.
-All 10 tabs operate concurrently. PDF files stay on this PC; Actions receives
+Five tabs operate together, then the next five; never ten at once. PDF files stay on this PC; Actions receives
 only document IDs, download outcomes and sizes, not the downloaded files.
 """
 import argparse
@@ -55,11 +55,11 @@ async def main(args):
     checkpoint = local / "ScribdReview" / "unlinked" / "results.csv"
     downloaded_files = local / "ScribdDownloads"
     docs, selected, prior_previews = choice(Path(args.catalog).resolve(), "unlinked", checkpoint)
-    print("TEN_PARALLEL_SELECTED", json.dumps({
+    print("FIVE_PARALLEL_SELECTED", json.dumps({
         "original_queue": len(docs), "previously_verified_preview_with_download_control": prior_previews,
         "ten_distinct_document_ids": [d["document_id"] for d in selected],
         "browser": "separate desktop Chrome", "cdp": "localhost:9222",
-        "parallel_tabs": 10, "run_type": "ONE_TIME_SMOKE",
+        "parallel_tabs": 5, "batches": 2, "click_timeout_ms": 20000, "run_type": "ONE_TIME_SMOKE",
         "files_remain_on_user_pc": True,
     }, ensure_ascii=False), flush=True)
     from urllib.request import urlopen
@@ -83,7 +83,7 @@ async def main(args):
             await sync_start.wait()
             start_time = now()
             start_clock = time.monotonic()
-            print("TEN_PARALLEL_TAB_START", json.dumps({
+            print("FIVE_PARALLEL_TAB_START", json.dumps({
                 "tab": index, "document_id": item["document_id"], "timestamp": start_time
             }, ensure_ascii=False), flush=True)
             try:
@@ -100,7 +100,7 @@ async def main(args):
             result["completed_at"] = now()
             result["duration_seconds"] = round(time.monotonic() - start_clock, 2)
             results.append(result)
-            print("TEN_PARALLEL_TAB_RESULT", json.dumps({
+            print("FIVE_PARALLEL_TAB_RESULT", json.dumps({
                 "tab": index,
                 "document_id": item["document_id"],
                 "status": result.get("status"),
@@ -111,10 +111,23 @@ async def main(args):
                 "seconds": result["duration_seconds"],
             }, ensure_ascii=False), flush=True)
 
-        tasks = [asyncio.create_task(worker(item, i + 1))
-                 for i, item in enumerate(selected)]
-        sync_start.set()  # Start all 10 tabs concurrently, not sequentially.
-        await asyncio.gather(*tasks)
+        # Keep exactly FIVE active download tabs at a time.
+        # Ten documents are inspected in TWO nonoverlapping 5-tab batches.
+        for batch_no, offset in enumerate(range(0, len(selected), 5), start=1):
+            group = selected[offset:offset + 5]
+            sync_start.clear()
+            print("FIVE_PARALLEL_BATCH_START", json.dumps({
+                "batch": batch_no,
+                "five_document_ids": [item["document_id"] for item in group],
+                "click_timeout_ms": 20000
+            }, ensure_ascii=False), flush=True)
+            tasks = [asyncio.create_task(worker(item, offset + i + 1))
+                     for i, item in enumerate(group)]
+            sync_start.set()
+            await asyncio.gather(*tasks)
+            print("FIVE_PARALLEL_BATCH_DONE", json.dumps({
+                "batch": batch_no, "completed": len(group)
+            }, ensure_ascii=False), flush=True)
         # Do not browser.close(): user owns Chrome; CDP client just detaches.
 
     results.sort(key=lambda x: x["tab"])
@@ -127,7 +140,8 @@ async def main(args):
     summary = {
         "scope": "unlinked", "original_queue": len(docs),
         "attempted_documents": len(results),
-        "simultaneous_tabs": 10,
+        "simultaneous_tabs": 5,
+        "total_batches": 2, "batch_size": 5, "click_timeout_ms": 20000,
         "pdf_saved_verified": successes,
         "failed_or_unconfirmed": len(results) - successes,
         "status_counts": counts,
@@ -140,7 +154,7 @@ async def main(args):
     }
     (output / "summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-    print("TEN_PARALLEL_DOWNLOAD_SUMMARY",
+    print("FIVE_PARALLEL_DOWNLOAD_SUMMARY",
           json.dumps(summary, ensure_ascii=False), flush=True)
 
 
