@@ -187,49 +187,157 @@ async def review_one(context, item, shots_dir: Path, index: int, save_success_sc
 
 
 async def one_permitted_download_test(context, item, destination: Path, results_dir: Path):
-    """Single file test only; no bulk download. The signed-in user's entitlement controls access."""
-    result = {"document_id": item["document_id"], "original_url": item["original_url"],
-              "status": "not_started", "download_saved_on_pc": False, "payment_warning_seen": False}
+    """Follow the three screenshots: Download -> payment modal -> Continue anyway -> download.
+
+    This does not restore a paused subscription or bypass payment/access checks.
+    Never click Update payment. Save at most one document that Scribd actually permits.
+    """
+    result = {
+        "document_id": item["document_id"], "original_url": item["original_url"],
+        "status": "not_started", "download_saved_on_pc": False,
+        "download_clicked": False, "payment_modal_seen": False,
+        "continue_anyway_clicked": False, "format_selected": False,
+        "retry_download_clicked": False, "steps": []
+    }
     page = await context.new_page()
+    downloaded = asyncio.get_running_loop().create_future()
+
+    def capture_download(event):
+        if not downloaded.done():
+            downloaded.set_result(event)
+
+    page.on("download", capture_download)
     try:
         await page.goto(item["original_url"], wait_until="domcontentloaded", timeout=35000)
-        await page.wait_for_timeout(1300)
-        result["payment_warning_seen"] = bool(PAYMENT_HOLD.search(await body_text(page)))
-        await dismiss_continue_anyway(page)
-        button = page.get_by_role("button", name=re.compile(r"^download(\s|$)", re.I))
+        await page.wait_for_timeout(1000)
+
+        # Step 1: On the real Scribd document page, click its actual Download button.
+        button = page.get_by_role("button", name=re.compile(r"^download(?:\s|$)", re.I))
         if not await button.count():
-            result["status"] = "download_control_absent"
+            result["status"] = "download_button_absent"
+            result["steps"].append("download_button_absent")
             return result
         try:
-            async with page.expect_download(timeout=12000) as download_signal:
-                await button.first.click(timeout=4500)
-            download = await download_signal.value
+            if not await button.first.is_visible(timeout=2000):
+                result["status"] = "download_button_not_visible"
+                return result
+            result["steps"].append("document_page_opened")
+            await button.first.click(timeout=6000)
+            result["download_clicked"] = True
+            result["steps"].append("download_button_clicked")
+        except Exception as exc:
+            result["status"] = "download_button_click_error"
+            result["error"] = (type(exc).__name__ + ": " + str(exc))[:240]
+            return result
+
+        # Step 2: The user's screenshot shows the membership hold dialog
+        # with "Continue anyway". It appears AFTER clicking Download.
+        # Handle it promptly rather than waiting 12 seconds for a download event.
+        for _ in range(30):
+            if downloaded.done():
+                break
+            try:
+                modal_button = page.get_by_role("button", name=re.compile(r"^Continue anyway$", re.I))
+                if await modal_button.count() and await modal_button.first.is_visible(timeout=500):
+                    result["payment_modal_seen"] = True
+                    result["steps"].append("payment_modal_presented_after_download")
+                    await modal_button.first.click(timeout=3500)
+                    result["continue_anyway_clicked"] = True
+                    result["steps"].append("continue_anyway_clicked")
+                    await page.wait_for_timeout(650)
+                    break
+            except Exception as exc:
+                result["modal_error"] = type(exc).__name__
+            await page.wait_for_timeout(500)
+
+        # Step 3: Continue may release a download, open a format selector,
+        # or keep the account on hold. Handle the site UI without guessing URLs.
+        if not downloaded.done():
+            for _ in range(12):
+                if downloaded.done():
+                    break
+                try:
+                    format_controls = [
+                        page.get_by_role("button", name=re.compile(r"^download\s+(?:as\s+)?pdf$", re.I)),
+                        page.get_by_role("link", name=re.compile(r"^download\s+(?:as\s+)?pdf$", re.I))
+                    ]
+                    clicked = False
+                    for choice in format_controls:
+                        if await choice.count() and await choice.first.is_visible(timeout=550):
+                            await choice.first.click(timeout=3500)
+                            result["format_selected"] = True
+                            result["steps"].append("site_pdf_download_format_clicked")
+                            clicked = True
+                            break
+                    if clicked:
+                        break
+                except Exception:
+                    pass
+                await page.wait_for_timeout(500)
+
+        # The payment dialog might appear a second time after format selection.
+        if not downloaded.done():
+            if await dismiss_continue_anyway(page):
+                result["payment_modal_seen"] = True
+                result["continue_anyway_clicked"] = True
+                result["steps"].append("continue_anyway_clicked_after_format")
+
+        # When the membership hold dialog simply closes and leaves the user on
+        # the page, one explicit second Download click is permitted for this
+        # single test document. Avoid repeated loops/payment handling.
+        if not downloaded.done() and result["continue_anyway_clicked"] and not result["format_selected"]:
+            try:
+                again = page.get_by_role("button", name=re.compile(r"^download(?:\s|$)", re.I))
+                if await again.count() and await again.first.is_visible(timeout=600):
+                    await again.first.click(timeout=3500)
+                    result["retry_download_clicked"] = True
+                    result["steps"].append("download_button_clicked_once_after_modal")
+                    await page.wait_for_timeout(750)
+                    if await dismiss_continue_anyway(page):
+                        result["steps"].append("payment_modal_reappeared_after_retry")
+            except Exception as exc:
+                result["retry_error"] = type(exc).__name__
+
+        # A browser-managed download event is the ONLY proof that this document
+        # was permitted to download. Showing a button is not evidence.
+        if not downloaded.done():
+            try:
+                await asyncio.wait_for(asyncio.shield(downloaded), timeout=12)
+            except asyncio.TimeoutError:
+                pass
+
+        if downloaded.done():
+            transfer = downloaded.result()
             destination.mkdir(parents=True, exist_ok=True)
-            name = re.sub(r"[^\w.\-가-힣]+", "_", download.suggested_filename)[:120]
-            path = destination / f"{item['document_id']}_{name}"
-            await download.save_as(path)
+            safe = re.sub(r"[^\w.\-가-힣]+", "_", transfer.suggested_filename)[:120] or "download.bin"
+            target = destination / (item["document_id"] + "_" + safe)
+            await transfer.save_as(target)
             result["status"] = "download_saved_on_pc"
             result["download_saved_on_pc"] = True
-            result["local_file_name"] = path.name
-            result["file_size_bytes"] = path.stat().st_size
-        except PlaywrightTimeout:
-            result["status"] = "no_download_event"
-            result["payment_warning_seen"] = result["payment_warning_seen"] or bool(
-                PAYMENT_HOLD.search(await body_text(page)))
-            result["continue_anyway_clicked"] = await dismiss_continue_anyway(page)
-        except Exception as e:
-            result["status"] = "download_error"
-            result["error"] = (type(e).__name__ + ": " + str(e))[:220]
-        if result["status"] != "download_saved_on_pc":
-            await page.screenshot(path=str(results_dir / "single-download-test.png"),
-                                  full_page=False, timeout=7000)
-    except Exception as e:
-        result["status"] = "navigation_error"
-        result["error"] = (type(e).__name__ + ": " + str(e))[:220]
+            result["local_file_name"] = target.name
+            result["file_size_bytes"] = target.stat().st_size
+            result["steps"].append("actual_file_saved_on_pc")
+        else:
+            text = await body_text(page)
+            if (result["payment_modal_seen"] or result["continue_anyway_clicked"]
+                    or PAYMENT_HOLD.search(text)):
+                result["status"] = "no_download_event_payment_hold"
+            else:
+                result["status"] = "no_download_event"
+            result["steps"].append("no_browser_download_event")
+            # Screenshot is stored on the Windows PC, never uploaded with cookies.
+            try:
+                await page.screenshot(path=str(results_dir / "single-download-test.png"),
+                                      full_page=False, timeout=6000)
+            except Exception:
+                pass
+    except Exception as exc:
+        result["status"] = "navigation_or_download_error"
+        result["error"] = (type(exc).__name__ + ": " + str(exc))[:250]
     finally:
+        page.remove_listener("download", capture_download)
         await page.close()
     return result
-
 
 async def main_async(args):
     catalog = Path(args.catalog_dir).resolve()
