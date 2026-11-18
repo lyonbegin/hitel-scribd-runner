@@ -19,6 +19,19 @@ class Stage2EmptyResponseTests(unittest.TestCase):
         self.assertEqual(result["response_bytes"], len(raw))
         self.assertEqual(len(result["response_sha256"]), 64)
 
+    def test_http_200_explicit_application_failure_is_not_empty_bidder_result(self):
+        for doc in (
+            {"success": False, "result": {"successBidInfo": []}},
+            {"result": {"success": False, "successBidInfo": []}},
+        ):
+            with self.subTest(doc=doc):
+                raw = json.dumps(doc).encode()
+                result = module.classify(200, raw)
+                self.assertEqual(result["reason"], "APPLICATION_EXPLICIT_FAILURE")
+                self.assertEqual(result["status"], "unverified")
+                self.assertFalse(result["verified_zero_bidders"])
+                self.assertEqual(result["response_sha256"], __import__("hashlib").sha256(raw).hexdigest())
+
     def test_non_200_does_not_become_zero(self):
         result = module.classify(503, b'{"result":{"successBidInfo":[]}}')
         self.assertEqual(result["reason"], "HTTP_NON_200")
