@@ -67,6 +67,14 @@ class PublicRawManifestTests(unittest.TestCase):
         self.assertIn("contract:DETAIL_NOT_LINKED_TO_LIST", result["issues"])
         self.assertFalse(result["pass_sample_evidence"])
 
+    def test_duplicate_detail_official_key_across_files_rejected(self):
+        items = [self.entry(1), self.entry(2),
+                 self.entry(1, "detail", key="contract-list-1"),
+                 self.entry(2, "detail", key="contract-list-1")]
+        result = audit_module.audit(items, self.root)
+        self.assertIn("entry[3]:DUPLICATE_DETAIL_OFFICIAL_KEY", result["issues"])
+        self.assertFalse(result["pass_sample_evidence"])
+
     def test_missing_raw_bytes_and_hash_are_fail_closed(self):
         items = [self.entry(1), self.entry(2), self.entry(1, "detail")]
         items[0]["sha256"] = "0" * 64
