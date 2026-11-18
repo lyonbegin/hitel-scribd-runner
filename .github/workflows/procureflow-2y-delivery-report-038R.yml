@@ -1,0 +1,41 @@
+name: ProcureFlow 2Y - official shopping delivery order report
+run-name: "PF2 038R delivery history | not goods keyword search | official source"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-2y-delivery-report-038R.yml
+      - tools/procureflow/inspect_2y_delivery_report_038R.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-report-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Chrome read-only setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then python -m playwright install --with-deps chrome; fi
+          if ! command -v xvfb-run >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y xvfb; fi
+          python -m py_compile tools/procureflow/inspect_2y_delivery_report_038R.py
+      - name: Identify report 038R and official historical data download action
+        shell: bash
+        run: |
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/inspect_2y_delivery_report_038R.py
+      - name: Preserve raw catalogue JSON, JS and sha256
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf2-delivery-history-report-${{ github.run_id }}
+          path: ${{ runner.temp }}/procureflow-two-year-delivery-report/
+          if-no-files-found: warn
+          retention-days: 90
