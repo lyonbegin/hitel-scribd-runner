@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Scribd source-link review in the Windows PC's *visible*, manually signed-in Chrome.
+"""Attach Playwright to standalone Chrome via localhost-only Chrome DevTools Protocol.
 
-The GitHub self-hosted runner starts the browser, but sign-in happens only in the
-local browser window. Chrome's dedicated profile stays on this Windows PC.
-No credentials, cookies, storage state, downloaded books or payment details are
-exported to GitHub. Public previews and permitted single-file download test only.
+The user launches Chrome independently with a dedicated PC-local profile and
+signs into Scribd BEFORE the GitHub Windows runner connects over CDP.
+This program NEVER starts a browser, opens an automated Google sign-in page,
+or exports browser cookies/profile. Only permitted public previews and one
+explicitly requested, authorized download may be tested.
 """
 from __future__ import annotations
 
@@ -94,28 +95,6 @@ def load_csv(path: Path):
         return list(csv.DictReader(f))
 
 
-def make_control_file(path: Path, count: int, scope: str):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    page = """<!doctype html><html lang="ko"><meta charset="utf-8">
-    <title>HITEL — Scribd 수동 로그인 확인</title>
-    <style>body{font:18px/1.7 system-ui,'Malgun Gothic',sans-serif;background:#f8fafb;color:#18202b;
-    margin:0 auto;padding:50px;max-width:780px}main{background:white;border:1px solid #d8e1e9;
-    border-radius:16px;padding:32px}button{font-size:19px;padding:16px 30px;border:0;border-radius:10px;
-    color:white;background:#047857;cursor:pointer}p{margin:8px 0 20px}</style>
-    <main><h2>HITEL — Scribd 로그인 후 작업 시작</h2>
-    <p>첫 번째 Scribd 탭에서 <strong>직접 로그인</strong>해 주십시오. 결제 안내가 나타나면
-    <strong>Continue anyway</strong>로 닫으십시오.</p>
-    <p>로그인이 끝나면 이 <strong>HITEL 작업 시작</strong> 탭으로 돌아와 아래 버튼을 눌러 주십시오.</p>
-    <p>처리 예정: <strong>COUNT</strong>개 링크 (범위: SCOPE).
-    사용자님의 비밀번호·로그인 세션·다운로드한 파일은 GitHub에 전송하지 않습니다.</p>
-    <button onclick="window.HITEL_START=true;this.disabled=true;this.textContent='시작 신호 전송 완료';">
-    로그인 완료 · 링크 검사 시작</button>
-    <p id="notice">진행 시작 후 Chrome 창을 닫지 말아 주십시오.</p>
-    </main></html>"""
-    page = page.replace("COUNT", str(count)).replace("SCOPE", scope)
-    path.write_text(page, encoding="utf-8")
-
-
 async def dismiss_continue_anyway(page):
     """Only dismiss the warning; NEVER touch payment details or payment buttons."""
     try:
@@ -140,24 +119,6 @@ async def get_title(page):
         return ((await page.locator("title").first.text_content(timeout=1500)) or "")[:240]
     except Exception:
         return ""
-
-
-async def signed_out_prompt_visible(page):
-    """Check the rendered page for a sign-in prompt without reading credentials/cookies."""
-    try:
-        current = urlparse(page.url)
-        if re.search(r"/(?:login|signin|sign-in)(?:/|$)", current.path, re.I):
-            return True
-        for kind in ("link", "button"):
-            controls = page.get_by_role(kind, name=re.compile(
-                r"^(?:sign in|log in|login|sign-in|로그인)$", re.I))
-            for index in range(min(await controls.count(), 5)):
-                if await controls.nth(index).is_visible(timeout=600):
-                    return True
-    except Exception:
-        # A page check that fails is not proof that the session is valid.
-        return True
-    return False
 
 
 async def review_one(context, item, shots_dir: Path, index: int, save_success_screens: bool):
