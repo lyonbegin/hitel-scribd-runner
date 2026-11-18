@@ -1,0 +1,44 @@
+name: ProcureFlow 2Y - shop delivery history exact daily scope
+run-name: "PF2 delivery history | all items | 730 days | never conflate shop listings"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-shop-delivery-date-manifest.yml
+      - tools/procureflow/build_2y_shop_delivery_daily_manifest.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate-scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Generate full original delivery-approval-date scope and assert continuity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile tools/procureflow/build_2y_shop_delivery_daily_manifest.py
+          python tools/procureflow/build_2y_shop_delivery_daily_manifest.py \
+             --start 2024-11-18 --as-of 2026-11-18 \
+             --out "$RUNNER_TEMP/procureflow-shop-delivery-2y-manifest.json"
+          python - "$RUNNER_TEMP/procureflow-shop-delivery-2y-manifest.json" <<'PY'
+          import json,sys
+          m=json.load(open(sys.argv[1]))
+          assert len(m["days"])==730, len(m["days"])
+          assert m["days"][0]["date"]=="2024-11-18"
+          assert m["days"][-1]["date"]=="2026-11-17"
+          assert m["collected_unique_rows"]==0 and not m["source_report_csv_verified"]
+          print("SCOPE_AUDIT_OK=730_DAYS_NO_GAPS_NO_FALSE_COMPLETE")
+          PY
+      - name: Preserve all 730 daily partitions with explicit NOT COLLECTED status
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf2-shop-delivery-730day-scope-${{ github.run_id }}
+          path: ${{ runner.temp }}/procureflow-shop-delivery-2y-manifest.json
+          if-no-files-found: error
+          retention-days: 90
