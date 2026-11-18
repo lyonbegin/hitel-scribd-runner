@@ -103,6 +103,8 @@ def audit(manifest, root):
                 issues.append(f"{tag}:CROSS_PAGE_DUPLICATE")
             group["keys"].update(keys)
         else:
+            if group["detail_keys"].intersection(keys):
+                issues.append(f"{tag}:DUPLICATE_DETAIL_OFFICIAL_KEY")
             group["detail"] += 1
             group["detail_keys"].update(keys)
         date_field = DATE_FIELDS.get(family)
