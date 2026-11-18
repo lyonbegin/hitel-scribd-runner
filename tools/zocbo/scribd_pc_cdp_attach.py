@@ -422,13 +422,18 @@ async def main_async(args):
                     if passing < 7:
                         stop_reason = "ten_url_preflight_failed"
                         break
-            # Only one attempted download in the smoke test, never bulk download.
+            # One authorized download test only. Prior successful previews from the
+            # local CSV checkpoint must still be eligible when --resume skips visits.
             download_result = {"status": "disabled"}
-            if args.test_download_one and new_reviewed:
-                first_visible = next((r for r in new_reviewed if r["status"]=="preview_visible"
-                                      and r["download_button_visible"]), None)
+            if args.test_download_one:
+                existing_candidates = [by_id[item["document_id"]] for item in selected
+                                       if item["document_id"] in by_id]
+                first_visible = next(
+                    (r for r in existing_candidates
+                     if r.get("status") == "preview_visible"
+                     and str(r.get("download_button_visible", "")).lower() == "true"), None)
                 if first_visible:
-                    item = next(v for v in selected if v["document_id"]==first_visible["document_id"])
+                    item = next(v for v in selected if v["document_id"] == first_visible["document_id"])
                     download_result = await one_permitted_download_test(context, item, downloads, output)
                 else:
                     download_result = {"status": "no_preview_with_download_control"}
