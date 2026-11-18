@@ -1,0 +1,159 @@
+name: HITEL Scribd PC Login - Continue Anyway - 10 Tabs
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "Saved document queue"
+        required: true
+        type: choice
+        options: [unlinked, all]
+        default: unlinked
+      run_mode:
+        description: "Smoke (10) or Full (all after a 10-item gate)"
+        required: true
+        type: choice
+        options: [smoke, full]
+        default: smoke
+      test_download_one:
+        description: "Test one authorized download after manual login"
+        required: true
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/scribd-pc-signed-in-10tabs.yml
+permissions:
+  contents: read
+concurrency:
+  group: hitel-scribd-pc-manual-login-session
+  cancel-in-progress: false
+jobs:
+  signed-in-visible-chrome:
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 55
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Require real interactive Windows desktop
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $session = (Get-Process -Id $PID).SessionId
+          Write-Host "LOCAL_PC_GUI_PREFLIGHT runner=$env:RUNNER_NAME session_id=$session"
+          if ($session -eq 0) { throw 'A visible Windows desktop, not service session 0, is required.' }
+      - name: Fetch crawler source using Git
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = 'hitel-scribd-session-src'
+          if (Test-Path "$dir\.git") {
+            git -C $dir fetch --depth 1 origin main
+            if ($LASTEXITCODE -ne 0) { throw 'Crawler fetch failed' }
+            git -C $dir reset --hard FETCH_HEAD
+            if ($LASTEXITCODE -ne 0) { throw 'Crawler reset failed' }
+          } else {
+            git clone --depth 1 --branch main https://github.com/lyonbegin/hitel-scribd-runner.git $dir
+            if ($LASTEXITCODE -ne 0) { throw 'Crawler clone failed' }
+          }
+          if (-not (Test-Path "$dir\tools\zocbo\scribd_pc_signed_in_10tabs.py")) {
+            throw 'Expected manually signed-in Chrome crawler file is missing'
+          }
+      - name: Fetch existing original HITEL document links and catalog
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = 'hitel-scribd-session-catalog'
+          $branch = 'feature/ypt-study-group-learning-nav-20261108'
+          if (Test-Path "$dir\.git") {
+            git -C $dir fetch --depth 1 origin $branch
+            if ($LASTEXITCODE -ne 0) { throw 'Catalog fetch failed' }
+            git -C $dir reset --hard FETCH_HEAD
+            if ($LASTEXITCODE -ne 0) { throw 'Catalog reset failed' }
+          } else {
+            git clone --depth 1 --branch $branch https://github.com/lyonbegin/hitel-room.git $dir
+            if ($LASTEXITCODE -ne 0) { throw 'Catalog clone failed' }
+          }
+          $catalog = "$dir\tools\education_catalog_v3"
+          foreach ($name in @('manifest.json','investigation-1208-ids.txt')) {
+            if (-not (Test-Path "$catalog\$name")) { throw "Missing catalog file $name" }
+          }
+          $ids = @(Get-Content "$catalog\investigation-1208-ids.txt" | Where-Object { $_.Trim() })
+          if ($ids.Count -ne 1208) { throw "Original 1208 document ID queue invalid: $($ids.Count)" }
+          Write-Host "SAVED_1208_ORIGINAL_DOCUMENT_IDS_VERIFIED"
+      - name: Verify installed Windows Google Chrome and Playwright
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $chrome = @(
+            "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+            "$([Environment]::GetEnvironmentVariable('ProgramFiles(x86)'))\Google\Chrome\Application\chrome.exe",
+            "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $chrome) { throw 'Installed Windows Google Chrome not found' }
+          Write-Host "LOCAL_GOOGLE_CHROME=$chrome"
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m pip show playwright
+            if ($LASTEXITCODE -ne 0) {
+              py -3 -m pip install --disable-pip-version-check playwright==1.56.0
+              if ($LASTEXITCODE -ne 0) { throw 'Playwright install failed' }
+            }
+          } else {
+            python -m pip show playwright
+            if ($LASTEXITCODE -ne 0) {
+              python -m pip install --disable-pip-version-check playwright==1.56.0
+              if ($LASTEXITCODE -ne 0) { throw 'Playwright install failed' }
+            }
+          }
+      - name: Manual Scribd sign-in and Continue anyway before opening ten links
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $mode = '${{ inputs.run_mode }}'
+          $scope = '${{ inputs.scope }}'
+          $test = '${{ inputs.test_download_one }}'
+          if (-not $mode) { $mode = 'smoke' }
+          if (-not $scope) { $scope = 'unlinked' }
+          if (-not $test) { $test = 'true' }
+          $limit = if ($mode -eq 'full') { '0' } else { '10' }
+          $cmd = @(
+            'hitel-scribd-session-src/tools/zocbo/scribd_pc_signed_in_10tabs.py',
+            '--catalog-dir','hitel-scribd-session-catalog/tools/education_catalog_v3',
+            '--scope',$scope,
+            '--limit',$limit,
+            '--login-wait-seconds','900',
+            '--output-dir','hitel-scribd-signed-in-results',
+            '--resume'
+          )
+          if ($test -eq 'true') { $cmd += '--test-download-one' }
+          Write-Host "WINDOWS_CHROME_HEADLESS_FALSE scope=$scope mode=$mode 10_tabs=true one_download=$test"
+          Write-Host "The user signs in on the local desktop, then clicks the HITEL start tab. Do not put credentials or cookies in GitHub."
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            & py -3 @cmd
+          } else {
+            & python @cmd
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Visible local Chrome work failed; see logs' }
+      - name: Print checked document counts and download test status
+        if: always()
+        run: |
+          if (Test-Path 'hitel-scribd-signed-in-results\summary.json') {
+            Get-Content 'hitel-scribd-signed-in-results\summary.json'
+          } else {
+            Write-Host 'No completed document inspection report; runner/browser/login may not have reached completion.'
+          }
+          if (Test-Path 'hitel-scribd-signed-in-results\single-download-test.json') {
+            Get-Content 'hitel-scribd-signed-in-results\single-download-test.json'
+          }
+      - name: Upload metadata and audit screenshots only (never profile or downloaded books)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-scribd-pc-signed-in-ten-tabs-audit
+          path: |
+            hitel-scribd-signed-in-results/rows.csv
+            hitel-scribd-signed-in-results/summary.json
+            hitel-scribd-signed-in-results/single-download-test.json
+            hitel-scribd-signed-in-results/single-download-test.png
+            hitel-scribd-signed-in-results/screenshots/
+          if-no-files-found: warn
+          retention-days: 7
