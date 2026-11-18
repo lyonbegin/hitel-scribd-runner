@@ -1,0 +1,113 @@
+name: Moonzip 370 series - resume existing 120 incomplete
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/moonzip-resume-incomplete.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: moonzip-resume-incomplete
+  cancel-in-progress: false
+
+jobs:
+  resume:
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Confirm interactive PC
+        run: |
+          $ErrorActionPreference='Stop'
+          $sid=(Get-Process -Id $PID).SessionId
+          Write-Host "MOONZIP_RUNNER=$env:RUNNER_NAME SESSION=$sid"
+          if($sid -eq 0){throw 'Interactive Windows desktop required'}
+
+      - name: Restore last verified metadata checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          name: moonzip-370-series-cover-links-and-book-metadata
+          run-id: 43450489443
+          github-token: \${{ github.token }}
+          path: .
+
+      - name: Validate restored series and book counts
+        run: |
+          $ErrorActionPreference='Stop'
+          @'
+          import json
+          from pathlib import Path
+          p=Path("moonzip-catalog-results")
+          s=json.loads((p/"series.json").read_text(encoding="utf-8"))
+          b=json.loads((p/"books.json").read_text(encoding="utf-8"))
+          pages=json.loads((p/"search_pages.json").read_text(encoding="utf-8"))
+          complete=sum(bool(v.get("complete")) for v in s.values())
+          assert len(s)==370 and complete==250,(len(s),complete)
+          assert len(b)==1739 and len(pages)==31,(len(b),len(pages))
+          print("MOONZIP_RESTORED",len(s),complete,len(b),len(pages))
+          '@ | py -3 -
+          if($LASTEXITCODE -ne 0){throw 'Checkpoint verification failed; refusing fresh crawl'}
+
+      - name: Sync pinned source without Windows checkout lock
+        run: |
+          $ErrorActionPreference='Stop'
+          if(Test-Path src\.git){
+            git -C src fetch --depth 1 origin $env:GITHUB_SHA
+            if($LASTEXITCODE -ne 0){throw 'git fetch failed'}
+            git -C src checkout --detach $env:GITHUB_SHA
+          }else{
+            git clone --no-checkout https://github.com/lyonbegin/hitel-scribd-runner.git src
+            if($LASTEXITCODE -ne 0){throw 'git clone failed'}
+            git -C src checkout --detach $env:GITHUB_SHA
+          }
+          if($LASTEXITCODE -ne 0){throw 'git checkout failed'}
+          py -3 -m py_compile src/tools/moonzip/moonzip_parallel.py
+          if($LASTEXITCODE -ne 0){throw 'Python syntax failed'}
+
+      - name: Resume only incomplete series from existing checkpoint
+        run: |
+          $ErrorActionPreference='Stop'
+          $env:PYTHONIOENCODING='utf-8'
+          py -3 -u src/tools/moonzip/moonzip_parallel.py --mode full --out moonzip-catalog-results
+          if($LASTEXITCODE -ne 0){throw 'Resume failed - the checkpoint will still be retained'}
+
+      - name: Print precise progress and unresolved IDs
+        if: always()
+        run: |
+          if(Test-Path moonzip-catalog-results\series.json){
+            $env:PYTHONIOENCODING='utf-8'
+            @'
+          import json
+          from pathlib import Path
+          p=Path("moonzip-catalog-results")
+          s=json.loads((p/"series.json").read_text(encoding="utf-8"))
+          b=json.loads((p/"books.json").read_text(encoding="utf-8"))
+          incomplete=[v for v in s.values() if not v.get("complete")]
+          zero=[v for v in incomplete if not v.get("visible_books_after_expand")]
+          partial=[v for v in incomplete if v.get("visible_books_after_expand")]
+          missing=sum(max(0,v["site_book_count_label"]-v.get("visible_books_after_expand",0)) for v in partial if isinstance(v.get("site_book_count_label"),int))
+          report={"series_total":len(s),"series_complete":len(s)-len(incomplete),"series_incomplete":len(incomplete),"zero_book_series":len(zero),"partial_book_series":len(partial),"minimum_missing_books":missing,"unique_books":len(b),"book_details_checked":sum(bool(v.get("detail_checked")) for v in b.values()),"book_cover_urls":sum(bool(v.get("cover_image_url")) for v in b.values()),"image_files_downloaded":0}
+          (p/"resume-summary.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
+          (p/"remaining-series.json").write_text(json.dumps(incomplete,ensure_ascii=False,indent=2),encoding="utf-8")
+          print("MOONZIP_RESUME_SUMMARY",json.dumps(report,ensure_ascii=False))
+          '@ | py -3 -
+            if($LASTEXITCODE -ne 0){throw 'Could not summarize checkpoint'}
+          }
+
+      - name: Back up all original metadata and new status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonzip-resume-checkpoint-all-series-and-unresolved
+          path: |
+            moonzip-catalog-results/*.json
+            moonzip-catalog-results/*.csv
+          retention-days: 7
+          if-no-files-found: warn
