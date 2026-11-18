@@ -1,0 +1,81 @@
+name: HITEL Scribd-FIRST 5 Real PDF Download Verification
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/scribd-source-first-5doc-probe.yml
+permissions:
+  contents: read
+concurrency:
+  group: hitel-scribd-pc-manual-login-session
+  cancel-in-progress: false
+jobs:
+  scribd-first-five:
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 16
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Verify interactive Windows runner and locally signed-in Chrome CDP
+        run: |
+          $ErrorActionPreference='Stop'
+          $session=(Get-Process -Id $PID).SessionId
+          if ($session -eq 0) { throw 'Windows desktop user session is required' }
+          $status=Invoke-RestMethod -Uri 'http://127.0.0.1:9222/json/version' -TimeoutSec 5
+          if ($status.Browser -notmatch '^Chrome/') { throw 'Existing Chrome debugging connection unavailable' }
+          Write-Host "SCRIBD_FIRST_LOCAL_CHROME session=$session cdp=127.0.0.1:9222"
+      - name: Fetch source-first scripts, NOT an external book catalog
+        run: |
+          $ErrorActionPreference='Stop'
+          $dir='hitel-scribd-source-first-src'
+          if (Test-Path "$dir\.git") {
+            git -C $dir fetch --depth 1 origin main
+            if ($LASTEXITCODE -ne 0) { throw 'Git fetch failed' }
+            git -C $dir reset --hard FETCH_HEAD
+            if ($LASTEXITCODE -ne 0) { throw 'Git reset failed' }
+          } else {
+            git clone --depth 1 --branch main https://github.com/lyonbegin/hitel-scribd-runner.git $dir
+            if ($LASTEXITCODE -ne 0) { throw 'Git clone failed' }
+          }
+          if (-not (Test-Path "$dir\tools\zocbo\scribd_source_first_5doc_probe.py")) {
+            throw 'Scribd first-source verification code is missing'
+          }
+      - name: Require Python Playwright
+        run: |
+          $ErrorActionPreference='Stop'
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m pip show playwright
+            if ($LASTEXITCODE -ne 0) { py -3 -m pip install --disable-pip-version-check playwright==1.56.0 }
+            if ($LASTEXITCODE -ne 0) { throw 'Playwright installation missing' }
+          } else {
+            python -m pip show playwright
+            if ($LASTEXITCODE -ne 0) { python -m pip install --disable-pip-version-check playwright==1.56.0 }
+            if ($LASTEXITCODE -ne 0) { throw 'Playwright installation missing' }
+          }
+      - name: Test five independently discovered Scribd originals in five tabs
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: |
+          $ErrorActionPreference='Stop'
+          $path='hitel-scribd-source-first-src/tools/zocbo/scribd_source_first_5doc_probe.py'
+          if (Get-Command py -ErrorAction SilentlyContinue) { & py -3 $path }
+          else { & python $path }
+          if ($LASTEXITCODE -ne 0) { throw 'Scribd first-source test failed; see logs' }
+      - name: Show actual PDF results, not candidate counts
+        if: always()
+        run: |
+          $file='hitel-scribd-source-first-results\source-first-summary.json'
+          if (Test-Path $file) { Get-Content $file -Raw }
+          else { Write-Host 'No completed download verification report' }
+      - name: Upload only metadata; PDFs remain on user Windows PC
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scribd-first-source-verified-download-metadata
+          path: |
+            hitel-scribd-source-first-results/source-first-summary.json
+            hitel-scribd-source-first-results/source-first-download-results.json
+          retention-days: 7
+          if-no-files-found: warn
