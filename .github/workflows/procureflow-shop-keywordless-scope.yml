@@ -1,0 +1,41 @@
+name: ProcureFlow 2Y - keywordless shopping catalogue scope
+run-name: "PF2 SHOP | empty keyword vs delivery-history coverage"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-shop-keywordless-scope.yml
+      - tools/procureflow/probe_shop_unfiltered_scope.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then python -m playwright install --with-deps chrome; fi
+          if ! command -v xvfb-run >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y xvfb; fi
+          python -m py_compile tools/procureflow/probe_shop_unfiltered_scope.py
+      - name: Keywordless shop read-only public catalog and actual date schema
+        shell: bash
+        run: |
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/probe_shop_unfiltered_scope.py
+      - name: Preserve original response and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf2-shop-keywordless-${{ github.run_id }}
+          path: ${{ runner.temp }}/pf2-shop-unfiltered-scope/
+          retention-days: 90
+          if-no-files-found: warn
