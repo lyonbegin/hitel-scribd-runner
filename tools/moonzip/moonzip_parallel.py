@@ -131,7 +131,26 @@ async def expand_books(page,data):
     expected_match=COUNTER.search(data.get("body",""))
     expected=int(expected_match.group(1)) if expected_match else None
     if expected is not None and len(found)>=expected:return found,expected
-    # Some series have more than 6 books. Expand every visible '전체 보기' control.
+    # The public 'view all' control is a navigation LINK, not an in-place expansion.
+    # Open the verified route directly; retain all book links already found.
+    if expected is not None and len(found)<expected:
+        listing_url=page.url.rstrip("/")+"/books"
+        try:
+            response=await page.goto(listing_url,wait_until="domcontentloaded",timeout=30000)
+            if response and response.status>=400:
+                raise RuntimeError(f"Full series listing HTTP {response.status}")
+            await page.wait_for_timeout(1200)
+            extra=await page.evaluate("""() => Array.from(document.querySelectorAll('a[href*="/books/"]'))
+                  .map(a=>({href:a.href,text:(a.innerText||'').trim(),
+                            cover:a.querySelector('img')?.getAttribute('src')||''}))""")
+            absorb(extra)
+            print("MOONZIP_FULL_LIST_ROUTE",json.dumps({"url":listing_url,
+                "found":len(found),"expected":expected}),flush=True)
+            if len(found)>=expected:return found,expected
+        except Exception as exc:
+            print("MOONZIP_FULL_LIST_WARNING",json.dumps({"url":listing_url,
+                "error":f"{type(exc).__name__}:{str(exc)[:180]}"}),flush=True)
+    # Fallback: legacy in-page expansion control, if the website uses it.
     for pass_no in range(4):
         controls=page.get_by_text("전체 보기",exact=False)
         try:count=min(await controls.count(),5)
