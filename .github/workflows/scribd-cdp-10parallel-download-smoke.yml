@@ -1,4 +1,4 @@
-name: HITEL Scribd - ONE-TIME 10 Parallel PDF Download Test
+name: HITEL Scribd - 5 Parallel PDF Download Test (20s Clicks)
 on:
   push:
     branches: [main]
@@ -25,7 +25,7 @@ jobs:
         run: |
           $ErrorActionPreference='Stop'
           $session = (Get-Process -Id $PID).SessionId
-          Write-Host "TEN_PARALLEL_DESKTOP_SESSION id=$session runner=$env:RUNNER_NAME"
+          Write-Host "FIVE_PARALLEL_DESKTOP_SESSION id=$session runner=$env:RUNNER_NAME"
           if ($session -eq 0) { throw 'Needs local interactive Windows desktop session' }
 
       - name: Fetch current Scribd 10-tab download code with proven PowerShell Git
@@ -87,7 +87,7 @@ jobs:
             }
           }
 
-      - name: TEST EXACTLY TEN distinct original documents in TEN CONCURRENT tabs
+      - name: TEST ten documents as TWO batches of FIVE concurrent tabs (20s clicks)
         env:
           PYTHONUNBUFFERED: '1'
         run: |
@@ -101,26 +101,26 @@ jobs:
           )
           if (Get-Command py -ErrorAction SilentlyContinue) { & py -3 @params }
           else { & python @params }
-          if ($LASTEXITCODE -ne 0) { throw 'Ten parallel downloads test failed before summary; see logs' }
+          if ($LASTEXITCODE -ne 0) { throw 'Five-at-a-time download test failed before summary; see logs' }
 
-      - name: Report and validate 10 individual downloaded-file outcomes
+      - name: Validate 10 individual downloaded-file outcomes across 2 batches of 5
         if: always()
         run: |
           $file='hitel-scribd-10parallel-results\summary.json'
           if (Test-Path $file) {
             Get-Content $file -Raw
             $obj=Get-Content $file -Raw | ConvertFrom-Json
-            if ($obj.attempted_documents -ne 10 -or $obj.simultaneous_tabs -ne 10) {
-              throw 'Expected exactly ten parallel attempted documents'
+            if ($obj.attempted_documents -ne 10 -or $obj.simultaneous_tabs -ne 5 -or $obj.total_batches -ne 2 -or $obj.click_timeout_ms -ne 20000) {
+              throw 'Expected 10 attempted documents with no more than 5 simultaneous tabs'
             }
-            Write-Host "TEN_PARALLEL_FINAL attempted=$($obj.attempted_documents) verified_pdf=$($obj.pdf_saved_verified) failures=$($obj.failed_or_unconfirmed)"
+            Write-Host "FIVE_PARALLEL_FINAL attempted=$($obj.attempted_documents) verified_pdf=$($obj.pdf_saved_verified) failures=$($obj.failed_or_unconfirmed)"
           } else { Write-Host 'No ten-document summary was produced' }
 
       - name: Upload results ONLY - never PDFs, credentials, cookies or profile
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: hitel-scribd-10parallel-pdf-verification
+          name: hitel-scribd-five-parallel-twenty-second-click-verification
           path: |
             hitel-scribd-10parallel-results/summary.json
             hitel-scribd-10parallel-results/ten-download-results.json
