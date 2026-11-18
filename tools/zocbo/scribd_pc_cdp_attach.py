@@ -224,6 +224,32 @@ async def one_permitted_download_test(context, item, destination: Path, results_
         try:
             await page.goto(open_url, wait_until="domcontentloaded", timeout=25000)
             result["steps"].append("user_direct_url_opened")
+            result["browser_final_url"] = page.url
+            result["browser_page_title"] = await get_title(page)
+            try:
+                result["page_heading"] = " | ".join((await page.locator("h1").all_inner_texts())[:2])[:240]
+            except Exception:
+                result["page_heading"] = ""
+            # Observe only the 3 UI elements from the user's screenshots.
+            # Do not click the details-page Download control.
+            try:
+                detail_download = page.get_by_role("button", name=re.compile(r"^Download$", re.I))
+                result["detail_download_button_present"] = bool(await detail_download.count())
+            except Exception:
+                result["detail_download_button_present"] = False
+            try:
+                modal_download = page.get_by_role("button", name=re.compile(r"^Download document$", re.I))
+                result["initial_download_document_modal_visible"] = bool(
+                    await modal_download.count()
+                    and await modal_download.first.is_visible(timeout=700))
+            except Exception:
+                result["initial_download_document_modal_visible"] = False
+            try:
+                result["payment_warning_text_present"] = bool(
+                    PAYMENT_HOLD.search(await body_text(page)))
+            except Exception:
+                result["payment_warning_text_present"] = False
+            result["steps"].append("navigation_dom_and_modal_diagnostic_saved")
         except Exception as exc:
             result["navigation_message"] = (type(exc).__name__ + ": " + str(exc))[:180]
             result["steps"].append("direct_url_navigation_interrupted")
@@ -247,6 +273,16 @@ async def one_permitted_download_test(context, item, destination: Path, results_
                 result["modal_detection_error"] = type(exc).__name__
             if not downloaded.done():
                 await page.wait_for_timeout(400)
+
+        # Capture the exact UI state after waiting for the direct URL effect.
+        result["browser_final_url_after_wait"] = page.url
+        try:
+            result["post_wait_download_button_present"] = bool(
+                await page.get_by_role("button", name=re.compile(r"^Download$", re.I)).count())
+            result["post_wait_continue_anyway_present"] = bool(
+                await page.get_by_role("button", name=re.compile(r"^Continue anyway$", re.I)).count())
+        except Exception:
+            pass
 
         # Record what actually appeared instead of inventing any destination.
         if not downloaded.done():
