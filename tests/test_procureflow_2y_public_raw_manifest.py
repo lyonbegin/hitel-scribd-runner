@@ -130,6 +130,21 @@ class PublicRawManifestTests(unittest.TestCase):
                 self.assertIn("entry[0]:INVALID_PAGE", result["issues"])
                 self.assertFalse(result["pass_sample_evidence"])
 
+    def test_non_string_official_keys_in_source_rows_are_rejected(self):
+        for source_key in (True, 1, 1.0, None, ["contract-list-1"]):
+            with self.subTest(source_key=source_key):
+                items = [self.entry(1), self.entry(2),
+                         self.entry(1, "detail", key="contract-list-1")]
+                raw = json.dumps({"official_row": {
+                    "official_key": source_key, "contract_date": "2026-11-17"
+                }}).encode()
+                (self.root / items[0]["raw_path"]).write_bytes(raw)
+                items[0]["sha256"] = hashlib.sha256(raw).hexdigest()
+                items[0]["record_keys"] = [str(source_key)]
+                result = audit_module.audit(items, self.root)
+                self.assertIn("entry[0]:OFFICIAL_KEY_ROW_MAPPING_INVALID", result["issues"])
+                self.assertFalse(result["pass_sample_evidence"])
+
     def test_manifest_key_not_in_raw_is_rejected(self):
         items = [self.entry(1), self.entry(2), self.entry(1, "detail")]
         items[0]["record_keys"] = ["invented-key"]
