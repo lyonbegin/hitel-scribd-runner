@@ -1,0 +1,14 @@
+{
+  "mode": "full",
+  "series_discovered": 370,
+  "series_crawled": 370,
+  "series_incomplete": 0,
+  "books_discovered": 1961,
+  "book_details_checked": 1961,
+  "series_cover_urls": 370,
+  "book_cover_urls": 1961,
+  "excluded_answer_or_explanation": 17,
+  "image_files_downloaded": 0,
+  "simultaneous_chrome_tabs": 10,
+  "updated_at": "2026-11-18T12:21:42.452364+00:00"
+}
