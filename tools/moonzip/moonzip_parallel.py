@@ -145,12 +145,12 @@ async def expand_books(page,data):
                             cover:a.querySelector('img')?.getAttribute('src')||''}))""")
             absorb(extra)
             listing_body=await page.evaluate("() => (document.body?.innerText||'').slice(0,7000)")
-            label=re.search(r"(?:시리즈 내 책|같은 시리즈의 다른 책)\\s*\\((\\d+)\\s*권\\)",listing_body)
+            label=re.search(r"(?:시리즈 내 책|같은 시리즈의 다른 책)\s*\((\d+)\s*권\)",listing_body)
             if expected is None and label:expected=int(label.group(1))
             print("MOONZIP_FULL_LIST_ROUTE",json.dumps({"url":listing_url,
                 "http_status":response.status if response else None,
                 "found":len(found),"expected":expected}),flush=True)
-            if len(found)>=expected:return found,expected
+            if expected is not None and len(found)>=expected:return found,expected
         except Exception as exc:
             print("MOONZIP_FULL_LIST_WARNING",json.dumps({"url":listing_url,
                 "error":f"{type(exc).__name__}:{str(exc)[:180]}"}),flush=True)
