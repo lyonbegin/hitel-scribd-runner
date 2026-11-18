@@ -38,6 +38,10 @@ jobs:
             list_items:Array.from(document.querySelectorAll('li')).map(n=>(n.innerText||'').trim()).filter(Boolean).slice(-35),
             expand_text_elements:Array.from(document.querySelectorAll('body *')).filter(n=>n.tagName!=='SCRIPT'&&n.tagName!=='STYLE'&&n.children.length===0&&(n.textContent||'').includes('전체 보기')).map(n=>({tag:n.tagName,text:(n.textContent||'').slice(0,100),html:n.outerHTML.slice(0,700),parent:n.parentElement?.outerHTML.slice(0,1700)})).slice(0,8),
             source_excerpt:(()=>{const h=document.body.innerHTML;const i=h.indexOf('전체 보기');return i<0?'':h.slice(Math.max(i-850,0),i+1200)})(),
+            text_origin:(()=>{const q='전체 보기';const it=document.body.innerText||'';const tc=document.body.textContent||'';const html=document.body.innerHTML||'';
+              const walk=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node,matched=[];while(node=walk.nextNode()){if((node.textContent||'').includes(q)){matched.push({text:node.textContent.slice(0,200),parent:node.parentElement?.outerHTML.slice(0,1300)});if(matched.length>=6)break}}
+              const shadows=Array.from(document.querySelectorAll('*')).filter(e=>e.shadowRoot).map(e=>({tag:e.tagName,taghtml:e.outerHTML.slice(0,300),shadow:e.shadowRoot.innerHTML.slice(0,700)})).slice(0,15);
+              return {innertext:it.includes(q),textContent:tc.includes(q),html:html.includes(q),innerTextSnippet:it.slice(Math.max(0,it.indexOf(q)-90),it.indexOf(q)+120),matched,shadows,shadowCount:shadows.length};})(),
             body_tail:(document.body?.innerText||'').slice(-4600)
           })"""
           async def main():
