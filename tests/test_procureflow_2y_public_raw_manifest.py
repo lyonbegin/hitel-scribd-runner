@@ -40,10 +40,16 @@ class PublicRawManifestTests(unittest.TestCase):
 
     def test_sample_pass_does_not_mean_full_coverage(self):
         result = audit_module.audit([self.entry(1), self.entry(2),
-                                     self.entry(1, "detail")], self.root)
+                                     self.entry(1, "detail", key="contract-list-1")], self.root)
         self.assertTrue(result["pass_sample_evidence"])
         self.assertFalse(result["full_2y_complete"])
         self.assertFalse(result["join_verified"])
+
+    def test_detail_must_share_official_key_with_list(self):
+        items = [self.entry(1), self.entry(2), self.entry(1, "detail")]
+        result = audit_module.audit(items, self.root)
+        self.assertIn("contract:DETAIL_NOT_LINKED_TO_LIST", result["issues"])
+        self.assertFalse(result["pass_sample_evidence"])
 
     def test_missing_raw_bytes_and_hash_are_fail_closed(self):
         items = [self.entry(1), self.entry(2), self.entry(1, "detail")]
