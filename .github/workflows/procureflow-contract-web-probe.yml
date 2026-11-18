@@ -17,6 +17,8 @@ on:
       - tools/procureflow/schema_2y_core.sql
       - tools/procureflow/schema_2y_mas_extension.sql
       - tools/procureflow/probe_g2b_public_bundles.py
+      - tools/procureflow/audit_2y_public_raw_manifest.py
+      - tests/test_procureflow_2y_public_raw_manifest.py
       - tests/test_procureflow_2y_schema.sql
       - tests/test_procureflow_2y_mas_extension.sql
   workflow_dispatch:
@@ -76,6 +78,7 @@ jobs:
           set -euo pipefail
           python -m unittest discover -s tests -p test_procureflow_public_ui_data_proof.py
           python -m unittest discover -s tests -p test_procureflow_stage2_empty_bidder_response.py
+          python -m unittest discover -s tests -p test_procureflow_2y_public_raw_manifest.py
           python tools/procureflow/audit_public_ui_data_proof.py --root "$RUNNER_TEMP" --out "$RUNNER_TEMP/procureflow-g2b-probe/public_data_proof_audit.json"
       - name: Save screenshots, navigation and limited network metadata
         if: always()
