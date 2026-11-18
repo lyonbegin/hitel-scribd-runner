@@ -22,7 +22,7 @@ REQUIRED = {"family", "kind", "url", "method", "http_status", "raw_path",
 
 def audit(manifest, root):
     issues = []
-    groups = defaultdict(lambda: {"pages": set(), "keys": set(), "detail": 0, "detail_keys": set()})
+    groups = defaultdict(lambda: {"pages": set(), "keys": set(), "detail": 0, "detail_keys": set(), "list_raw_hashes": set(), "list_raw_paths": set()})
     for index, entry in enumerate(manifest):
         tag = f"entry[{index}]"
         if not isinstance(entry, dict) or not REQUIRED.issubset(entry):
@@ -98,6 +98,14 @@ def audit(manifest, root):
         if kind == "list":
             if page in group["pages"]:
                 issues.append(f"{tag}:DUPLICATE_PAGE")
+            # A second page number alone is not pagination evidence when the
+            # same source bytes or source file were relabelled as page two.
+            if entry["sha256"] in group["list_raw_hashes"]:
+                issues.append(f"{tag}:REUSED_LIST_RESPONSE_BYTES")
+            if str(path) in group["list_raw_paths"]:
+                issues.append(f"{tag}:REUSED_LIST_RAW_PATH")
+            group["list_raw_hashes"].add(entry["sha256"])
+            group["list_raw_paths"].add(str(path))
             group["pages"].add(page)
             if group["keys"].intersection(keys):
                 issues.append(f"{tag}:CROSS_PAGE_DUPLICATE")
