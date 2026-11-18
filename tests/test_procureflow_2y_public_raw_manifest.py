@@ -1,4 +1,5 @@
 import hashlib
+import json
 import importlib.util
 import tempfile
 import unittest
@@ -18,7 +19,12 @@ class PublicRawManifestTests(unittest.TestCase):
 
     def entry(self, page, kind="list", family="contract", key=None):
         path = f"{family}-{kind}-{page}.json"
-        raw = ('{"page":%d,"kind":"%s","official_row":{"official_key":"%s"}}' % (page, kind, key or f"{family}-{kind}-{page}")).encode()
+        row = {"official_key": key or f"{family}-{kind}-{page}"}
+        if family == "contract":
+            row["contract_date"] = "2026-11-17"
+        if family == "delivery_order":
+            row["delivery_order_date"] = "2026-11-17"
+        raw = json.dumps({"page": page, "kind": kind, "official_row": row}).encode()
         (self.root / path).write_bytes(raw)
         result = {"family": family, "kind": kind,
                   "url": "https://www.g2b.go.kr/public/search",
@@ -91,6 +97,20 @@ class PublicRawManifestTests(unittest.TestCase):
         items[0]["sha256"] = hashlib.sha256(raw).hexdigest()
         result = audit_module.audit(items, self.root)
         self.assertIn("entry[0]:RAW_NOT_JSON", result["issues"])
+
+    def test_contract_date_must_match_original_row(self):
+        items = [self.entry(1), self.entry(2), self.entry(1, "detail")]
+        items[0]["contract_date"] = "2026-11-18"
+        self.assertIn("entry[0]:DATE_NOT_IN_ENTITY_ROWS",
+                      audit_module.audit(items, self.root)["issues"])
+
+    def test_delivery_date_must_match_original_row(self):
+        items = [self.entry(1, family="delivery_order"),
+                 self.entry(2, family="delivery_order"),
+                 self.entry(1, "detail", "delivery_order")]
+        items[1]["delivery_order_date"] = "2026-11-18"
+        self.assertIn("entry[1]:DATE_NOT_IN_ENTITY_ROWS",
+                      audit_module.audit(items, self.root)["issues"])
 
     def test_empty_bidder_unverified(self):
         items = [self.entry(1, family="bidder"), self.entry(2, family="bidder"),
