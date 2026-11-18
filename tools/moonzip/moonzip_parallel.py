@@ -133,7 +133,7 @@ async def expand_books(page,data):
     if expected is not None and len(found)>=expected:return found,expected
     # The public 'view all' control is a navigation LINK, not an in-place expansion.
     # Open the verified route directly; retain all book links already found.
-    if expected is not None and len(found)<expected:
+    if (expected is not None and len(found)<expected) or (expected is None and not found):
         listing_url=page.url.rstrip("/")+"/books"
         try:
             response=await page.goto(listing_url,wait_until="domcontentloaded",timeout=30000)
@@ -144,7 +144,11 @@ async def expand_books(page,data):
                   .map(a=>({href:a.href,text:(a.innerText||'').trim(),
                             cover:a.querySelector('img')?.getAttribute('src')||''}))""")
             absorb(extra)
+            listing_body=await page.evaluate("() => (document.body?.innerText||'').slice(0,7000)")
+            label=re.search(r"(?:시리즈 내 책|같은 시리즈의 다른 책)\\s*\\((\\d+)\\s*권\\)",listing_body)
+            if expected is None and label:expected=int(label.group(1))
             print("MOONZIP_FULL_LIST_ROUTE",json.dumps({"url":listing_url,
+                "http_status":response.status if response else None,
                 "found":len(found),"expected":expected}),flush=True)
             if len(found)>=expected:return found,expected
         except Exception as exc:
