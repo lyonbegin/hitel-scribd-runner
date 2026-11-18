@@ -1,0 +1,41 @@
+name: ProcureFlow 2Y - real 038R delivery report metadata
+run-name: "PF2 038R | delivery history date prompts and live report metadata"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-038R-actual-report-metadata.yml
+      - tools/procureflow/probe_delivery_report_metadata.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then python -m playwright install --with-deps chrome; fi
+          if ! command -v xvfb-run >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y xvfb; fi
+          python -m py_compile tools/procureflow/probe_delivery_report_metadata.py
+      - name: Fetch official 038R report metadata from public select API
+        shell: bash
+        run: |
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/probe_delivery_report_metadata.py
+      - name: Preserve original report metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf2-038R-metadata-${{ github.run_id }}
+          path: ${{ runner.temp }}/pf2-038r-metadata/
+          if-no-files-found: warn
+          retention-days: 90
