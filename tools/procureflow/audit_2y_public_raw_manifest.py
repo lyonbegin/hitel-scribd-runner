@@ -92,9 +92,12 @@ def audit(manifest, root):
                 rows = [rows]
             if not isinstance(rows, list) or not rows or any(not isinstance(r, dict) for r in rows):
                 raise ValueError("not entity rows")
-            observed = [str(r[key_field]) for r in rows if key_field in r and r[key_field] is not None]
-            if len(observed) != len(rows) or not observed:
-                raise ValueError("missing row identifier")
+            observed = [r[key_field] for r in rows if key_field in r]
+            # Never coerce numeric, boolean or structured JSON values into
+            # official identifiers: str(True) and str(1) are not source keys.
+            if (len(observed) != len(rows) or not observed or
+                    any(type(value) is not str or not value for value in observed)):
+                raise ValueError("missing or non-string row identifier")
         except (KeyError, IndexError, TypeError, ValueError):
             issues.append(f"{tag}:OFFICIAL_KEY_ROW_MAPPING_INVALID")
             continue
