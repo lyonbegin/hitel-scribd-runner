@@ -22,7 +22,7 @@ REQUIRED = {"family", "kind", "url", "method", "http_status", "raw_path",
 
 def audit(manifest, root):
     issues = []
-    groups = defaultdict(lambda: {"pages": set(), "keys": set(), "detail": 0})
+    groups = defaultdict(lambda: {"pages": set(), "keys": set(), "detail": 0, "detail_keys": set()})
     for index, entry in enumerate(manifest):
         tag = f"entry[{index}]"
         if not isinstance(entry, dict) or not REQUIRED.issubset(entry):
@@ -104,6 +104,7 @@ def audit(manifest, root):
             group["keys"].update(keys)
         else:
             group["detail"] += 1
+            group["detail_keys"].update(keys)
         date_field = DATE_FIELDS.get(family)
         if date_field:
             declared_date = entry.get(date_field)
@@ -120,6 +121,8 @@ def audit(manifest, root):
             issues.append(f"{family}:TWO_PAGES_NOT_VERIFIED")
         if not group["detail"]:
             issues.append(f"{family}:DETAIL_NOT_VERIFIED")
+        elif not group["keys"].intersection(group["detail_keys"]):
+            issues.append(f"{family}:DETAIL_NOT_LINKED_TO_LIST")
     # No claim of full 2-year coverage or JOIN validation from sample evidence.
     return {"pass_sample_evidence": not issues and bool(groups),
             "full_2y_complete": False, "join_verified": False,
