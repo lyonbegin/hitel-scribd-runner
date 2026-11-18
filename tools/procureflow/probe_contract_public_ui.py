@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from playwright.sync_api import sync_playwright, TimeoutError as PwTimeout
+from public_readonly_raw import retain_public_json
 
 SITES = {
     "g2b": "https://www.g2b.go.kr/",
@@ -151,6 +152,7 @@ def main():
                     payload = response.body()
                     proof["body_bytes"] = len(payload)
                     proof["body_sha256"] = hashlib.sha256(payload).hexdigest()
+                    proof.update(retain_public_json(payload, info["mime"], output, len(report["read_only_response_proofs"])))
                 except Exception as exc:
                     proof["body_hash_error"] = type(exc).__name__
                 report["read_only_response_proofs"].append(proof)
