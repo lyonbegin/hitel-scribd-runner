@@ -29,6 +29,13 @@ def classify(status: int, raw: bytes) -> dict:
         result["reason"] = "MISSING_RESULT_OBJECT"
         return result
     body = doc["result"]
+    # HTTP 200 is a transport result, not proof that the application accepted the request.
+    # Preserve explicit application failure markers before interpreting bidder rows.
+    for scope, obj in (("root", doc), ("result", body)):
+        if obj.get("success") is False:
+            result["reason"] = "APPLICATION_EXPLICIT_FAILURE"
+            result["failure_scope"] = scope
+            return result
     bidders = body.get("successBidInfo")
     if bidders == []:
         result["status"] = "no_bidder_rows_unverified"
