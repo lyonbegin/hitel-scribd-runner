@@ -1,0 +1,41 @@
+name: ProcureFlow - shop public search action request shape
+run-name: "PF2 SHOP | exact goods API inData and field names"
+on:
+  push:
+    branches: [research/procureflow-contract-web-probe-20261116]
+    paths:
+      - .github/workflows/procureflow-shop-api-request-shapes.yml
+      - tools/procureflow/probe_shop_api_request_shapes.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Install Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          if ! command -v google-chrome >/dev/null && ! command -v google-chrome-stable >/dev/null; then python -m playwright install --with-deps chrome; fi
+          if ! command -v xvfb-run >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y xvfb; fi
+          python -m py_compile tools/procureflow/probe_shop_api_request_shapes.py
+      - name: Inspect source-proven shop select action inData and field mappings
+        shell: bash
+        run: |
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            python tools/procureflow/probe_shop_api_request_shapes.py
+      - name: Save source JS and provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf2-shop-api-shape-${{ github.run_id }}
+          path: ${{ runner.temp }}/pf2-shop-api-shapes/
+          if-no-files-found: warn
+          retention-days: 90
