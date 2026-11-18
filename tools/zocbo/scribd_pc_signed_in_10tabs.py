@@ -142,6 +142,24 @@ async def get_title(page):
         return ""
 
 
+async def signed_out_prompt_visible(page):
+    """Check the rendered page for a sign-in prompt without reading credentials/cookies."""
+    try:
+        current = urlparse(page.url)
+        if re.search(r"/(?:login|signin|sign-in)(?:/|$)", current.path, re.I):
+            return True
+        for kind in ("link", "button"):
+            controls = page.get_by_role(kind, name=re.compile(
+                r"^(?:sign in|log in|login|sign-in|로그인)$", re.I))
+            for index in range(min(await controls.count(), 5)):
+                if await controls.nth(index).is_visible(timeout=600):
+                    return True
+    except Exception:
+        # A page check that fails is not proof that the session is valid.
+        return True
+    return False
+
+
 async def review_one(context, item, shots_dir: Path, index: int, save_success_screens: bool):
     result = {key: "" for key in FIELDS}
     result.update(item)
@@ -263,8 +281,11 @@ async def main_async(args):
     shots.mkdir(exist_ok=True)
 
     pc_base = Path(os.environ.get("LOCALAPPDATA") or Path.home())
-    # Never put the persistent Chrome user profile in the GitHub runner workspace.
+    # Persistent profile and local first-login acknowledgement stay on this PC.
+    # GitHub checkout/reset never touches LOCALAPPDATA/HITEL.
     profile = pc_base / "HITEL" / "ScribdSignedInChromeProfile"
+    auth_marker = pc_base / "HITEL" / "ScribdReview" / "login_confirmed_once.json"
+    profile_was_saved = auth_marker.exists() and (profile / "Local State").exists()
     checkpoint = pc_base / "HITEL" / "ScribdReview" / args.scope / "results.csv"
     downloads = pc_base / "HITEL" / "ScribdDownloads"
     profile.mkdir(parents=True, exist_ok=True)
@@ -290,27 +311,47 @@ async def main_async(args):
             signin = context.pages[0] if context.pages else await context.new_page()
             await signin.goto("https://www.scribd.com/document/746963536",
                               wait_until="domcontentloaded", timeout=35000)
-            control = await context.new_page()
-            await control.goto(control_path.as_uri())
-            await signin.bring_to_front()
-            print("MANUAL_LOGIN_REQUIRED: Sign into Scribd in the opened LOCAL PC Chrome window.",
-                  "After logging in, open the HITEL-START tab and click the green start button.",
-                  "No credentials or cookies are sent to GitHub.", flush=True)
-            ready = False
-            for _ in range(args.login_wait_seconds):
-                try:
-                    await dismiss_continue_anyway(signin)
-                    if await control.evaluate("window.HITEL_START===true"):
-                        ready = True
-                        break
-                except Exception:
-                    pass
-                await asyncio.sleep(1)
-            if not ready:
-                raise TimeoutError("Manual Scribd login confirmation did not arrive")
-            print("MANUAL_LOGIN_CONFIRMED_BY_USER: Start button clicked. Account status not independently asserted.",
-                  flush=True)
-            await control.close()
+            await signin.wait_for_timeout(1200)
+            await dismiss_continue_anyway(signin)
+            # First use: explicit manual sign-in in this dedicated Chrome profile.
+            # Later: resume automatically unless Scribd presents a sign-in prompt.
+            # Never assume that a local marker guarantees an unexpired Scribd session.
+            need_manual_login = (not profile_was_saved
+                                 or await signed_out_prompt_visible(signin))
+            if need_manual_login:
+                control = await context.new_page()
+                await control.goto(control_path.as_uri())
+                await signin.bring_to_front()
+                print("MANUAL_LOGIN_REQUIRED: First login or Scribd sign-in prompt detected.",
+                      "Sign in directly in the local Chrome window. Then click the green HITEL START button.",
+                      "Neither passwords nor session data leave this PC.", flush=True)
+                ready = False
+                for _ in range(args.login_wait_seconds):
+                    try:
+                        await dismiss_continue_anyway(signin)
+                        if await control.evaluate("window.HITEL_START===true"):
+                            ready = True
+                            break
+                    except Exception:
+                        pass
+                    await asyncio.sleep(1)
+                if not ready:
+                    raise TimeoutError("Manual Scribd login confirmation did not arrive")
+                auth_marker.parent.mkdir(parents=True, exist_ok=True)
+                auth_marker.write_text(json.dumps({
+                    "confirmed_at": utc_now(),
+                    "method": "user_clicked_local_start_button",
+                    "profile_location": "PC_LOCAL_ONLY"
+                }, ensure_ascii=False), encoding="utf-8")
+                login_mode = "manual_confirmation"
+                print("MANUAL_LOGIN_CONFIRMED: Local profile will be reused on future runs.",
+                      "Actual Scribd session expiry remains under Scribd control.", flush=True)
+                await control.close()
+            else:
+                login_mode = "persistent_profile_reused"
+                print("LOCAL_PROFILE_REUSED: Existing signed-in Chrome profile opened automatically.",
+                      "No manual login button needed. Site session validity will be assessed by page results.",
+                      flush=True)
             await signin.close()
 
             first_batch = True
@@ -359,7 +400,7 @@ async def main_async(args):
             stats = Counter(x["status"] for x in new_reviewed)
             summary = {"scope": args.scope, "source_count": total, "selected": len(selected),
                        "newly_checked": len(new_reviewed), "headless": False,
-                       "signed_in_by": "manual_user_click_confirmation_not_secret_inspection",
+                       "login_mode": login_mode, "dedicated_chrome_profile_reused": login_mode == "persistent_profile_reused",
                        "payment_modal_action": "Continue anyway only",
                        "status_counts": dict(stats), "stop_reason": stop_reason,
                        "download_test": download_result,
