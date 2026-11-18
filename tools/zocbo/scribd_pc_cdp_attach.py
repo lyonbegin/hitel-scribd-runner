@@ -211,6 +211,7 @@ async def one_permitted_download_test(context, item, destination: Path, results_
         "final_download_anchor_clicked": False,
         "pdf_format_verified": False,
         "steps": [],
+        "click_timeout_ms": 20000,
     }
     page = await context.new_page()
     download_future = asyncio.get_running_loop().create_future()
@@ -242,7 +243,7 @@ async def one_permitted_download_test(context, item, destination: Path, results_
 
         async def click_continue():
             if await is_visible(payment_button):
-                await payment_button.first.click(timeout=4000)
+                await payment_button.first.click(timeout=20_000)
                 result["continue_anyway_clicked"] = True
                 result["steps"].append("payment_continue_anyway_clicked")
                 return True
@@ -267,7 +268,7 @@ async def one_permitted_download_test(context, item, destination: Path, results_
                 return False
             result["pdf_format_verified"] = True
             result["steps"].append("download_modal_pdf_verified")
-            await modal_anchor.first.click(timeout=5000)
+            await modal_anchor.first.click(timeout=20_000)
             result["final_download_anchor_clicked"] = True
             result["steps"].append("modal_download_anchor_clicked")
             return True
@@ -307,7 +308,7 @@ async def one_permitted_download_test(context, item, destination: Path, results_
                 )
                 control = detail_button if await is_visible(detail_button) else detail_link
                 if await is_visible(control):
-                    await control.first.click(timeout=4500)
+                    await control.first.click(timeout=20_000)
                     initial_download_attempted = True
                     result["initial_download_clicked"] = True
                     result["steps"].append("detail_download_opens_modal")
