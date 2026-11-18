@@ -187,145 +187,179 @@ async def review_one(context, item, shots_dir: Path, index: int, save_success_sc
 
 
 async def one_permitted_download_test(context, item, destination: Path, results_dir: Path):
-    """EXACT saved human-provided URL first -> Continue anyway, NO Download clicks.
+    """Test one user's authorized PDF download with the actual Scribd modal DOM.
 
-    The user asserts this document/ID/slug URL initiates a download in their
-    already authenticated desktop Chrome. Test that claim faithfully before
-    inferring any download endpoints for the other 1207 documents.
+    Exact workflow: open supplied full URL; dismiss Continue anyway if shown;
+    open Download modal if needed; confirm PDF; click the actual anchor
+    <a data-e2e="modal-download-button">Download document</a>;
+    handle a further Continue anyway if shown; verify a browser download and
+    saved PDF on the Windows PC. No direct file URL is invented.
     """
-    exact_given_url = "https://www.scribd.com/document/1061417751/%EB%82%B4%EA%B3%B5%EC%9D%98-%ED%9E%98-%EC%A4%911-1-2013-%EB%B9%84%EC%83%81-%EA%B5%90%EC%9E%AC-Black#"
-    open_url = exact_given_url if item["document_id"] == "1061417751" else item["original_url"]
+    given_url = (
+        "https://www.scribd.com/document/1061417751/"
+        "%EB%82%B4%EA%B3%B5%EC%9D%98-%ED%9E%98-%EC%A4%911-1-2013-"
+        "%EB%B9%84%EC%83%81-%EA%B5%90%EC%9E%AC-Black#"
+    )
+    target_url = given_url if item["document_id"] == "1061417751" else item["original_url"]
     result = {
         "document_id": item["document_id"],
-        "source_document_url": item["original_url"],
-        "attempted_direct_url": open_url,
-        "user_supplied_exact_slug_url": item["document_id"] == "1061417751",
+        "attempted_url": target_url,
         "status": "not_started",
         "download_saved_on_pc": False,
-        "detail_page_download_button_clicked": False,
-        "download_document_modal_button_clicked": False,
+        "initial_download_clicked": False,
         "continue_anyway_clicked": False,
-        "payment_modal_seen": False,
-        "final_download_modal_seen": False,
+        "final_download_anchor_clicked": False,
+        "pdf_format_verified": False,
         "steps": [],
     }
     page = await context.new_page()
-    loop = asyncio.get_running_loop()
-    downloaded = loop.create_future()
+    download_future = asyncio.get_running_loop().create_future()
 
-    def capture_download(event):
-        if not downloaded.done():
-            downloaded.set_result(event)
+    def on_download(download):
+        if not download_future.done():
+            download_future.set_result(download)
 
-    page.on("download", capture_download)
+    page.on("download", on_download)
     try:
-        # Navigating to the exact URL MAY trigger a download and abort DOM
-        # navigation. A download event, not navigation status, is authoritative.
         try:
-            await page.goto(open_url, wait_until="domcontentloaded", timeout=25000)
-            result["steps"].append("user_direct_url_opened")
-            result["browser_final_url"] = page.url
-            result["browser_page_title"] = await get_title(page)
-            try:
-                result["page_heading"] = " | ".join((await page.locator("h1").all_inner_texts())[:2])[:240]
-            except Exception:
-                result["page_heading"] = ""
-            # Observe only the 3 UI elements from the user's screenshots.
-            # Do not click the details-page Download control.
-            try:
-                detail_download = page.get_by_role("button", name=re.compile(r"^Download$", re.I))
-                result["detail_download_button_present"] = bool(await detail_download.count())
-            except Exception:
-                result["detail_download_button_present"] = False
-            try:
-                modal_download = page.get_by_role("button", name=re.compile(r"^Download document$", re.I))
-                result["initial_download_document_modal_visible"] = bool(
-                    await modal_download.count()
-                    and await modal_download.first.is_visible(timeout=700))
-            except Exception:
-                result["initial_download_document_modal_visible"] = False
-            try:
-                result["payment_warning_text_present"] = bool(
-                    PAYMENT_HOLD.search(await body_text(page)))
-            except Exception:
-                result["payment_warning_text_present"] = False
-            result["steps"].append("navigation_dom_and_modal_diagnostic_saved")
+            await page.goto(target_url, wait_until="domcontentloaded", timeout=30000)
+            result["steps"].append("full_user_url_opened")
         except Exception as exc:
-            result["navigation_message"] = (type(exc).__name__ + ": " + str(exc))[:180]
-            result["steps"].append("direct_url_navigation_interrupted")
+            # A download may cause page navigation to abort.
+            result["navigation_note"] = (type(exc).__name__ + ": " + str(exc))[:180]
+        result["final_url"] = page.url
 
-        # Do not click Download on the document page; user explicitly rejected
-        # that route. Only dismiss "Continue anyway" if it appears.
-        for _ in range(45):
-            if downloaded.done():
-                break
+        modal_anchor = page.locator(
+            '[role="dialog"][data-e2e="modal"] a[data-e2e="modal-download-button"]'
+        )
+        payment_button = page.get_by_role("button", name=re.compile(r"^Continue anyway$", re.I))
+
+        async def is_visible(locator):
             try:
-                continue_btn = page.get_by_role(
-                    "button", name=re.compile(r"^Continue anyway$", re.I))
-                if await continue_btn.count() and await continue_btn.first.is_visible(timeout=500):
-                    result["payment_modal_seen"] = True
-                    result["steps"].append("continue_anyway_modal_detected")
-                    await continue_btn.first.click(timeout=3000)
-                    result["continue_anyway_clicked"] = True
-                    result["steps"].append("continue_anyway_clicked")
-                    # Continue to watch for a real download event.
-            except Exception as exc:
-                result["modal_detection_error"] = type(exc).__name__
-            if not downloaded.done():
-                await page.wait_for_timeout(400)
-
-        # Capture the exact UI state after waiting for the direct URL effect.
-        result["browser_final_url_after_wait"] = page.url
-        try:
-            result["post_wait_download_button_present"] = bool(
-                await page.get_by_role("button", name=re.compile(r"^Download$", re.I)).count())
-            result["post_wait_continue_anyway_present"] = bool(
-                await page.get_by_role("button", name=re.compile(r"^Continue anyway$", re.I)).count())
-        except Exception:
-            pass
-
-        # Record what actually appeared instead of inventing any destination.
-        if not downloaded.done():
-            try:
-                final_btn = page.get_by_role(
-                    "button", name=re.compile(r"^Download document$", re.I))
-                if await final_btn.count() and await final_btn.first.is_visible(timeout=850):
-                    result["final_download_modal_seen"] = True
-                    result["steps"].append("final_download_document_modal_visible_not_clicked")
+                return bool(await locator.count() and await locator.first.is_visible(timeout=600))
             except Exception:
+                return False
+
+        async def click_continue():
+            if await is_visible(payment_button):
+                await payment_button.first.click(timeout=4000)
+                result["continue_anyway_clicked"] = True
+                result["steps"].append("payment_continue_anyway_clicked")
+                return True
+            return False
+
+        async def click_pdf_modal_anchor():
+            if not await is_visible(modal_anchor):
+                return False
+            # User-provided HTML shows role=combobox "PDF (4.96 MB)" and
+            # a final clickable <a> rather than a <button>.
+            modal = page.locator('[role="dialog"][data-e2e="modal"]').filter(
+                has=page.locator('a[data-e2e="modal-download-button"]')
+            ).first
+            selector = modal.get_by_role("combobox")
+            selected_format = ""
+            if await selector.count():
+                selected_format = (await selector.first.inner_text(timeout=2500)).strip()
+            result["selected_format"] = selected_format
+            if not re.search(r"^PDF\b", selected_format, re.I):
+                result["status"] = "modal_format_not_pdf"
+                result["steps"].append("download_modal_format_not_pdf")
+                return False
+            result["pdf_format_verified"] = True
+            result["steps"].append("download_modal_pdf_verified")
+            await modal_anchor.first.click(timeout=5000)
+            result["final_download_anchor_clicked"] = True
+            result["steps"].append("modal_download_anchor_clicked")
+            return True
+
+        # Direct URL is used first, as requested; only the actual site UI
+        # can start the browser download if navigation did not.
+        initial_download_attempted = False
+        modal_clicks = 0
+        for _ in range(48):
+            if download_future.done():
+                break
+            # Membership hold may appear before OR after the download dialog.
+            if await click_continue():
+                await page.wait_for_timeout(300)
+                continue
+            if await is_visible(modal_anchor):
+                if result.get("status") == "modal_format_not_pdf":
+                    break
+                if modal_clicks < 2:
+                    did_click = await click_pdf_modal_anchor()
+                    if did_click:
+                        modal_clicks += 1
+                else:
+                    result["steps"].append("download_modal_reappeared_twice_no_retry")
+                    break
+                await page.wait_for_timeout(450)
+                continue
+            if not initial_download_attempted:
+                # When the supplied /document/ID/slug URL only loads a detail
+                # page, the site's actual Download control is necessary to
+                # open the modal. Avoid treating the URL as a direct file link.
+                detail_button = page.get_by_role(
+                    "button", name=re.compile(r"^Download$", re.I)
+                )
+                detail_link = page.get_by_role(
+                    "link", name=re.compile(r"^Download$", re.I)
+                )
+                control = detail_button if await is_visible(detail_button) else detail_link
+                if await is_visible(control):
+                    await control.first.click(timeout=4500)
+                    initial_download_attempted = True
+                    result["initial_download_clicked"] = True
+                    result["steps"].append("detail_download_opens_modal")
+                    await page.wait_for_timeout(350)
+                    continue
+            await page.wait_for_timeout(400)
+
+        if not download_future.done() and result.get("status") != "modal_format_not_pdf":
+            try:
+                await asyncio.wait_for(asyncio.shield(download_future), timeout=10)
+            except asyncio.TimeoutError:
                 pass
 
-        if downloaded.done():
-            transfer = downloaded.result()
-            failure = await transfer.failure()
+        if download_future.done():
+            download = download_future.result()
+            failure = await download.failure()
             if failure:
                 result["status"] = "browser_download_failed"
-                result["download_failure"] = str(failure)[:220]
+                result["download_failure"] = str(failure)[:250]
             else:
                 destination.mkdir(parents=True, exist_ok=True)
-                safe = re.sub(r"[^\w.\-가-힣]+", "_", transfer.suggested_filename)[:120] or "download.bin"
-                target = destination / (item["document_id"] + "_" + safe)
-                await transfer.save_as(target)
-                result["status"] = "download_saved_on_pc"
-                result["download_saved_on_pc"] = True
-                result["local_file_name"] = target.name
-                result["file_size_bytes"] = target.stat().st_size
-                result["steps"].append("actual_file_saved_on_pc")
-        else:
-            result["status"] = ("final_download_modal_only"
-                                if result["final_download_modal_seen"] else
-                                "no_download_event_after_direct_url")
+                safe = re.sub(r"[^\w.\-가-힣]+", "_", download.suggested_filename)[:110]
+                path = destination / (item["document_id"] + "_" + (safe or "document.pdf"))
+                await download.save_as(path)
+                size = path.stat().st_size
+                with path.open("rb") as fp:
+                    signature = fp.read(5)
+                result["local_file_name"] = path.name
+                result["file_size_bytes"] = size
+                result["pdf_signature_valid"] = signature == b"%PDF-"
+                result["download_saved_on_pc"] = size > 0 and signature == b"%PDF-"
+                result["status"] = ("pdf_saved_on_pc" if result["download_saved_on_pc"]
+                                    else "file_saved_but_pdf_not_verified")
+                result["steps"].append("download_event_and_file_checked")
+        elif result.get("status") != "modal_format_not_pdf":
+            result["status"] = "no_download_event"
             result["steps"].append("no_browser_download_event")
+            result["final_url"] = page.url
+            result["final_modal_anchor_visible"] = await is_visible(modal_anchor)
+            result["payment_continue_visible"] = await is_visible(payment_button)
             try:
-                await page.screenshot(path=str(results_dir / "direct-link-download-test.png"),
-                                      full_page=False, timeout=6000)
+                await page.screenshot(
+                    path=str(results_dir / "one-download-modal-result.png"),
+                    full_page=False, timeout=6000
+                )
             except Exception:
                 pass
     except Exception as exc:
-        result["status"] = "direct_download_test_error"
-        result["error"] = (type(exc).__name__ + ": " + str(exc))[:240]
+        result["status"] = "download_test_exception"
+        result["error"] = (type(exc).__name__ + ": " + str(exc))[:300]
     finally:
-        page.remove_listener("download", capture_download)
+        page.remove_listener("download", on_download)
         await page.close()
     return result
 
