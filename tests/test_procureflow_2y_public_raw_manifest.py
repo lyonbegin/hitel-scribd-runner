@@ -18,13 +18,14 @@ class PublicRawManifestTests(unittest.TestCase):
 
     def entry(self, page, kind="list", family="contract", key=None):
         path = f"{family}-{kind}-{page}.json"
-        raw = ('{"page":%d,"kind":"%s","official_key":"%s"}' % (page, kind, key or f"{family}-{kind}-{page}")).encode()
+        raw = ('{"page":%d,"kind":"%s","official_row":{"official_key":"%s"}}' % (page, kind, key or f"{family}-{kind}-{page}")).encode()
         (self.root / path).write_bytes(raw)
         result = {"family": family, "kind": kind,
                   "url": "https://www.g2b.go.kr/public/search",
                   "method": "POST", "http_status": 200, "raw_path": path,
                   "sha256": hashlib.sha256(raw).hexdigest(),
-                  "page": page, "record_keys": [key or f"{family}-{kind}-{page}"]}
+                  "page": page, "record_keys": [key or f"{family}-{kind}-{page}"],
+                  "record_path": ["official_row"], "official_key_field": "official_key"}
         if family == "contract":
             result["contract_date"] = "2026-11-17"
         if family == "delivery_order":
@@ -67,6 +68,21 @@ class PublicRawManifestTests(unittest.TestCase):
         result = audit_module.audit(items, self.root)
         self.assertIn("entry[0]:OFFICIAL_KEYS_NOT_IN_RAW", result["issues"])
         self.assertFalse(result["pass_sample_evidence"])
+
+    def test_key_in_unrelated_metadata_is_not_official_row_identity(self):
+        items = [self.entry(1), self.entry(2), self.entry(1, "detail")]
+        raw = b'{"metadata":{"official_key":"fake"},"official_row":{"official_key":"real"}}'
+        (self.root / items[0]["raw_path"]).write_bytes(raw)
+        items[0]["sha256"] = hashlib.sha256(raw).hexdigest()
+        items[0]["record_keys"] = ["fake"]
+        result = audit_module.audit(items, self.root)
+        self.assertIn("entry[0]:OFFICIAL_KEYS_NOT_IN_RAW", result["issues"])
+
+    def test_missing_mapping_fails_closed(self):
+        items = [self.entry(1), self.entry(2), self.entry(1, "detail")]
+        del items[0]["record_path"]
+        result = audit_module.audit(items, self.root)
+        self.assertIn("entry[0]:OFFICIAL_KEY_MAPPING_REQUIRED", result["issues"])
 
     def test_invalid_raw_json_is_rejected_even_with_matching_hash(self):
         items = [self.entry(1), self.entry(2), self.entry(1, "detail")]
