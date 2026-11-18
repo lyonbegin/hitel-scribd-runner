@@ -1,4 +1,4 @@
-name: Moonzip 370 series - targeted last 12 books
+name: Moonzip 370 series - verified full-list route last 12
 
 on:
   workflow_dispatch:
@@ -77,6 +77,8 @@ jobs:
           $env:PYTHONIOENCODING='utf-8'
           py -3 -u src/tools/moonzip/moonzip_parallel.py --mode full --out moonzip-catalog-results --only-series-id af778954-a08c-4d65-a4d0-32c8079ab7cf
           if($LASTEXITCODE -ne 0){throw 'Resume failed - the checkpoint will still be retained'}
+          py -3 -c "import json; s=json.load(open('moonzip-catalog-results/series.json',encoding='utf-8')); b=json.load(open('moonzip-catalog-results/books.json',encoding='utf-8')); v=s['af778954-a08c-4d65-a4d0-32c8079ab7cf']; print('MOONZIP_LAST12_GATE',v.get('visible_books_after_expand'),v.get('site_book_count_label'),len(b)); assert v.get('complete') and v.get('visible_books_after_expand')==18 and len(b)==1851"
+          if($LASTEXITCODE -ne 0){throw 'Last twelve book URLs not fully verified; retaining checkpoint'}
 
       - name: Print precise progress and unresolved IDs
         if: always()
