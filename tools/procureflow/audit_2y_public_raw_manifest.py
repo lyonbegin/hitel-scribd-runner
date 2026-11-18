@@ -48,9 +48,17 @@ def audit(manifest, root):
         if hashlib.sha256(raw).hexdigest() != entry["sha256"]:
             issues.append(f"{tag}:SHA256_MISMATCH")
         try:
-            page = int(entry["page"])
+            declared_page = entry["page"]
+            # bool and fractional floats must never become page 1 via int().
+            # A page label is evidence only when it is a positive integer.
+            if type(declared_page) is int:
+                page = declared_page
+            elif isinstance(declared_page, str) and declared_page.isascii() and declared_page.isdecimal():
+                page = int(declared_page)
+            else:
+                raise ValueError("non-integral page")
             if page < 1:
-                raise ValueError
+                raise ValueError("page must be positive")
         except (ValueError, TypeError):
             issues.append(f"{tag}:INVALID_PAGE")
             continue
