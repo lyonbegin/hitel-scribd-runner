@@ -30,7 +30,7 @@ async def main():
    js_part=text[pos:pos+12500]
    keys=list(dict.fromkeys(re.findall(r"w2:key',A:{id:'([^']+)'",js_part)))
    report["source_search_fields"]=keys[:90]
-   report["date_search_fields"]=[k for k in keys if re.search(r"(?i)(date|ymd|dt)$",k)]
+   report["date_search_fields"]=[k for k in keys if re.search(r"(?i)(date|ymd|^(?:start|end|from|to)[a-z0-9_]*dt$)",k)]
    report["no_date_condition_in_map"]=len(report["date_search_fields"])==0
    assert 'searchVO=dlShopSrchM' in text
    payload={"searchVO":{"searchKeyword":"","currentPage":1,"recordCountPerPage":"30"}}
