@@ -51,6 +51,22 @@ class PublicRawManifestTests(unittest.TestCase):
         self.assertIn("contract:DETAIL_NOT_LINKED_TO_LIST", result["issues"])
         self.assertFalse(result["pass_sample_evidence"])
 
+    def test_every_detail_key_must_be_in_list_not_just_one(self):
+        items = [self.entry(1), self.entry(2),
+                 self.entry(1, "detail", key="contract-list-1")]
+        detail = items[2]
+        raw = json.dumps({"official_rows": [
+            {"official_key": "contract-list-1", "contract_date": "2026-11-17"},
+            {"official_key": "unrelated-contract", "contract_date": "2026-11-17"}
+        ]}).encode()
+        (self.root / detail["raw_path"]).write_bytes(raw)
+        detail["sha256"] = hashlib.sha256(raw).hexdigest()
+        detail["record_path"] = ["official_rows"]
+        detail["record_keys"] = ["contract-list-1", "unrelated-contract"]
+        result = audit_module.audit(items, self.root)
+        self.assertIn("contract:DETAIL_NOT_LINKED_TO_LIST", result["issues"])
+        self.assertFalse(result["pass_sample_evidence"])
+
     def test_missing_raw_bytes_and_hash_are_fail_closed(self):
         items = [self.entry(1), self.entry(2), self.entry(1, "detail")]
         items[0]["sha256"] = "0" * 64
