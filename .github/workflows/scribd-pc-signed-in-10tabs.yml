@@ -23,6 +23,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/scribd-pc-signed-in-10tabs.yml
+      - tools/zocbo/scribd_pc_cdp_attach.py
 permissions:
   contents: read
 concurrency:
