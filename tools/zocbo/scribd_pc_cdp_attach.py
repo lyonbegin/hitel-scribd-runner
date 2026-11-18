@@ -237,6 +237,15 @@ async def one_permitted_download_test(context, item, destination: Path, results_
         for _ in range(30):
             if downloaded.done():
                 break
+            # Sometimes Scribd presents the Download document format modal
+            # immediately, without any payment message. Do not wait 15 sec.
+            try:
+                final_now = page.get_by_role("button", name=re.compile(r"^Download document$", re.I))
+                if await final_now.count() and await final_now.first.is_visible(timeout=500):
+                    result["steps"].append("final_download_dialog_detected_early")
+                    break
+            except Exception:
+                pass
             try:
                 modal_button = page.get_by_role("button", name=re.compile(r"^Continue anyway$", re.I))
                 if await modal_button.count() and await modal_button.first.is_visible(timeout=500):
