@@ -58,6 +58,24 @@ def audit(manifest, root):
         if not isinstance(keys, list) or not keys or any(not isinstance(k, str) or not k for k in keys):
             issues.append(f"{tag}:MISSING_OFFICIAL_KEYS")
             continue
+        # Keys in a manifest are not proof unless present in the original JSON.
+        try:
+            payload = json.loads(raw)
+        except (ValueError, UnicodeDecodeError):
+            issues.append(f"{tag}:RAW_NOT_JSON")
+            continue
+        def source_strings(node):
+            if isinstance(node, dict):
+                for value in node.values():
+                    yield from source_strings(value)
+            elif isinstance(node, list):
+                for value in node:
+                    yield from source_strings(value)
+            elif isinstance(node, (str, int)):
+                yield str(node)
+        raw_values = set(source_strings(payload))
+        if any(key not in raw_values for key in keys):
+            issues.append(f"{tag}:OFFICIAL_KEYS_NOT_IN_RAW")
         if len(set(keys)) != len(keys):
             issues.append(f"{tag}:DUPLICATE_WITHIN_PAGE")
         group = groups[family]
