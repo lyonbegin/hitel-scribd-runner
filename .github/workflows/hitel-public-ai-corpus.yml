@@ -1,4 +1,5 @@
 name: HITEL 18109 AI classification - continue and verify
+# 2026-11-19: resume 81-100 from verified 80/18109 after signed Web2API v3 Chrome connection; do not resend previous 80.
 on:
   push:
     branches: [main]
@@ -95,7 +96,7 @@ jobs:
                   assert src[number-1]['문서 ID']==str(row['id']),'Checkpoint document ID/source mismatch'
                   assert number not in ids,'Duplicate completion'
                   ids.add(number)
-          assert len(ids)>=40,'Checkpoint must include at least 40 verified real AI classifications'
+          assert len(ids)>=80,'Checkpoint must include at least 80 verified real AI classifications before retrying 81-100'
           print('PASS_RESTORED_AI_COMPLETIONS',len(ids))
           PY
 
