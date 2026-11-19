@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/hitel-named-rooms-runner-offline.yml
       - tools/zocbo/hitel_public_named_rooms_corpus.py
+      - tools/zocbo/test_hitel_corpus_recovery20.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -32,6 +33,7 @@ jobs:
           print("SOURCE_18109_SHA_VERIFIED")
           PY
           python3 -m py_compile tools/zocbo/hitel_public_named_rooms_corpus.py
+          python3 -m unittest discover -s tools/zocbo -p 'test_hitel_corpus_recovery20.py' -v
           python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
              --input Raw_Documents_18109.csv --out hitel-ai-dryrun \
              --batch-size 20 --workers 2 --max-batches 5 --dry-run
