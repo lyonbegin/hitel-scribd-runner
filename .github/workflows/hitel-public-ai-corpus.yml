@@ -18,14 +18,12 @@ permissions:
   actions: write
 
 concurrency:
-  group: hitel-ai-18109-full
+  group: hitel-scribd-ai-18109-transport
   cancel-in-progress: false
 
 jobs:
   ai:
-    # PAUSED: public HITEL second-conversation ROOM_CONVERSATION_ID_MISMATCH.
-    # Do not call the API until the owner repairs and re-verifies the server.
-    if: false
+    # 2026-11-19: verified real A/A/B/A v2 ChatGPT dialog, plus 20/20 original Scribd title AI pilot.
     runs-on: ubuntu-latest
     timeout-minutes: 200
     steps:
@@ -63,10 +61,17 @@ jobs:
           mkdir -p hitel-ai-batches
           RUN_ID=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=hitel-ai-18109-checkpoint&per_page=100" \
             --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | reverse | .[0].workflow_run.id // empty')
+          if [[ -z "$RUN_ID" ]]; then
+            RUN_ID=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=hitel-scribd-ai-real20-checkpoint&per_page=100" \
+              --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | reverse | .[0].workflow_run.id // empty')
+            ARTIFACT_NAME=hitel-scribd-ai-real20-checkpoint
+          else
+            ARTIFACT_NAME=hitel-ai-18109-checkpoint
+          fi
           if [[ -n "$RUN_ID" ]]; then
             echo "RESTORING_CHECKPOINT_RUN=$RUN_ID"
             gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
-              -n hitel-ai-18109-checkpoint -D hitel-ai-batches
+              -n "$ARTIFACT_NAME" -D hitel-ai-batches
             echo "RESTORE_OK"
           else
             echo "FIRST_RUN_NO_CHECKPOINT"
@@ -89,7 +94,7 @@ jobs:
         timeout-minutes: 170
         shell: bash
         env:
-          RUN_MODE: ${{ github.event.inputs.mode || 'smoke' }}
+          RUN_MODE: ${{ github.event.inputs.mode || 'full' }}
         run: |
           if [[ "$RUN_MODE" == "smoke" ]]; then
             python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
@@ -100,14 +105,14 @@ jobs:
             python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
               --input Raw_Documents_18109.csv --out hitel-ai-batches \
               --batch-size 20 --max-batches 20 \
-              --workers 2 --poll-seconds 600
+              --workers 1 --poll-seconds 600
           fi
 
       - name: Verify every original row and count only real AI completed IDs
         id: verify
         shell: bash
         env:
-          RUN_MODE: ${{ github.event.inputs.mode || 'smoke' }}
+          RUN_MODE: ${{ github.event.inputs.mode || 'full' }}
         run: |
           python3 - <<'PY'
           import csv,os
@@ -148,7 +153,7 @@ jobs:
           retention-days: 90
           if-no-files-found: warn
 
-      - name: Immediately continue to next AI batch window (no schedule)
+      - name: Immediately continue to next verified AI batch window (no schedule)
         if: steps.verify.outputs.continue == 'true' && steps.classify.outcome == 'success' && steps.verify.outcome == 'success'
         shell: bash
         env:
