@@ -1,0 +1,81 @@
+name: Naver Land Korea PC - self-hosted Chrome real estate smoke
+run-name: "Naver Land | user's existing Windows PC Chrome | public page probe"
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/naver-land-chrome-20261119
+    paths:
+      - .github/workflows/naver-land-windows-pc.yml
+permissions:
+  contents: read
+concurrency:
+  group: naver-land-windows-pc-one-probe
+  cancel-in-progress: true
+jobs:
+  korea-windows-pc-chrome:
+    if: github.repository == 'lyonbegin/hitel-scribd-runner'
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Verify existing real Windows PC Chrome
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Write-Host "PC_RUNNER name=$env:RUNNER_NAME user=$(whoami) session=$((Get-Process -Id $PID).SessionId)"
+          $chrome = @(
+            "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+            "$([Environment]::GetEnvironmentVariable('ProgramFiles(x86)'))\Google\Chrome\Application\chrome.exe",
+            "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $chrome) { throw "Google Chrome not installed on Windows runner" }
+          & $chrome --version
+          if (Get-Command py -ErrorAction SilentlyContinue) { py -3 --version }
+          elseif (Get-Command python -ErrorAction SilentlyContinue) { python --version }
+          else { throw "Python unavailable" }
+      - name: Fetch isolated public source without worktree checkout collision
+        run: |
+          $ErrorActionPreference='Stop'
+          $branch = 'research/naver-land-chrome-20261119'
+          if (Test-Path 'naver-land-source\.git') {
+            git -C naver-land-source fetch --depth 1 origin $branch
+            if ($LASTEXITCODE -ne 0) { throw 'git fetch failed' }
+            git -C naver-land-source reset --hard FETCH_HEAD
+            if ($LASTEXITCODE -ne 0) { throw 'git reset failed' }
+          } else {
+            git clone --depth 1 --branch $branch https://github.com/lyonbegin/hitel-scribd-runner.git naver-land-source
+            if ($LASTEXITCODE -ne 0) { throw 'git clone failed' }
+          }
+      - name: Install Playwright only when needed
+        run: |
+          $ErrorActionPreference='Stop'
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 -m pip show playwright
+            if ($LASTEXITCODE -ne 0) { py -3 -m pip install --disable-pip-version-check playwright==1.56.0 }
+            if ($LASTEXITCODE -ne 0) { throw 'Playwright unavailable' }
+            py -3 -m py_compile naver-land-source/tools/realestate/naver_land_domain_probe.py
+          } else {
+            python -m pip show playwright
+            if ($LASTEXITCODE -ne 0) { python -m pip install --disable-pip-version-check playwright==1.56.0 }
+            if ($LASTEXITCODE -ne 0) { throw 'Playwright unavailable' }
+            python -m py_compile naver-land-source/tools/realestate/naver_land_domain_probe.py
+          }
+      - name: Check actual Naver pages in Windows Chrome without login
+        run: |
+          $ErrorActionPreference='Stop'
+          if (Get-Command py -ErrorAction SilentlyContinue) {
+            py -3 naver-land-source/tools/realestate/naver_land_domain_probe.py
+          } else {
+            python naver-land-source/tools/realestate/naver_land_domain_probe.py
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Naver Chrome diagnostic failed' }
+      - name: Preserve real PC screenshots and JSON evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: naver-land-windows-pc-domains
+          path: naver-domain-results/
+          if-no-files-found: warn
+          retention-days: 7
