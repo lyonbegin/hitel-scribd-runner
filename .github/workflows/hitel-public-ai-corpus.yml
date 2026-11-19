@@ -1,5 +1,5 @@
 name: HITEL 18109 AI classification - continue and verify
-# 2026-11-19: controlled one-time 121-140 diagnostic retry after HTTP 500 and duplicate Chrome workers retired; 120 verified rows immutable.
+# 2026-11-19: last bounded 121-140 trial with NFC-normalized model-facing titles only; restore 120 verified, preserve source CSV.
 on:
   push:
     branches: [main]
@@ -119,7 +119,7 @@ jobs:
         env:
           RUN_MODE: ${{ github.event.inputs.mode || 'full' }}
           # User-authorized retry only for terminal job 121-140, not future failures.
-          HITEL_USER_AUTHORIZED_RETRY_JOB_ID: job_7ff121cde7004d89a4320e91a49acd3d
+          HITEL_USER_AUTHORIZED_RETRY_JOB_ID: job_401243c252fe44c4b722b9d66ffa0d36
           HITEL_USER_AUTHORIZED_RETRY_SCOPE: 121-140-ONCE
         run: |
           if [[ "$RUN_MODE" == "smoke" ]]; then
