@@ -217,9 +217,24 @@ def main():
     if opts.limit:rows=rows[:opts.limit]
     for n,item in enumerate(rows,1):item["번호"]=n
     out=Path(opts.out)
+    # Resolve completed ORIGINAL ROW IDs, not batch-file names.
+    # This permits safe 20->10 title batch changes without re-sending rows 1..20.
+    completed_ids=set()
+    for completed_file in (out/"completed").glob("*.json"):
+        for prior in json.loads(completed_file.read_text(encoding="utf-8"))["rows"]:
+            original_no=int(prior["no"])
+            if original_no in completed_ids:
+                raise ValueError("Duplicate previously completed original ID")
+            if original_no<1 or original_no>len(rows):
+                raise ValueError("Checkpoint original ID out of range")
+            if str(rows[original_no-1]["문서 ID"]) != str(prior["id"]):
+                raise ValueError("Checkpoint original document ID mismatch")
+            completed_ids.add(original_no)
     all_batches=[rows[i:i+opts.batch_size] for i in range(0,len(rows),opts.batch_size)]
-    pending=[b for b in all_batches
-        if not (out/"completed"/(f'{b[0]["번호"]:05d}-{b[-1]["번호"]:05d}.json')).exists()]
+    pending=[]
+    for candidate in all_batches:
+        missing=[r for r in candidate if r["번호"] not in completed_ids]
+        if missing:pending.append(missing)
     if opts.max_batches:pending=pending[:opts.max_batches]
     groups=defaultdict(list)
     for b in pending:groups[(b[0]["번호"]-1)//ROOM_ROWS].append(b)
