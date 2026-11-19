@@ -74,8 +74,13 @@ def validated_rows(reply,batch):
     return rows
 
 def open_room(out,block):
-    name=f"HITEL-SCRIBD-18109-TITLE-CLASSIFY-G{block:03d}"
+    default_name=f"HITEL-SCRIBD-18109-TITLE-CLASSIFY-G{block:03d}"
     roomfile=out/"rooms"/(f"G{block:03d}.json")
+    # Preserve the explicitly verified room name from the checkpoint. A
+    # recovery room may replace a failed original named room, but only after
+    # its own real AI answer is verified in a separate test run.
+    saved=json.loads(roomfile.read_text(encoding="utf-8")) if roomfile.exists() else {}
+    name=saved.get("room_name") or default_name
     # POST /rooms is name-idempotent. Retry transient 502/503/504 or
     # networking errors with the SAME name and no create_new flag.
     for attempt in range(6):
