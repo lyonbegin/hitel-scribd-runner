@@ -1,0 +1,56 @@
+name: HITEL Public AI Batch smoke (no login, no proxy)
+on:
+  push:
+    branches: [feature/hitel-public-ai-batches-20261119]
+    paths:
+      - tools/zocbo/hitel_public_ai_batch_classifier.py
+      - .github/workflows/hitel-public-ai-batches.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hitel-public-ai-batch-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare 5 known title test rows (not the whole corpus)
+        shell: bash
+        run: |
+          python - <<'PY'
+          import csv
+          rows=[
+            ("12301","(22) 개념+유형 중학수학1-1 개념편-교사용"),
+            ("12302","수력충전 공통수학2"),
+            ("12303","개념원리 중학 수학 2-2 - 빠른정답"),
+            ("12304","일품 대수 - 문제"),
+            ("12305","(2015개정) 풍산자 반복수학 - 중3-1 - 교사용테스트북"),
+          ]
+          with open("smoke_input.csv","w",encoding="utf-8-sig",newline="") as f:
+            w=csv.writer(f);w.writerow(["문서 ID","원문 제목","Scribd 상세URL"])
+            for i,title in rows:w.writerow([i,title,""])
+          PY
+      - name: Syntax compile and grouped dry-run
+        run: |
+          python -m py_compile tools/zocbo/hitel_public_ai_batch_classifier.py
+          python tools/zocbo/hitel_public_ai_batch_classifier.py \
+            --input smoke_input.csv --out hitel-ai-smoke \
+            --batch-size 5 --workers 1 --dry-run
+      - name: Submit one 5-title batch through public HITEL API and await verified ChatGPT answer
+        run: |
+          python tools/zocbo/hitel_public_ai_batch_classifier.py \
+            --input smoke_input.csv --out hitel-ai-smoke \
+            --batch-size 5 --workers 1 --poll-seconds 360
+      - name: Upload result + checkpoints even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-public-ai-batch-smoke
+          path: hitel-ai-smoke/
+          if-no-files-found: warn
