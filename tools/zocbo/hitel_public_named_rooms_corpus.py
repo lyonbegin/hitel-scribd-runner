@@ -139,6 +139,28 @@ def execute_one(batch,room_id,folder,seconds):
             save(done,{"rows":parsed,"job_id":state["job_id"],"room_id":room_id})
             return key,"COMPLETED"
         if current=="failed":
+            # Only this specifically terminal, server-acknowledged restart can be
+            # resubmitted: the prompt is read-only title classification and does
+            # not act on accounts or files. Preserve the original job ID in history.
+            # Do NOT retry room mismatch, uncertain HTTP POST, or other errors.
+            reason=str(status.get("error") or "")
+            if (status.get("stage")=="server_restarted"
+                    and reason.startswith("Server restarted; delivery unknown")
+                    and int(state.get("restart_retries",0)) < 1):
+                old_job=state["job_id"]
+                retries=int(state.get("restart_retries",0))+1
+                state.setdefault("prior_failed_jobs",[]).append(old_job)
+                state["restart_retries"]=retries
+                state["request_id"]=f"scribd-{key}-{digest}-named-serverrestart-r{retries}"
+                state.pop("job_id",None)
+                save(folder/"errors"/(key+".json"),{"type":"server_restarted_retrying_readonly",
+                    "previous_failed_job":old_job,"previous_server_status":status,
+                    "retries_allowed":1})
+                save(jobpath,state)
+                print("CONFIRMED_SERVER_RESTART_READONLY_RETRY",key,
+                    "prior_job",old_job,flush=True)
+                return execute_one(batch,room_id,folder,
+                    max(240,int(deadline-time.monotonic())))
             STOP.set()
             save(folder/"errors"/(key+".json"),{"type":"failed","response":status,"checkpoint":state})
             return key,"FAILED_STOP_NO_AUTO_RESEND"
