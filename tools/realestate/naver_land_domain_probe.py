@@ -41,7 +41,7 @@ async def main():
     except Exception: pass
    r["failed_requests"]=errors
    results.append(r)
-   print("NAVER_DOMAIN",json.dumps(r,ensure_ascii=False),flush=True)
+   print("NAVER_DOMAIN",json.dumps(r,ensure_ascii=True),flush=True)
    await page.close()
    await asyncio.sleep(0.6)
   await browser.close()
