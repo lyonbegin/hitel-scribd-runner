@@ -55,7 +55,7 @@ jobs:
             py -3 -m pip show playwright
             if ($LASTEXITCODE -ne 0) { py -3 -m pip install --disable-pip-version-check playwright==1.56.0 }
             if ($LASTEXITCODE -ne 0) { throw 'Playwright unavailable' }
-            py -3 -m py_compile naver-land-source/tools/realestate/naver_land_domain_probe.py
+            py -3 -m py_compile naver-land-source/tools/realestate/naver_fin_dom_probe.py
           } else {
             python -m pip show playwright
             if ($LASTEXITCODE -ne 0) { python -m pip install --disable-pip-version-check playwright==1.56.0 }
@@ -77,7 +77,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: naver-land-windows-pc-domains
-          path: naver-domain-results/
+          name: naver-land-windows-fin-ui
+          path: naver-fin-dom-results/
           if-no-files-found: warn
           retention-days: 7
