@@ -168,12 +168,14 @@ def execute_one(batch,room_id,folder,seconds):
     return key,"STILL_PENDING_SAVED_JOB"
 
 def work_group(block,batches,out,poll):
+    if STOP.is_set():return []
     rid=open_room(out,block)
     log=[]
     for b in batches:
         if STOP.is_set():break
         key,status=execute_one(b,rid,out,poll)
         log.append((key,status))
+        print("AI_BATCH_RESULT",key,status,"ROOM_GROUP",block,flush=True)
         if not status in ("COMPLETED","ALREADY_COMPLETED"):
             STOP.set()
             break
