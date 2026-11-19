@@ -65,6 +65,8 @@ jobs:
       - name: Check actual Naver pages in Windows Chrome without login
         run: |
           $ErrorActionPreference='Stop'
+          $env:PYTHONIOENCODING='utf-8'
+          $env:PYTHONUTF8='1'
           if (Get-Command py -ErrorAction SilentlyContinue) {
             py -3 naver-land-source/tools/realestate/naver_land_domain_probe.py
           } else {
