@@ -74,5 +74,79 @@ class TestResume20(unittest.TestCase):
             self.assertEqual(state["room_id"],old_room)
 
 
+    def test_repeat_terminal_recovery_and_exact_history(self):
+        with tempfile.TemporaryDirectory() as root:
+            out,old_room,first_job=self.fixture(root)
+            room2="room_"+"3"*32
+            room3="room_"+"4"*32
+            second_job="job_"+"5"*32
+            def fake_call(path,body=None):
+                if path.endswith("/"+first_job):
+                    return 200,{"job_id":first_job,"room_id":old_room,"status":"failed",
+                                "stage":"web2api_failed","error":"WEB2API_SEND_OR_VERIFY_FAILED"}
+                if path.endswith("/"+second_job):
+                    return 200,{"job_id":second_job,"room_id":room2,"status":"failed",
+                                "stage":"web2api_failed","error":"WEB2API_SEND_OR_VERIFY_FAILED"}
+                if path.endswith("/rooms"):
+                    return 200,{"room_id":room2 if body["name"].endswith(first_job[4:12]) else room3}
+                raise AssertionError(path)
+            with patch.object(corpus,"call",side_effect=fake_call):
+                corpus.recover_terminal_failure(out,0,True)
+                self.assertEqual(corpus.open_room(out,0),room2)
+                corpus.save(out/"errors"/"00081-00100.json",{"type":"failed",
+                    "response":{"job_id":second_job,"room_id":room2,"status":"failed",
+                        "stage":"web2api_failed","error":"WEB2API_SEND_OR_VERIFY_FAILED"},
+                    "checkpoint":{"job_id":second_job,"room_id":room2}})
+                corpus.recover_terminal_failure(out,0,True)
+                self.assertEqual(corpus.open_room(out,0),room3)
+            saved=json.loads((out/"rooms"/"G000.json").read_text())
+            self.assertEqual([e["job_id"] for e in saved["recovery_history"]],
+                             [first_job,second_job])
+            self.assertEqual(saved["room_id"],room3)
+            self.assertEqual(saved["prior_room_id"],room2)
+
+    def test_failed_same_batch_job_archived_before_new_request(self):
+        with tempfile.TemporaryDirectory() as root:
+            out,old_room,old_job=self.fixture(root)
+            newroom="room_"+"3"*32
+            newjob="job_"+"4"*32
+            key="00081-00100"
+            batch=[{"번호":i,"문서 ID":str(8000+i),"원문 제목":f"교재 {i}"}
+                   for i in range(81,101)]
+            question=corpus.title_prompt(batch)
+            import hashlib
+            digest=hashlib.sha256(question.encode("utf-8")).hexdigest()[:20]
+            corpus.save(out/"jobs"/(key+".json"),
+                        {"digest":digest,"room_id":old_room,
+                         "request_id":"old-request-unique-id","job_id":old_job})
+            corpus.save(out/"errors"/(key+".json"),{"type":"failed",
+               "checkpoint":{"room_id":old_room,"job_id":old_job},
+               "response":{"status":"failed","stage":"web2api_failed"}})
+            corpus.save(out/"rooms"/"G000.json",{"room_id":newroom,
+               "room_name":"REBOUND-ROOM","block":0,
+               "recovery_history":[{"job_id":old_job,"room_id":old_room}]})
+            rows=[{"no":i,"id":str(8000+i),"school":"중등","grade":"2",
+                  "semester":"1","subject":"수학","edition":"해당없음",
+                  "download":"대상","reason":"중학교 교재"} for i in range(81,101)]
+            def fake_call(path,body=None):
+                if path.endswith("/chat"):
+                    self.assertEqual(body["room_id"],newroom)
+                    self.assertIn("-r"+newroom[5:13],body["request_id"])
+                    return 202,{"room_id":newroom,"job_id":newjob}
+                if path.endswith("/"+newjob):
+                    return 200,{"room_id":newroom,"status":"completed",
+                                "result_text":json.dumps({"rows":rows},ensure_ascii=False)}
+                raise AssertionError(path)
+            with patch.object(corpus,"call",side_effect=fake_call):
+                key1,status=corpus.execute_one(batch,newroom,out,20)
+            self.assertEqual((key1,status),(key,"COMPLETED"))
+            self.assertTrue((out/"jobs"/"history"/f"{key}-{old_job}.json").exists())
+            self.assertTrue((out/"errors"/"history"/f"{key}-{old_job}.json").exists())
+            newstate=json.loads((out/"jobs"/(key+".json")).read_text())
+            self.assertEqual(newstate["job_id"],newjob)
+            self.assertEqual(newstate["room_id"],newroom)
+            self.assertEqual(len(json.loads((out/"completed"/(key+".json")).read_text())["rows"]),20)
+
+
 if __name__=="__main__":
     unittest.main()
