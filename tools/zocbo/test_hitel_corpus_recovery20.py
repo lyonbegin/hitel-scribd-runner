@@ -180,6 +180,36 @@ class TestResume20(unittest.TestCase):
 
 
 
+    def test_submit_503_retries_exact_same_saved_request_id(self):
+        import urllib.error
+        with tempfile.TemporaryDirectory() as root:
+            out=Path(root)
+            room="room_"+"a"*32
+            jid="job_"+"d"*32
+            batch=[{"번호":i,"문서 ID":str(200000+i),"원문 제목":f"중등 수학 {i}"}
+                   for i in range(161,181)]
+            rows=[{"no":i,"id":str(200000+i),"school":"중등","grade":"1",
+                   "semester":"2","subject":"수학","edition":"해당없음",
+                   "download":"대상","reason":"중학교 수학 교재"}
+                  for i in range(161,181)]
+            sent=[]
+            def fake_call(path,body=None):
+                if path.endswith("/chat"):
+                    sent.append(body["request_id"])
+                    if len(sent)==1:
+                        raise urllib.error.HTTPError(path,503,"Service Unavailable",None,None)
+                    return 202,{"job_id":jid,"room_id":room}
+                if path.endswith("/"+jid):
+                    return 200,{"job_id":jid,"room_id":room,"status":"completed",
+                                "result_text":json.dumps({"rows":rows})}
+                raise AssertionError(path)
+            with patch.object(corpus,"call",side_effect=fake_call), patch.object(corpus.time,"sleep",return_value=None):
+                k,status=corpus.execute_one(batch,room,out,20)
+            self.assertEqual((k,status),("00161-00180","COMPLETED"))
+            self.assertEqual(len(sent),2)
+            self.assertEqual(sent[0],sent[1])
+            self.assertEqual(len(json.loads((out/"completed"/"00161-00180.json").read_text())["rows"]),20)
+
     def test_connection_lost_single_same_room_retry_and_id_history(self):
         import hashlib
         with tempfile.TemporaryDirectory() as root:
