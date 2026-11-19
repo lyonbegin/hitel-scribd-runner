@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Smoke (40) or full corpus'
+        description: 'Smoke next 20 titles or continue full 18109 corpus'
         required: true
         type: choice
         options: [smoke, full]
@@ -25,7 +25,7 @@ jobs:
   ai:
     # 2026-11-19: verified real A/A/B/A v2 ChatGPT dialog, plus 40/40 verified actual Scribd title judgments.
     runs-on: ubuntu-latest
-    timeout-minutes: 200
+    timeout-minutes: 300
     steps:
       - name: Checkout exact verified corpus and AI runner branch
         uses: actions/checkout@v4
@@ -113,7 +113,7 @@ jobs:
       - name: Execute bounded real public HITEL ChatGPT grouped classification
         id: classify
         continue-on-error: true
-        timeout-minutes: 170
+        timeout-minutes: 280
         shell: bash
         env:
           RUN_MODE: ${{ github.event.inputs.mode || 'full' }}
@@ -121,13 +121,13 @@ jobs:
           if [[ "$RUN_MODE" == "smoke" ]]; then
             python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
               --input Raw_Documents_18109.csv --out hitel-ai-batches \
-              --limit 50 --batch-size 10 --max-batches 1 \
-              --workers 1 --poll-seconds 240
+              --limit 60 --batch-size 20 --max-batches 1 \
+              --workers 1 --poll-seconds 14400 --recover-terminal-failed
           else
             python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
               --input Raw_Documents_18109.csv --out hitel-ai-batches \
-              --batch-size 10 --max-batches 20 \
-              --workers 1 --poll-seconds 600
+              --batch-size 20 --max-batches 1 \
+              --workers 1 --poll-seconds 14400 --recover-terminal-failed
           fi
 
       - name: Verify every original row and count only real AI completed IDs
@@ -143,7 +143,7 @@ jobs:
           path=Path("hitel-ai-batches/Scribd_AI_분류결과.csv")
           assert path.exists(), "No AI results CSV created"
           classified=list(csv.DictReader(path.open(encoding="utf-8-sig",newline="")))
-          expected=len(original) if os.environ["RUN_MODE"]=="full" else 50
+          expected=len(original) if os.environ["RUN_MODE"]=="full" else 60
           assert len(classified)==expected, (len(classified),expected)
           for idx,r in enumerate(classified):
               assert r["문서 ID"]==original[idx]["문서 ID"],"Original ID changed"
@@ -152,9 +152,9 @@ jobs:
           done=sum(r["학교급"]!="미처리" for r in classified)
           before=int(os.environ["AI_BEFORE"])
           full=len(original)
-          remaining=full-done if os.environ["RUN_MODE"]=="full" else 50-done
+          remaining=full-done if os.environ["RUN_MODE"]=="full" else 60-done
           advance=done-before
-          follow=(remaining>0 and advance>0) or (os.environ["RUN_MODE"]=="smoke" and done==50)
+          follow=(remaining>0 and advance>0) or (os.environ["RUN_MODE"]=="smoke" and done==60)
           print("REAL_AI_COMPLETED",done,"PREVIOUS_COMPLETED",before,"NEW_COMPLETED",advance,
                 "TOTAL_CORPUS",full,"REMAINING_IN_RUN_SCOPE",remaining)
           with open(os.environ["GITHUB_OUTPUT"],"a") as o:
@@ -163,7 +163,7 @@ jobs:
               o.write("progress="+str(advance)+"\n")
               o.write("continue="+str(follow).lower()+"\n")
           with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as s:
-              s.write(f"AI verified: {done}/{full if os.environ['RUN_MODE']=='full' else 50}, new: {advance}\n")
+              s.write(f"AI verified: {done}/{full if os.environ['RUN_MODE']=='full' else 60}, new: {advance}\n")
           PY
 
       - name: Preserve results, 1:1 source mapping, and job checkpoints
