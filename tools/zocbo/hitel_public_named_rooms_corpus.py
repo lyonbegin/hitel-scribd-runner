@@ -264,7 +264,8 @@ def recover_terminal_failure(out,block,enabled):
         if (code!=200 or live.get("job_id")!=jid or
                 live.get("room_id")!=old_room or live.get("status")!="failed" or
                 live.get("stage")!="web2api_failed" or
-                live.get("error")!="WEB2API_SEND_OR_VERIFY_FAILED"):
+                live.get("error") not in (
+                    "WEB2API_SEND_OR_VERIFY_FAILED","WEB2API_ADAPTER_HTTP_500")):
             raise ValueError("RECOVERY_REQUIRES_EXACT_SERVER_CONFIRMED_TERMINAL_FAILURE")
         # A terminal relay failure does NOT prove that ChatGPT generated no
         # answer: the browser might have finished after Web2API lost its reply.
@@ -275,9 +276,17 @@ def recover_terminal_failure(out,block,enabled):
         # title batch. This does not prove the prior ChatGPT reply is absent.
         # All other failed jobs still require original-room browser evidence.
         user_retry=(
-            jid=="job_5debb3203eda4cfc9195d02f864ee1c6" and
             errorfile.stem=="00121-00140" and
-            old_room=="room_711a111bb02f40699d757b4fdc35d920" and
+            (jid,old_room,live.get("error")) in {
+                ("job_5debb3203eda4cfc9195d02f864ee1c6",
+                 "room_711a111bb02f40699d757b4fdc35d920",
+                 "WEB2API_SEND_OR_VERIFY_FAILED"),
+                # One additional diagnostic attempt after the older Chrome
+                # workers are retired, not an open-ended re-send policy.
+                ("job_7ff121cde7004d89a4320e91a49acd3d",
+                 "room_6dfa83173bf04fdc9919a1b816bb8b20",
+                 "WEB2API_ADAPTER_HTTP_500"),
+            } and
             os.environ.get("HITEL_USER_AUTHORIZED_RETRY_JOB_ID")==jid and
             os.environ.get("HITEL_USER_AUTHORIZED_RETRY_SCOPE")=="121-140-ONCE"
         )
