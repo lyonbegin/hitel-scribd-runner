@@ -302,6 +302,11 @@ def recover_terminal_failure(out,block,enabled):
                 ("job_401243c252fe44c4b722b9d66ffa0d36",
                  "room_157c10c98a514777a0ff36c182267a61",
                  "WEB2API_ADAPTER_HTTP_500"),
+                # User's 2026-11-19 19:08 KST authorization: one and only
+                # one recovery of the actual last failed 121-140 batch.
+                ("job_bc4d195225724a72acca9e385083af8a",
+                 "room_a260e8e6bd03439fb1c207808f05275d",
+                 "WEB2API_ADAPTER_HTTP_500"),
             } and
             os.environ.get("HITEL_USER_AUTHORIZED_RETRY_JOB_ID")==jid and
             os.environ.get("HITEL_USER_AUTHORIZED_RETRY_SCOPE")=="121-140-ONCE"
@@ -319,7 +324,17 @@ def recover_terminal_failure(out,block,enabled):
             recovery_reason="authenticated_browser_confirmed_no_prior_reply"
             print("BROWSER_AUDIT_CONFIRMED_NO_PRIOR_REPLY",jid,flush=True)
         elif user_retry:
-            recovery_reason="explicit_user_retry_121-140_prior_chat_reply_unknown"
+            # A server-failed job and an unlinked named room establish there
+            # is no API-recoverable verified answer. They do NOT establish
+            # that an orphan answer was never rendered in ChatGPT.
+            code,rooms_state=call("/integrations/v1/public/rooms")
+            entries=(rooms_state.get("rooms",[]) if code==200 else [])
+            matching=[x for x in entries if x.get("room_id")==old_room]
+            if (len(matching)!=1 or matching[0].get("conversation_linked") is not False
+                    or live.get("result_text") is not None):
+                raise ValueError("PRIOR_CHAT_REPLY_NOT_EXCLUDED_FROM_API_RECOVERY")
+            recovery_reason="explicit_user_retry_121-140_no_api_recoverable_reply_prior_browser_unknown"
+            print("NO_API_RECOVERABLE_REPLY_IN_OLD_ROOM",jid,flush=True)
             print("USER_AUTHORIZED_ONE_TIME_RETRY_PRIOR_CHAT_REPLY_UNCONFIRMED",jid,flush=True)
         else:
             raise ValueError("CHATGPT_REPLY_ABSENCE_NOT_VERIFIED: "+jid)
