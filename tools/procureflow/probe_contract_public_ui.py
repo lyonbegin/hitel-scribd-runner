@@ -288,6 +288,25 @@ def main():
                     try:
                         r = page.goto(target, wait_until="domcontentloaded", timeout=25000)
                         report[name + "_http_status"] = r.status if r else None
+                        # The public report WebSquare shell may appear after 15s.
+                        # Record a per-report readiness result rather than treating
+                        # an early HTTP 200 / empty body as report data.
+                        report[name + "_visible_wait"] = {"visible": False, "timeout_ms": 20000}
+                        import time
+                        wait_started = time.monotonic()
+                        for _ in range(40):
+                            try:
+                                count = page.locator('a:visible, button:visible, [role="menuitem"]:visible, [role="button"]:visible').count()
+                                if count:
+                                    report[name + "_visible_wait"] = {
+                                        "visible": True, "timeout_ms": 20000,
+                                        "elapsed_ms": int((time.monotonic() - wait_started) * 1000),
+                                        "visible_control_count": count,
+                                    }
+                                    break
+                            except Exception as exc:
+                                report[name + "_visible_wait_error"] = type(exc).__name__ + ":" + short(exc, 120)
+                            page.wait_for_timeout(500)
                         capture(name)
                     except Exception as exc:
                         report["errors"].append({"step": name, "error": type(exc).__name__ + ":" + short(exc)})
@@ -326,6 +345,7 @@ def main():
         "shop_public_search_candidates": report.get("shop_public_search_candidates", []),
         "shop_delivery_labels_not_clicked": report.get("shop_delivery_labels_not_clicked", []),
         "report_http_statuses": {k:v for k,v in report.items() if k.endswith("_http_status")},
+        "report_visible_waits": {k:v for k,v in report.items() if k.endswith("_visible_wait")},
         "oidc_responses": [x for x in report["events"] if "/oidc/" in x["path"]][:12],
         "context_page_metadata": [{
             "frames": p.get("frame_urls", []), "scripts": p.get("script_sources", []),
