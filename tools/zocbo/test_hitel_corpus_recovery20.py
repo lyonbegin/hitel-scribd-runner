@@ -180,6 +180,70 @@ class TestResume20(unittest.TestCase):
 
 
 
+    def test_missing_opening_brace_current_json_after_prior_reply(self):
+        current=[{"번호":i,"문서 ID":str(800000+i),"원문 제목":f"수학 {i}"} for i in range(241,261)]
+        def row(i):
+            return {"no":i,"id":str(800000+i),"school":"중등",
+                    "grade":"2","semester":"1","subject":"수학","edition":"해당없음",
+                    "download":"대상","reason":"중등 수학"}
+        old=json.dumps({"rows":[row(i) for i in range(221,241)]},ensure_ascii=False)
+        new=json.dumps({"rows":[row(i) for i in range(241,261)]},ensure_ascii=False)
+        malformed=old+"\\n"+new[1:]
+        checked=corpus.validated_rows(malformed,current)
+        self.assertEqual([(r["no"],r["id"]) for r in checked],
+                         [(i,str(800000+i)) for i in range(241,261)])
+
+    def test_failure_saved_as_unverified_without_falsifying_completions(self):
+        with tempfile.TemporaryDirectory() as root:
+            out=Path(root)
+            batch=[{"번호":i,"문서 ID":str(700000+i)} for i in range(241,261)]
+            key="00241-00260"
+            jid="job_"+"f"*32
+            corpus.save(out/"jobs"/(key+".json"),
+                        {"job_id":jid,"room_id":"room_"+"e"*32,
+                         "request_id":"exact-idempotency-key"})
+            corpus.save(out/"errors"/(key+".json"),
+                        {"type":"invalid_ai_answer","error":"bad JSON",
+                         "reply":"received raw text for later salvage"})
+            corpus.record_unverified(batch,out,"INVALID_AI_ANSWER")
+            corpus.record_unverified(batch,out,"INVALID_AI_ANSWER")
+            marker=json.loads((out/"skipped"/(key+".json")).read_text())
+            self.assertEqual(len(marker["source_ids"]),20)
+            self.assertEqual(marker["job_id"],jid)
+            self.assertEqual(marker["status"],"unverified_skipped")
+            self.assertTrue(marker["never_count_as_completed"])
+            self.assertFalse((out/"completed"/(key+".json")).exists())
+            self.assertTrue((out/"errors"/(key+".json")).exists())
+            self.assertEqual(marker["source_ids"][0]["no"],241)
+
+    def test_failed_json_does_not_stop_next_batch(self):
+        with tempfile.TemporaryDirectory() as root:
+            out=Path(root)
+            batches=[
+                [{"번호":i,"문서 ID":str(700000+i)} for i in range(241,261)],
+                [{"번호":i,"문서 ID":str(700000+i)} for i in range(261,281)],
+            ]
+            corpus.STOP.clear()
+            seen=[]
+            def respond(batch,room,folder,seconds):
+                key=f'{batch[0]["번호"]:05d}-{batch[-1]["번호"]:05d}'
+                seen.append(key)
+                if len(seen)==1:
+                    corpus.STOP.set()
+                    return key,"INVALID_AI_ANSWER"
+                return key,"COMPLETED"
+            try:
+                with patch.object(corpus,"recover_terminal_failure"),patch.object(
+                    corpus,"open_room",return_value="room_"+"e"*32
+                ),patch.object(corpus,"execute_one",side_effect=respond):
+                    result=corpus.work_group(1,batches,out,20,False)
+                self.assertEqual(len(result),2)
+                self.assertEqual(seen,["00241-00260","00261-00280"])
+                self.assertTrue((out/"skipped"/"00241-00260.json").exists())
+                self.assertFalse(corpus.STOP.is_set())
+            finally:
+                corpus.STOP.clear()
+
     def test_current_json_after_previous_reply_is_recovered_without_resend(self):
         current=[{"번호":i,"문서 ID":str(300000+i),"원문 제목":f"교재 {i}"}
                  for i in range(181,201)]
