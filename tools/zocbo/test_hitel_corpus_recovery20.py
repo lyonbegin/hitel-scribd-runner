@@ -26,6 +26,13 @@ class TestResume20(unittest.TestCase):
                 "status":"failed","stage":"web2api_failed",
                 "error":"WEB2API_SEND_OR_VERIFY_FAILED"},
             "checkpoint":{"job_id":old_job,"room_id":old_room}})
+        corpus.save(out/"reply_audit"/(old_job+".json"),{
+            "job_id":old_job,"room_id":old_room,
+            "source_key":"00041-00050",
+            "method":"read_only_authenticated_chatgpt_browser",
+            "result":"confirmed_no_reply_in_original_chat",
+            "evidence_run_url":"https://github.com/lyonbegin/procureflow/actions/runs/999999999"
+        })
         return out,old_room,old_job
 
     def test_terminal_failure_recovery_new_room_and_history(self):
@@ -97,6 +104,13 @@ class TestResume20(unittest.TestCase):
                     "response":{"job_id":second_job,"room_id":room2,"status":"failed",
                         "stage":"web2api_failed","error":"WEB2API_SEND_OR_VERIFY_FAILED"},
                     "checkpoint":{"job_id":second_job,"room_id":room2}})
+                corpus.save(out/"reply_audit"/(second_job+".json"),{
+                    "job_id":second_job,"room_id":room2,
+                    "source_key":"00081-00100",
+                    "method":"read_only_authenticated_chatgpt_browser",
+                    "result":"confirmed_no_reply_in_original_chat",
+                    "evidence_run_url":"https://github.com/lyonbegin/procureflow/actions/runs/999999999"
+                })
                 corpus.recover_terminal_failure(out,0,True)
                 self.assertEqual(corpus.open_room(out,0),room3)
             saved=json.loads((out/"rooms"/"G000.json").read_text())
@@ -146,6 +160,24 @@ class TestResume20(unittest.TestCase):
             self.assertEqual(newstate["job_id"],newjob)
             self.assertEqual(newstate["room_id"],newroom)
             self.assertEqual(len(json.loads((out/"completed"/(key+".json")).read_text())["rows"]),20)
+
+    def test_failed_job_does_not_replay_without_authenticated_browser_audit(self):
+        with tempfile.TemporaryDirectory() as root:
+            out,old_room,jid=self.fixture(root)
+            (out/"reply_audit"/(jid+".json")).unlink()
+            def fake_call(path,body=None):
+                if path.endswith("/"+jid):
+                    return 200,{"job_id":jid,"room_id":old_room,
+                        "status":"failed","stage":"web2api_failed",
+                        "error":"WEB2API_SEND_OR_VERIFY_FAILED"}
+                raise AssertionError("Must never send or create replacement room: "+path)
+            with patch.object(corpus,"call",side_effect=fake_call):
+                with self.assertRaisesRegex(ValueError,"CHATGPT_REPLY_ABSENCE_NOT_VERIFIED"):
+                    corpus.recover_terminal_failure(out,0,True)
+            state=json.loads((out/"rooms"/"G000.json").read_text())
+            self.assertEqual(state["room_id"],old_room)
+
+
 
 
 if __name__=="__main__":
