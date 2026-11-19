@@ -113,7 +113,7 @@ jobs:
           print("AI_BEFORE="+str(count))
           PY
 
-      - name: Resume next original 20 titles with persisted idempotent job and live Chrome worker
+      - name: Reconcile saved completed Web2API job before next 20-title submission
         id: classify
         continue-on-error: true
         timeout-minutes: 280
