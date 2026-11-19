@@ -53,7 +53,7 @@ jobs:
           assert len(set(r["문서 ID"] for r in data))==18109
           print("SOURCE_VERIFIED 18109 18109",digest)
           PY
-          python3 -m py_compile tools/zocbo/hitel_public_ai_batch_classifier.py
+          python3 -m py_compile tools/zocbo/hitel_public_named_rooms_corpus.py
 
       - name: Restore latest prior verified AI completion checkpoints
         shell: bash
@@ -92,15 +92,15 @@ jobs:
           RUN_MODE: ${{ github.event.inputs.mode || 'smoke' }}
         run: |
           if [[ "$RUN_MODE" == "smoke" ]]; then
-            python3 tools/zocbo/hitel_public_ai_batch_classifier.py \
+            python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
               --input Raw_Documents_18109.csv --out hitel-ai-batches \
               --limit 40 --batch-size 20 --max-batches 2 \
               --workers 1 --poll-seconds 240
           else
-            python3 tools/zocbo/hitel_public_ai_batch_classifier.py \
+            python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
               --input Raw_Documents_18109.csv --out hitel-ai-batches \
-              --batch-size 20 --max-batches 30 \
-              --workers 1 --poll-seconds 240
+              --batch-size 20 --max-batches 20 \
+              --workers 2 --poll-seconds 600
           fi
 
       - name: Verify every original row and count only real AI completed IDs
@@ -149,7 +149,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Immediately continue to next AI batch window (no schedule)
-        if: steps.verify.outputs.continue == 'true'
+        if: steps.verify.outputs.continue == 'true' && steps.classify.outcome == 'success' && steps.verify.outcome == 'success'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
