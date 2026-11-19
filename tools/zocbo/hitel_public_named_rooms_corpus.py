@@ -266,6 +266,23 @@ def recover_terminal_failure(out,block,enabled):
                 live.get("stage")!="web2api_failed" or
                 live.get("error")!="WEB2API_SEND_OR_VERIFY_FAILED"):
             raise ValueError("RECOVERY_REQUIRES_EXACT_SERVER_CONFIRMED_TERMINAL_FAILURE")
+        # A terminal relay failure does NOT prove that ChatGPT generated no
+        # answer: the browser might have finished after Web2API lost its reply.
+        # Require separately observed browser-history evidence before ANY
+        # replacement room/request. A job status alone is insufficient.
+        proofpath=out/"reply_audit"/(jid+".json")
+        if not proofpath.exists():
+            raise ValueError("CHATGPT_REPLY_ABSENCE_NOT_VERIFIED: "+jid)
+        proof=json.loads(proofpath.read_text(encoding="utf-8"))
+        if (proof.get("job_id")!=jid or
+                proof.get("room_id")!=old_room or
+                proof.get("source_key")!=errorfile.stem or
+                proof.get("result")!="confirmed_no_reply_in_original_chat" or
+                proof.get("method")!="read_only_authenticated_chatgpt_browser" or
+                not isinstance(proof.get("evidence_run_url"),str) or
+                not proof["evidence_run_url"].startswith("https://github.com/lyonbegin/")):
+            raise ValueError("CHATGPT_REPLY_ABSENCE_PROOF_INVALID: "+jid)
+        print("BROWSER_AUDIT_CONFIRMED_NO_PRIOR_REPLY",jid,flush=True)
         fresh=f"HITEL-SCRIBD-18109-RECOVER-G{block:03d}-{jid[4:12]}"
         history.append({"job_id":jid,"room_id":old_room,
                         "room_name":saved["room_name"],"source_key":errorfile.stem,
