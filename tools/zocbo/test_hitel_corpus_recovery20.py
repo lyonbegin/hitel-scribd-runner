@@ -180,6 +180,51 @@ class TestResume20(unittest.TestCase):
 
 
 
+    def test_connection_lost_single_same_room_retry_and_id_history(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as root:
+            out=Path(root)
+            room="room_"+"a"*32
+            first="job_"+"b"*32
+            second="job_"+"c"*32
+            batch=[{"번호":i,"문서 ID":str(900000+i),"원문 제목":f"수학 교재 {i}"}
+                   for i in range(161,181)]
+            key="00161-00180"
+            digest=hashlib.sha256(corpus.title_prompt(batch).encode("utf-8")).hexdigest()[:20]
+            corpus.save(out/"jobs"/(key+".json"),{"digest":digest,"room_id":room,
+                "request_id":"already-sent-id","job_id":first})
+            valid=[{"no":i,"id":str(900000+i),"school":"중등",
+                    "grade":"1","semester":"1","subject":"수학",
+                    "edition":"해당없음","download":"대상","reason":"중학교 수학"}
+                   for i in range(161,181)]
+            post_ids=[]
+            def fake_call(path,body=None):
+                if path.endswith("/"+first):
+                    return 200,{"job_id":first,"room_id":room,"status":"failed",
+                        "stage":"connection_lost","result_text":None,
+                        "error":"GitHub Chrome disconnected; not automatically retried"}
+                if path.endswith("/rooms") and body is None:
+                    return 200,{"rooms":[{"room_id":room,"conversation_linked":True}]}
+                if path.endswith("/chat"):
+                    post_ids.append(body["request_id"])
+                    self.assertEqual(body["room_id"],room)
+                    return 202,{"job_id":second,"room_id":room}
+                if path.endswith("/"+second):
+                    return 200,{"job_id":second,"room_id":room,"status":"completed",
+                        "result_text":json.dumps({"rows":valid})}
+                raise AssertionError("unexpected transport request "+path)
+            with patch.object(corpus,"call",side_effect=fake_call):
+                k,st=corpus.execute_one(batch,room,out,20)
+            self.assertEqual((k,st),(key,"COMPLETED"))
+            self.assertEqual(len(post_ids),1)
+            state=json.loads((out/"jobs"/(key+".json")).read_text())
+            self.assertEqual(state["job_id"],second)
+            self.assertEqual(state["connection_lost_retries"],1)
+            self.assertIn(first,state["prior_failed_jobs"])
+            self.assertTrue((out/"errors"/"history"/f"{key}-{first}.json").exists())
+            self.assertTrue((out/"jobs"/"history"/f"{key}-{first}.json").exists())
+            self.assertEqual(len(json.loads((out/"completed"/(key+".json")).read_text())["rows"]),20)
+
     def test_nfc_math_titles_are_only_normalized_for_prompt(self):
         import unicodedata
         nfd=unicodedata.normalize("NFD","[유형반복r 공통수학1]서술형 03.인수분해")
