@@ -1,0 +1,95 @@
+name: HITEL Scribd 18109 | restore 120 and verify next 20 (NO CHAT POST)
+on:
+  push:
+    branches: [feature/hitel-public-ai-batches-20261119]
+    paths: [.github/workflows/hitel-18109-recovery-readonly-preflight.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild and compare exact 18109 original titles and source hash
+        run: |
+          python3 - <<'PY'
+          import csv,hashlib
+          from pathlib import Path
+          parts=sorted(Path("data/raw_18109").glob("part_*.csv"))
+          assert len(parts)==20
+          raw=b"\xef\xbb\xbf"+"".join(p.read_text("utf-8") for p in parts).replace("\n","\r\n").encode("utf-8")
+          assert hashlib.sha256(raw).hexdigest()=="c9ac45f833dd30a002cffac64cb3ced763ed4eb18b0e121c4ab00b935a9b82e3"
+          Path("Raw_Documents_18109.csv").write_bytes(raw)
+          rows=list(csv.DictReader(Path("Raw_Documents_18109.csv").open(encoding="utf-8-sig",newline="")))
+          assert len(rows)==18109
+          assert len(set(x["문서 ID"] for x in rows))==18109
+          print("PASS_ORIGINAL_18109_SOURCE_HASH_AND_UNIQUE_IDS")
+          PY
+          python3 -m unittest discover -s tools/zocbo -p test_hitel_corpus_recovery20.py -v
+      - name: Restore latest real completed/error checkpoints, without HITEL submissions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p hitel-ai-batches
+          gh run download 44478589409 --repo "$GITHUB_REPOSITORY" \
+            -n hitel-ai-18109-v3-checkpoint -D hitel-ai-batches
+          python3 - <<'PY'
+          import csv,json
+          from pathlib import Path
+          original=list(csv.DictReader(Path("Raw_Documents_18109.csv").open(encoding="utf-8-sig",newline="")))
+          root=Path("hitel-ai-batches")
+          matches=list((root/"completed").glob("*.json"))
+          assert matches,"NO_COMPLETED_CHECKPOINTS_RESTORED"
+          done={}
+          for file in matches:
+              obj=json.loads(file.read_text(encoding="utf-8"))
+              for row in obj["rows"]:
+                  num=int(row["no"])
+                  assert num not in done
+                  assert original[num-1]["문서 ID"]==str(row["id"])
+                  done[num]=row
+          assert len(done)==120,(len(done),120)
+          assert set(done)==set(range(1,121)),"MISSING_PREVIOUSLY_VERIFIED_TITLE"
+          pending=[n for n in range(1,len(original)+1) if n not in done]
+          assert pending[:20]==list(range(121,141))
+          print("PASS_120_VERIFIED_COMPLETIONS_UNMODIFIED")
+          print("NEXT_UNPROCESSED_TITLE_WINDOW",pending[0],pending[19],"REMAINING",len(pending))
+          jobpath=root/"jobs"/"00121-00140.json"
+          assert jobpath.exists(),"MISSING_121_140_JOB_CHECKPOINT"
+          state=json.loads(jobpath.read_text(encoding="utf-8"))
+          assert state.get("job_id") and state.get("room_id")
+          print("LAST_FAILED_CHECKPOINT_JOB",state["job_id"],"ROOM",state["room_id"])
+          room=root/"rooms"/"G000.json"
+          assert room.exists()
+          history=json.loads(room.read_text(encoding="utf-8")).get("recovery_history",[])
+          assert history,"MISSING_FAILURE_RECOVERY_HISTORY"
+          print("RECOVERY_HISTORY_PRESERVED",len(history))
+          PY
+      - name: Verify exact next pending window without sending a question
+        run: |
+          python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
+            --input Raw_Documents_18109.csv --out hitel-ai-batches \
+            --batch-size 20 --max-batches 1 --workers 1 --dry-run
+      - name: Verify latest 121-140 job state by GET only
+        run: |
+          python3 - <<'PY'
+          import json,urllib.request
+          from pathlib import Path
+          root=Path("hitel-ai-batches")
+          state=json.loads((root/"jobs"/"00121-00140.json").read_text())
+          base="https://hitel-integration-api-production.up.railway.app"
+          with urllib.request.urlopen(base+"/integrations/v1/public/jobs/"+state["job_id"],timeout=25) as h:
+              result=json.load(h)
+          assert result["job_id"]==state["job_id"]
+          assert result["room_id"]==state["room_id"]
+          print("LAST_121_140_JOB",result["status"],result["stage"],result.get("error"))
+          if result["status"] in ("running","queued"):
+              print("DO_NOT_RESEND_UNFINISHED_JOB")
+          elif result["status"]=="failed":
+              print("NO_AUTOMATIC_RETRY_OF_FAILED_JOB")
+          else:
+              print("REVIEW_COMPLETED_RESULT_BEFORE_ANY_FOLLOWUP")
+          PY
