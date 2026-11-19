@@ -1,0 +1,105 @@
+name: HITEL 18109 verified recovery room 30-to-40 continuous AI validation
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/hitel-ai-merge30-followup40.yml]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: hitel-scribd-ai-18109-transport
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/hitel-public-ai-batches-20261119
+      - name: Verify exact 18109 metadata source, restore both successful real AI evidence packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import csv,hashlib
+          parts=sorted(Path('data/raw_18109').glob('part_*.csv'))
+          assert len(parts)==20
+          blob=b'\xef\xbb\xbf'+''.join(p.read_text('utf-8') for p in parts).replace('\n','\r\n').encode()
+          assert hashlib.sha256(blob).hexdigest()=='c9ac45f833dd30a002cffac64cb3ced763ed4eb18b0e121c4ab00b935a9b82e3'
+          Path('Raw_Documents_18109.csv').write_bytes(blob)
+          with open('Raw_Documents_18109.csv',encoding='utf-8-sig',newline='') as f: rows=list(csv.DictReader(f))
+          assert len(rows)==18109 and len({r['문서 ID'] for r in rows})==18109
+          print('ORIGINAL_18109_SHA_AND_IDS_VERIFIED')
+          PY
+          gh run download 44438675220 --repo "$GITHUB_REPOSITORY" \
+             -n hitel-scribd-ai-real20-checkpoint -D hitel-ai-batches
+          mkdir -p fresh-evidence
+          gh run download 44441851508 --repo "$GITHUB_REPOSITORY" \
+             -n hitel-real10-fresh-room-evidence -D fresh-evidence
+      - name: Merge independently verified real 20 plus real 10 without any reclassification
+        run: |
+          python3 - <<'PY'
+          import csv,hashlib,json,sys
+          from pathlib import Path
+          sys.path.insert(0,'tools/zocbo')
+          import hitel_public_named_rooms_corpus as ai
+          with open('Raw_Documents_18109.csv',encoding='utf-8-sig',newline='') as f:source=list(csv.DictReader(f))
+          out=Path('hitel-ai-batches')
+          first=json.loads((out/'completed/00001-00020.json').read_text('utf-8'))
+          assert len(first['rows'])==20
+          for n,r in enumerate(first['rows'],1):
+              assert int(r['no'])==n and str(r['id'])==source[n-1]['문서 ID']
+          events=json.loads(Path('fresh-evidence/hitel-fresh-room-trial.json').read_text('utf-8'))
+          created=[e for e in events if e.get('event')=='room_created']
+          complete=[e for e in events if e.get('event')=='classified']
+          assert len(created)==1 and len(complete)==1
+          room_id=created[0]['room_id']
+          result=complete[0];results=result['rows']
+          assert result['verified_count']==10 and len(results)==10
+          for n,r in enumerate(results,21):
+              assert int(r['no'])==n and str(r['id'])==source[n-1]['문서 ID']
+          name='HITEL-SCRIBD-FRESH-10-44441851508'
+          # Pin exact verified ChatGPT room and keep using it for all subsequent
+          # grouped titles in this original G000 block.
+          ai.save(out/'rooms/G000.json',{'room_name':name,'room_id':room_id,'block':0,'recovery_proof_run':44441851508})
+          ai.save(out/'completed/00021-00030.json',{'rows':results,'job_id':result['job_id'],
+                'room_id':room_id,'verified_by_github_run':44441851508})
+          original=[]
+          for i,x in enumerate(source,1):original.append({'번호':i,**x})
+          stats=ai.output_file(original,out)
+          assert stats['verified_ai_completed']==30,stats
+          print('PASS_REAL_AI_COMPLETED_30',stats)
+          PY
+      - name: Continue same already-verified recovery room with next 10 true original titles
+        run: |
+          python3 -m py_compile tools/zocbo/hitel_public_named_rooms_corpus.py
+          python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
+             --input Raw_Documents_18109.csv --out hitel-ai-batches \
+             --batch-size 10 --max-batches 1 --workers 1 --poll-seconds 540
+      - name: Verify 40 completed actual AI judgments and stable same room ID
+        run: |
+          python3 - <<'PY'
+          import csv,json
+          from pathlib import Path
+          with open('hitel-ai-batches/Scribd_AI_분류결과.csv',encoding='utf-8-sig',newline='') as f:r=list(csv.DictReader(f))
+          assert len(r)==18109
+          completed=[x for x in r if x['학교급']!='미처리']
+          assert len(completed)==40,len(completed)
+          assert set(int(x['번호']) for x in completed)==set(range(1,41))
+          for row in completed: assert row['문서 ID'] and row['판정 근거']
+          out=Path('hitel-ai-batches')
+          pinned=json.loads((out/'rooms/G000.json').read_text('utf-8'))
+          extra=json.loads((out/'completed/00031-00040.json').read_text('utf-8'))
+          assert extra['room_id']==pinned['room_id']
+          print('PASS_40_VERIFIED_AI_ANSWERS_AND_PINNED_CONVERSATION',pinned['room_id'])
+          PY
+      - name: Preserve verified 30 or 40 AI result rows, any errors, and stable room checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-ai-18109-clean40-checkpoint
+          path: hitel-ai-batches/
+          retention-days: 90
+          if-no-files-found: warn
