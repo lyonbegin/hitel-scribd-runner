@@ -24,7 +24,12 @@ def classify(report, report_dir=None):
         elif status >= 400:
             issues.append("POST_HTTP_ERROR_NOT_DATA")
     for p in proofs:
-        if p.get("status") == 200 and p.get("body_bytes", 0) == 0:
+        proof_status = p.get("status")
+        if not isinstance(proof_status, int) or isinstance(proof_status, bool):
+            issues.append("PROOF_HTTP_STATUS_MISSING")
+        elif proof_status != 200:
+            issues.append("PROOF_HTTP_NON_200_NOT_DATA")
+        if proof_status == 200 and p.get("body_bytes", 0) == 0:
             issues.append("HTTP_200_EMPTY_BODY")
         digest = p.get("body_sha256")
         if digest and (not isinstance(digest, str) or len(digest) != 64 or
@@ -55,6 +60,10 @@ def classify(report, report_dir=None):
         if (sha != digest or sha != p.get("raw_sha256") or
             len(raw) != p.get("body_bytes") or len(raw) != p.get("raw_bytes")):
             issues.append("RAW_BYTES_HASH_OR_LENGTH_MISMATCH")
+            continue
+        if proof_status != 200 or p.get("raw_verified") is False:
+            if p.get("raw_verified") is False:
+                issues.append("PRODUCER_RAW_VERIFICATION_FAILED")
             continue
         verified += 1
     return {
