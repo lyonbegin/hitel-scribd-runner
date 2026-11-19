@@ -271,28 +271,43 @@ def recover_terminal_failure(out,block,enabled):
         # Require separately observed browser-history evidence before ANY
         # replacement room/request. A job status alone is insufficient.
         proofpath=out/"reply_audit"/(jid+".json")
-        if not proofpath.exists():
+        # Operator-approved exactly-once retry of this terminal, read-only
+        # title batch. This does not prove the prior ChatGPT reply is absent.
+        # All other failed jobs still require original-room browser evidence.
+        user_retry=(
+            jid=="job_5debb3203eda4cfc9195d02f864ee1c6" and
+            errorfile.stem=="00121-00140" and
+            old_room=="room_711a111bb02f40699d757b4fdc35d920" and
+            os.environ.get("HITEL_USER_AUTHORIZED_RETRY_JOB_ID")==jid and
+            os.environ.get("HITEL_USER_AUTHORIZED_RETRY_SCOPE")=="121-140-ONCE"
+        )
+        if proofpath.exists():
+            proof=json.loads(proofpath.read_text(encoding="utf-8"))
+            if (proof.get("job_id")!=jid or
+                    proof.get("room_id")!=old_room or
+                    proof.get("source_key")!=errorfile.stem or
+                    proof.get("result")!="confirmed_no_reply_in_original_chat" or
+                    proof.get("method")!="read_only_authenticated_chatgpt_browser" or
+                    not isinstance(proof.get("evidence_run_url"),str) or
+                    not proof["evidence_run_url"].startswith("https://github.com/lyonbegin/")):
+                raise ValueError("CHATGPT_REPLY_ABSENCE_PROOF_INVALID: "+jid)
+            recovery_reason="authenticated_browser_confirmed_no_prior_reply"
+            print("BROWSER_AUDIT_CONFIRMED_NO_PRIOR_REPLY",jid,flush=True)
+        elif user_retry:
+            recovery_reason="explicit_user_retry_121-140_prior_chat_reply_unknown"
+            print("USER_AUTHORIZED_ONE_TIME_RETRY_PRIOR_CHAT_REPLY_UNCONFIRMED",jid,flush=True)
+        else:
             raise ValueError("CHATGPT_REPLY_ABSENCE_NOT_VERIFIED: "+jid)
-        proof=json.loads(proofpath.read_text(encoding="utf-8"))
-        if (proof.get("job_id")!=jid or
-                proof.get("room_id")!=old_room or
-                proof.get("source_key")!=errorfile.stem or
-                proof.get("result")!="confirmed_no_reply_in_original_chat" or
-                proof.get("method")!="read_only_authenticated_chatgpt_browser" or
-                not isinstance(proof.get("evidence_run_url"),str) or
-                not proof["evidence_run_url"].startswith("https://github.com/lyonbegin/")):
-            raise ValueError("CHATGPT_REPLY_ABSENCE_PROOF_INVALID: "+jid)
-        print("BROWSER_AUDIT_CONFIRMED_NO_PRIOR_REPLY",jid,flush=True)
         fresh=f"HITEL-SCRIBD-18109-RECOVER-G{block:03d}-{jid[4:12]}"
         history.append({"job_id":jid,"room_id":old_room,
                         "room_name":saved["room_name"],"source_key":errorfile.stem,
-                        "reason":"verified_web2api_terminal_failure"})
+                        "reason":recovery_reason})
         # Persist recovery authorization before replacing the old job record.
         # execute_one archives the old job and error under history/ before POST.
         save(roomfile,{**saved,"room_id":None,"room_name":fresh,
             "prior_room_id":old_room,"prior_room_name":saved["room_name"],
             "recovered_from_job":jid,"recovery_history":history,
-            "recovery_reason":"verified_web2api_terminal_failure"})
+            "recovery_reason":recovery_reason})
         print("VERIFIED_TERMINAL_FAILURE_NEW_ROOM",block,"old_job",jid,flush=True)
         return
 
