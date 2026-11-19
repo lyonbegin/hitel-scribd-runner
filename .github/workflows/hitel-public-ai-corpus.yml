@@ -59,14 +59,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p hitel-ai-batches
-          RUN_ID=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=hitel-ai-18109-checkpoint&per_page=100" \
+          RUN_ID=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=hitel-ai-18109-v2-checkpoint&per_page=100" \
             --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | reverse | .[0].workflow_run.id // empty')
           if [[ -z "$RUN_ID" ]]; then
-            RUN_ID=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=hitel-scribd-ai-real20-checkpoint&per_page=100" \
-              --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | reverse | .[0].workflow_run.id // empty')
+            # A known verified pilot: 20 real AI classifications (2026-11-19)
+            RUN_ID=44438675220
             ARTIFACT_NAME=hitel-scribd-ai-real20-checkpoint
           else
-            ARTIFACT_NAME=hitel-ai-18109-checkpoint
+            ARTIFACT_NAME=hitel-ai-18109-v2-checkpoint
           fi
           if [[ -n "$RUN_ID" ]]; then
             echo "RESTORING_CHECKPOINT_RUN=$RUN_ID"
@@ -76,6 +76,28 @@ jobs:
           else
             echo "FIRST_RUN_NO_CHECKPOINT"
           fi
+
+      - name: Guard restored checkpoint against stale failed runs
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import csv,json
+          src=list(csv.DictReader(open('Raw_Documents_18109.csv',encoding='utf-8-sig',newline='')))
+          completed=list(Path('hitel-ai-batches/completed').glob('*.json'))
+          assert completed,'No completed AI classification checkpoint; refusing to treat a failed run as a seed'
+          ids=set()
+          for f in completed:
+              obj=json.loads(f.read_text('utf-8'))
+              for row in obj['rows']:
+                  number=int(row['no'])
+                  assert 1<=number<=len(src)
+                  assert src[number-1]['문서 ID']==str(row['id']),'Checkpoint document ID/source mismatch'
+                  assert number not in ids,'Duplicate completion'
+                  ids.add(number)
+          assert len(ids)>=20,'Checkpoint must include at least 20 verified real AI classifications'
+          print('PASS_RESTORED_AI_COMPLETIONS',len(ids))
+          PY
 
       - name: Record completed row count before this execution
         shell: bash
@@ -148,7 +170,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: hitel-ai-18109-checkpoint
+          name: hitel-ai-18109-v2-checkpoint
           path: hitel-ai-batches/
           retention-days: 90
           if-no-files-found: warn
