@@ -72,7 +72,16 @@ def validated_rows(reply,batch):
     while pos<len(s):
         while pos<len(s) and s[pos].isspace():pos+=1
         if pos==len(s):break
-        obj,end=decoder.raw_decode(s,pos)
+        # Real ChatGPT response sometimes omits only the opening object
+        # brace when a prior JSON reply and a new {"rows":...} reply are
+        # concatenated. Repair only this exact structural prefix; keep all
+        # source IDs and semantic validation unchanged.
+        if s.startswith('"rows"',pos):
+            obj,local_end=decoder.raw_decode("{"+s[pos:])
+            end=pos+local_end-1
+            print("REPAIRED_MISSING_OPENING_BRACE_BEFORE_ROWS",flush=True)
+        else:
+            obj,end=decoder.raw_decode(s,pos)
         pos=end
         if not isinstance(obj,dict) or not isinstance(obj.get("rows"),list):
             raise ValueError("AI did not return required JSON rows")
@@ -419,6 +428,36 @@ def recover_terminal_failure(out,block,enabled):
         return
 
 
+def record_unverified(batch,out,reason):
+    """Preserve failed/invalid AI responses separately from verified results.
+
+    Once skipped, a batch is never silently resubmitted by normal continuation.
+    Only a separate read-only recovery workflow can later verify and upgrade it.
+    """
+    key=f'{batch[0]["번호"]:05d}-{batch[-1]["번호"]:05d}'
+    marker=out/"skipped"/(key+".json")
+    if (out/"completed"/(key+".json")).exists():
+        raise ValueError("REFUSE_SKIP_ALREADY_VERIFIED_BATCH")
+    expected=[{"no":int(x["번호"]),"id":str(x["문서 ID"])} for x in batch]
+    if marker.exists():
+        prior=json.loads(marker.read_text("utf-8"))
+        if prior.get("source_ids")!=expected:
+            raise ValueError("SKIP_MARKER_SOURCE_MISMATCH")
+        return
+    jobfile=out/"jobs"/(key+".json")
+    job=json.loads(jobfile.read_text("utf-8")) if jobfile.exists() else {}
+    errorfile=out/"errors"/(key+".json")
+    failure=json.loads(errorfile.read_text("utf-8")) if errorfile.exists() else {}
+    save(marker,{"source_ids":expected,"status":"unverified_skipped",
+                 "reason":reason,"job_id":job.get("job_id"),
+                 "room_id":job.get("room_id"),
+                 "request_id":job.get("request_id"),
+                 "error_type":failure.get("type"),
+                 "error_file":str(errorfile.relative_to(out)) if errorfile.exists() else None,
+                 "recoverable_from_existing_job":bool(job.get("job_id")),
+                 "never_count_as_completed":True})
+    print("UNVERIFIED_BATCH_PRESERVED_ADVANCING",key,reason,flush=True)
+
 def work_group(block,batches,out,poll,recover_failed):
     if STOP.is_set():return []
     recover_terminal_failure(out,block,recover_failed)
@@ -429,9 +468,17 @@ def work_group(block,batches,out,poll,recover_failed):
         key,status=execute_one(b,rid,out,poll)
         log.append((key,status))
         print("AI_BATCH_RESULT",key,status,"ROOM_GROUP",block,flush=True)
-        if not status in ("COMPLETED","ALREADY_COMPLETED"):
-            STOP.set()
-            break
+        if status not in ("COMPLETED","ALREADY_COMPLETED"):
+            # Fail OPEN for the queue, CLOSED for data validity. Never claim
+            # validation succeeded, never repeat the unresolved request.
+            if status in ("INVALID_AI_ANSWER","FAILED_STOP_NO_AUTO_RESEND",
+                          "SUBMIT_ERROR","STILL_PENDING_SAVED_JOB",
+                          "PROMPT_EXCEEDS_24000_CHARS"):
+                record_unverified(b,out,status)
+                STOP.clear()  # one worker only; release old batch's stop flag
+            else:
+                STOP.set()
+                break
     return log
 
 def output_file(rows,out):
@@ -451,8 +498,17 @@ def output_file(rows,out):
                 "학기":r.get("semester",""),"2022 세부과목":r.get("subject",""),
                 "고등 판본":r.get("edition","") if r.get("school")=="고등" else ("해당없음" if r else ""),
                 "다운로드":r.get("download",""),"판정 근거":r.get("reason","")})
+    skipped=[]
+    for f in (out/"skipped").glob("*.json"):
+        skipped.extend(json.loads(f.read_text("utf-8"))["source_ids"])
+    if any(int(x["no"]) in completed for x in skipped):
+        raise ValueError("Verified/unverified checkpoint overlap")
     stats={"total":len(rows),"verified_ai_completed":len(completed),
-           "remaining":len(rows)-len(completed),"stopped":STOP.is_set()}
+           "unverified_skipped":len(skipped),
+           "processed":len(completed)+len(skipped),
+           "remaining_unattempted":len(rows)-len(completed)-len(skipped),
+           "remaining_unverified":len(rows)-len(completed),
+           "stopped":STOP.is_set()}
     save(out/"status.json",stats)
     return stats
 
@@ -484,15 +540,34 @@ def main():
             if str(rows[original_no-1]["문서 ID"]) != str(prior["id"]):
                 raise ValueError("Checkpoint original document ID mismatch")
             completed_ids.add(original_no)
+    skipped_ids=set()
+    for skipped_file in (out/"skipped").glob("*.json"):
+        item=json.loads(skipped_file.read_text("utf-8"))
+        assert item.get("status")=="unverified_skipped"
+        assert item.get("never_count_as_completed") is True
+        for src in item["source_ids"]:
+            original_no=int(src["no"])
+            if original_no in skipped_ids or original_no in completed_ids:
+                raise ValueError("Duplicate completed/skipped original ID")
+            if not 1<=original_no<=len(rows):
+                raise ValueError("Skipped original ID out of range")
+            if str(rows[original_no-1]["문서 ID"])!=str(src["id"]):
+                raise ValueError("Skipped source ID mismatch")
+            skipped_ids.add(original_no)
+    processed=completed_ids|skipped_ids
+    if processed and processed!=set(range(1,max(processed)+1)):
+        raise ValueError("PROCESSED_CHECKPOINT_HAS_GAPS")
     all_batches=[rows[i:i+opts.batch_size] for i in range(0,len(rows),opts.batch_size)]
     pending=[]
     for candidate in all_batches:
-        missing=[r for r in candidate if r["번호"] not in completed_ids]
+        missing=[r for r in candidate if r["번호"] not in processed]
         if missing:pending.append(missing)
     if opts.max_batches:pending=pending[:opts.max_batches]
     groups=defaultdict(list)
     for b in pending:groups[(b[0]["번호"]-1)//ROOM_ROWS].append(b)
-    print("SOURCE",len(rows),"PENDING_BATCHES",len(pending),"ROOMS",list(groups),flush=True)
+    print("SOURCE",len(rows),"VERIFIED",len(completed_ids),
+          "UNVERIFIED_SKIPPED",len(skipped_ids),"PENDING_BATCHES",len(pending),
+          "ROOMS",list(groups),flush=True)
     if opts.dry_run:
         print("BATCH_PROMPT_CHARS",[len(title_prompt(b)) for b in pending[:5]])
         return 0
@@ -502,7 +577,12 @@ def main():
         for t in as_completed(tasks):
             try:log=t.result()
             except Exception as e:
-                STOP.set();log=[("ROOM_ERROR",str(e))]
+                # An unavailable room should not block the remaining corpus.
+                # Preserve the attempted source IDs; never report AI success.
+                log=[("ROOM_ERROR",str(e))]
+                for batch in groups[tasks[t]]:
+                    record_unverified(batch,out,"ROOM_ERROR:"+type(e).__name__)
+                STOP.clear()
             print("ROOM_RESULTS",log,flush=True)
             print("CHECKPOINT",output_file(rows,out),flush=True)
     stats=output_file(rows,out)
