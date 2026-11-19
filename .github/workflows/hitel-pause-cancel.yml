@@ -1,0 +1,28 @@
+name: Stop HITEL AI runs while API is being rebuilt
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/hitel-pause-cancel.yml
+permissions:
+  contents: read
+  actions: write
+jobs:
+  cancel-old-hitel-ai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Cancel only the two HITEL AI jobs started before API repair
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for run_id in 44431018950 44430801011; do
+            echo "CHECKING_HITEL_AI_RUN=$run_id"
+            state=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq .status)
+            if [ "$state" = "queued" ] || [ "$state" = "in_progress" ] || [ "$state" = "waiting" ]; then
+              gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/cancel" || true
+              echo "CANCEL_REQUEST_SENT=$run_id"
+            else
+              echo "ALREADY_TERMINAL=$run_id $state"
+            fi
+          done
