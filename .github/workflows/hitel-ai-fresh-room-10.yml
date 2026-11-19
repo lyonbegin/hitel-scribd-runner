@@ -1,0 +1,89 @@
+name: HITEL AI fresh-room 10 real Scribd titles E2E
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/hitel-ai-fresh-room-10.yml
+permissions:
+  contents: read
+concurrency:
+  group: hitel-scribd-ai-18109-transport
+  cancel-in-progress: false
+jobs:
+  new-room:
+    runs-on: ubuntu-latest
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/hitel-public-ai-batches-20261119
+      - name: Run one new public room, 10 actual source titles 21-30, independently classified
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import csv,hashlib,json,os,sys,time,urllib.error
+          from pathlib import Path
+          sys.path.insert(0,"tools/zocbo")
+          import hitel_public_named_rooms_corpus as ai
+          parts=sorted(Path("data/raw_18109").glob("part_*.csv"))
+          assert len(parts)==20
+          original=b"\xef\xbb\xbf"+"".join(p.read_text("utf-8") for p in parts).replace("\n","\r\n").encode()
+          assert hashlib.sha256(original).hexdigest()=="c9ac45f833dd30a002cffac64cb3ced763ed4eb18b0e121c4ab00b935a9b82e3"
+          Path("original.csv").write_bytes(original)
+          with open("original.csv",encoding="utf-8-sig",newline="") as f:source=list(csv.DictReader(f))
+          assert len(source)==18109
+          batch=[{"번호":i+1,**source[i]} for i in range(20,30)]
+          room_name="HITEL-SCRIBD-FRESH-10-"+os.environ["GITHUB_RUN_ID"]
+          events=[]
+          def log(kind,info):
+              events.append({"event":kind,**info})
+              Path("hitel-fresh-room-trial.json").write_text(json.dumps(events,ensure_ascii=False,indent=2),encoding="utf-8")
+              print("TEST_EVENT",kind,json.dumps(info,ensure_ascii=False)[:800],flush=True)
+          for attempt in range(3):
+              try:
+                  http,r=ai.call("/integrations/v1/public/rooms",{"name":room_name})
+                  assert http in (200,201)
+                  rid=r["room_id"]
+                  log("room_created",{"room_id":rid,"conversation_linked":r.get("conversation_linked")})
+                  break
+              except (urllib.error.URLError,TimeoutError) as exc:
+                  log("room_open_unavailable",{"attempt":attempt+1,"error":str(exc)})
+                  if attempt==2:raise
+                  time.sleep(5)
+          prompt=ai.title_prompt(batch)
+          assert len(prompt)<=24000
+          request_id="hitel-real10-"+os.environ["GITHUB_RUN_ID"]+"-initial"
+          code,r=ai.call("/integrations/v1/public/chat",
+                         {"room_id":rid,"text":prompt,"request_id":request_id})
+          assert code==202 and r.get("room_id")==rid and r.get("job_id"),(code,r)
+          job=r["job_id"]
+          log("job_accepted",{"room_id":rid,"job_id":job,"characters":len(prompt)})
+          deadline=time.monotonic()+390
+          while time.monotonic()<deadline:
+              try:
+                  _,state=ai.call("/integrations/v1/public/jobs/"+job)
+              except (urllib.error.URLError,TimeoutError) as exc:
+                  time.sleep(5);continue
+              assert state.get("room_id")==rid,"WRONG_ROOM"
+              if state.get("status")=="completed":
+                  rows=ai.validated_rows(state.get("result_text"),batch)
+                  log("classified",{"verified_count":len(rows),"job_id":job,"rows":rows})
+                  assert len(rows)==10
+                  print("PASS_REAL_AI_10_IN_FRESH_ROOM",flush=True)
+                  break
+              if state.get("status")=="failed":
+                  log("job_failed",{"stage":state.get("stage"),"error":state.get("error"),"job_id":job})
+                  raise RuntimeError("HITEL_JOB_FAILED_"+str(state.get("stage")))
+              time.sleep(5)
+          else:
+              log("job_timeout",{"job_id":job})
+              raise TimeoutError("No final verified ChatGPT response")
+          PY
+      - name: Preserve exact real job and response evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-real10-fresh-room-evidence
+          path: hitel-fresh-room-trial.json
+          retention-days: 30
+          if-no-files-found: warn
