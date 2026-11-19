@@ -75,6 +75,34 @@ class PublicAuditTests(unittest.TestCase):
             self.assertEqual(result["verified_raw_response_bytes"], 1)
             self.assertEqual(result["verified_list_records"], 0)
 
+    def test_non_200_raw_is_not_verified(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            raw = b'{"error":"redirect"}'
+            (root / "response.json").write_bytes(raw)
+            digest = hashlib.sha256(raw).hexdigest()
+            proof = {"status": 302, "body_bytes": len(raw),
+                     "body_sha256": digest, "raw_saved": True,
+                     "raw_path": "response.json", "raw_sha256": digest,
+                     "raw_bytes": len(raw), "raw_verified": True}
+            result = module.classify({"read_only_response_proofs": [proof]}, root)
+            self.assertIn("PROOF_HTTP_NON_200_NOT_DATA", result["issues"])
+            self.assertEqual(result["verified_raw_response_bytes"], 0)
+
+    def test_producer_verification_failure_is_not_counted(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            raw = b'{"result":[]}'
+            (root / "response.json").write_bytes(raw)
+            digest = hashlib.sha256(raw).hexdigest()
+            proof = {"status": 200, "body_bytes": len(raw),
+                     "body_sha256": digest, "raw_saved": True,
+                     "raw_path": "response.json", "raw_sha256": digest,
+                     "raw_bytes": len(raw), "raw_verified": False}
+            result = module.classify({"read_only_response_proofs": [proof]}, root)
+            self.assertIn("PRODUCER_RAW_VERIFICATION_FAILED", result["issues"])
+            self.assertEqual(result["verified_raw_response_bytes"], 0)
+
     def test_missing_proof_is_not_success(self):
         self.assertEqual(module.classify({})["status"], "NOT_VERIFIED")
 
