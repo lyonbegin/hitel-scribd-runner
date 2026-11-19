@@ -62,7 +62,9 @@ def classify(report, report_dir=None):
             issues.append("RAW_BYTES_HASH_OR_LENGTH_MISMATCH")
             continue
         if proof_status != 200 or p.get("raw_verified") is not True:
-            if p.get("raw_verified") is not True:
+            if p.get("raw_verified") is False:
+                issues.append("PRODUCER_RAW_VERIFICATION_FAILED")
+            elif p.get("raw_verified") is not True:
                 issues.append("PRODUCER_RAW_VERIFICATION_NOT_CONFIRMED")
             continue
         verified += 1
