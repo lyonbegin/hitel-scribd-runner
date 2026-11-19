@@ -60,7 +60,7 @@ jobs:
             python -m pip show playwright
             if ($LASTEXITCODE -ne 0) { python -m pip install --disable-pip-version-check playwright==1.56.0 }
             if ($LASTEXITCODE -ne 0) { throw 'Playwright unavailable' }
-            python -m py_compile naver-land-source/tools/realestate/naver_land_domain_probe.py
+            python -m py_compile naver-land-source/tools/realestate/naver_fin_dom_probe.py
           }
       - name: Check actual Naver pages in Windows Chrome without login
         run: |
@@ -68,9 +68,9 @@ jobs:
           $env:PYTHONIOENCODING='utf-8'
           $env:PYTHONUTF8='1'
           if (Get-Command py -ErrorAction SilentlyContinue) {
-            py -3 naver-land-source/tools/realestate/naver_land_domain_probe.py
+            py -3 naver-land-source/tools/realestate/naver_fin_dom_probe.py
           } else {
-            python naver-land-source/tools/realestate/naver_land_domain_probe.py
+            python naver-land-source/tools/realestate/naver_fin_dom_probe.py
           }
           if ($LASTEXITCODE -ne 0) { throw 'Naver Chrome diagnostic failed' }
       - name: Preserve real PC screenshots and JSON evidence
