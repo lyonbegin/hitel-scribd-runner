@@ -180,5 +180,20 @@ class TestResume20(unittest.TestCase):
 
 
 
+    def test_nfc_math_titles_are_only_normalized_for_prompt(self):
+        import unicodedata
+        nfd=unicodedata.normalize("NFD","[유형반복r 공통수학1]서술형 03.인수분해")
+        batch=[{"번호":121,"문서 ID":"1008500237","원문 제목":nfd}]
+        before=dict(batch[0])
+        formatted=corpus.title_prompt(batch)
+        legacy=corpus.title_prompt(batch,normalize_titles=False)
+        self.assertIn(unicodedata.normalize("NFC",nfd),formatted)
+        self.assertIn(nfd,legacy)
+        self.assertNotIn(nfd,formatted)
+        self.assertEqual(batch[0],before)
+        self.assertIn("1008500237",formatted)
+
+
+
 if __name__=="__main__":
     unittest.main()
