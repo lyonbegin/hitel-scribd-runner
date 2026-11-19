@@ -1,5 +1,5 @@
 name: HITEL 18109 AI classification - continue and verify
-# Continuous 18,109-title verified 20-row chain from latest immutable checkpoint; connection-lost retry is bounded and archived.
+# Continuous 18,109-title verified 20-row chain from latest checkpoint; bounded same-room disconnect recovery and Chrome watchdog self-handoff, no cron.
 on:
   push:
     branches: [main]
@@ -113,7 +113,7 @@ jobs:
           print("AI_BEFORE="+str(count))
           PY
 
-      - name: Execute bounded real public HITEL ChatGPT grouped classification
+      - name: Resume next original 20 titles with persisted idempotent job and live Chrome worker
         id: classify
         continue-on-error: true
         timeout-minutes: 280
