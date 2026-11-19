@@ -1,0 +1,37 @@
+name: HITEL 18109 named room runner offline integrity
+on:
+  push:
+    branches: [feature/hitel-public-ai-batches-20261119]
+    paths:
+      - .github/workflows/hitel-named-rooms-runner-offline.yml
+      - tools/zocbo/hitel_public_named_rooms_corpus.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild original rows without contacting the HITEL API
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import csv,hashlib
+          from pathlib import Path
+          parts=sorted(Path("data/raw_18109").glob("part_*.csv"))
+          assert len(parts)==20,len(parts)
+          original=b"\xef\xbb\xbf"+"".join(p.read_text("utf-8") for p in parts).replace("\n","\r\n").encode()
+          assert hashlib.sha256(original).hexdigest()=="c9ac45f833dd30a002cffac64cb3ced763ed4eb18b0e121c4ab00b935a9b82e3"
+          Path("Raw_Documents_18109.csv").write_bytes(original)
+          with Path("Raw_Documents_18109.csv").open(encoding="utf-8-sig",newline="") as f:
+            rows=list(csv.DictReader(f))
+          assert len(rows)==18109,len(rows)
+          assert len(set(row["문서 ID"] for row in rows))==18109
+          print("SOURCE_18109_SHA_VERIFIED")
+          PY
+          python3 -m py_compile tools/zocbo/hitel_public_named_rooms_corpus.py
+          python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
+             --input Raw_Documents_18109.csv --out hitel-ai-dryrun \
+             --batch-size 20 --workers 2 --max-batches 5 --dry-run
