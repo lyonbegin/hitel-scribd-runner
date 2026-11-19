@@ -1,0 +1,28 @@
+name: HITEL named rooms real conversation regression
+on:
+  push:
+    branches: [feature/hitel-public-ai-batches-20261119]
+    paths:
+      - .github/workflows/hitel-named-rooms-e2e.yml
+      - tools/zocbo/test_hitel_named_rooms_e2e.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-3-turn-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate real public API with two persistent named rooms
+        shell: bash
+        run: |
+          python3 -m py_compile tools/zocbo/test_hitel_named_rooms_e2e.py
+          python3 tools/zocbo/test_hitel_named_rooms_e2e.py
+      - name: Preserve exact observed events even if ChatGPT job fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-named-rooms-regression-evidence
+          path: hitel-named-rooms-e2e.json
+          retention-days: 30
