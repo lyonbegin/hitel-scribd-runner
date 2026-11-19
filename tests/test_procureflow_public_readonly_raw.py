@@ -18,5 +18,20 @@ class PublicRawTest(unittest.TestCase):
             self.assertFalse(retain_public_json(b"<html/>","text/html",d,1)["raw_saved"])
             self.assertFalse(retain_public_json(b"x"*262145,"application/json",d,2)["raw_saved"])
             self.assertEqual(list(Path(d).iterdir()),[])
+
+from tools.procureflow.audit_public_ui_data_proof import classify
+
+class PublicRawAuditRegression(unittest.TestCase):
+    def test_rehash_is_not_contract_proof(self):
+        with tempfile.TemporaryDirectory() as d:
+            raw=b'{"result":{"success":false}}'
+            proof=retain_public_json(raw,"application/json",d,0)
+            proof.update({"status":200,"body_sha256":hashlib.sha256(raw).hexdigest(),"body_bytes":len(raw)})
+            report={"read_only_response_proofs":[proof]}
+            self.assertEqual(classify(report,d)["verified_raw_response_bytes"],1)
+            self.assertEqual(classify(report,d)["verified_list_records"],0)
+            (Path(d)/proof["raw_path"]).write_bytes(b"corrupt")
+            self.assertIn("RAW_BYTES_HASH_OR_LENGTH_MISMATCH",classify(report,d)["issues"])
+
 if __name__=="__main__":
     unittest.main()
