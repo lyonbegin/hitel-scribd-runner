@@ -1,13 +1,6 @@
 name: Naver Land Chrome tourism-corridor rental probe
 run-name: "Naver Land | Seoul tourist 1F housing rent | Chrome"
 on:
-  push:
-    branches:
-      - research/naver-land-chrome-20261119
-    paths:
-      - .github/workflows/naver-land-chrome-probe.yml
-      - tools/realestate/naver_land_chrome.py
-      - tools/realestate/naver_land_domain_probe.py
   workflow_dispatch:
 permissions:
   contents: read
