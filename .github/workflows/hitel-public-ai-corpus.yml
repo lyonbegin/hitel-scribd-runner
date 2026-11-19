@@ -1,5 +1,5 @@
 name: HITEL 18109 AI classification - continue and verify
-# 2026-11-19: restore SHA-verified 18109 corpus and 120 completed rows; run next incomplete 20 as smoke, then full only on verified success.
+# Continuous 18,109-title verified 20-row chain from latest immutable checkpoint; connection-lost retry is bounded and archived.
 on:
   push:
     branches: [main]
@@ -98,8 +98,7 @@ jobs:
                   ids.add(number)
           assert set(range(1,121)).issubset(ids),'Verified rows 1-120 missing or corrupted'
           import os
-          if os.environ.get('GITHUB_EVENT_NAME')=='push':
-              assert ids==set(range(1,121)),'Push smoke must resume exactly from 120/18109'
+          assert ids==set(range(1,len(ids)+1)), 'Checkpoint must be contiguous; do not skip or reclassify any prior row'
           print('PASS_RESTORED_AI_COMPLETIONS',len(ids))
           PY
 
@@ -121,9 +120,6 @@ jobs:
         shell: bash
         env:
           RUN_MODE: ${{ github.event_name == 'push' && 'smoke' || github.event.inputs.mode || 'full' }}
-          # User-authorized retry only for terminal job 121-140, not future failures.
-          HITEL_USER_AUTHORIZED_RETRY_JOB_ID: job_bc4d195225724a72acca9e385083af8a
-          HITEL_USER_AUTHORIZED_RETRY_SCOPE: 121-140-ONCE
         run: |
           if [[ "$RUN_MODE" == "smoke" ]]; then
             python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
@@ -178,7 +174,7 @@ jobs:
           expected_increment=min(20,full-before)
           assert advance==expected_increment, (before,done,advance,expected_increment)
           if os.environ["RUN_MODE"]=="smoke":
-              assert (before,done)==(120,140), "Smoke must validate only source rows 121-140"
+              assert before>=120 and advance==expected_increment, "Smoke must advance exactly one next incomplete 20-row batch"
           follow=(remaining>0 and advance==expected_increment)
           print("REAL_AI_COMPLETED",done,"PREVIOUS_COMPLETED",before,"NEW_COMPLETED",advance,
                 "TOTAL_CORPUS",full,"REMAINING_IN_RUN_SCOPE",remaining)
