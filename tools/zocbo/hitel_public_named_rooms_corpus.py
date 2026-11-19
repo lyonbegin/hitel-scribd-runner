@@ -58,14 +58,43 @@ def validated_rows(reply,batch):
     s=(reply or "").strip()
     fence=chr(96)*3
     if s.startswith(fence):s=s.split("\n",1)[-1].rsplit(fence,1)[0].strip()
-    data,_=json.JSONDecoder().raw_decode(s)
-    if not isinstance(data,dict) or not isinstance(data.get("rows"),list):
-        raise ValueError("AI did not return required JSON rows")
-    rows=data["rows"]
+    # Some Web2API ChatGPT DOM captures contain the PREVIOUS complete JSON
+    # object followed by the CURRENT complete JSON object. The old parser
+    # decoded only the first, then rejected a real 20-row current reply.
+    # Consume the entire sequence, accept only exact requested source IDs,
+    # and reject any unrecognized/future/mixed batches. Never re-send merely
+    # because a prefix belongs to an earlier already-completed turn.
     expected={(x["번호"],str(x["문서 ID"])) for x in batch}
-    actual={(int(x["no"]),str(x["id"])) for x in rows}
-    if len(rows)!=len(batch) or actual!=expected:
-        raise ValueError("AI reply omitted or duplicated document IDs")
+    first=min(x["번호"] for x in batch)
+    decoder=json.JSONDecoder()
+    pos=0
+    candidates=[]
+    while pos<len(s):
+        while pos<len(s) and s[pos].isspace():pos+=1
+        if pos==len(s):break
+        obj,end=decoder.raw_decode(s,pos)
+        pos=end
+        if not isinstance(obj,dict) or not isinstance(obj.get("rows"),list):
+            raise ValueError("AI did not return required JSON rows")
+        rows=obj["rows"]
+        try:
+            actual=[(int(x["no"]),str(x["id"])) for x in rows]
+        except (TypeError,ValueError,KeyError) as exc:
+            raise ValueError("AI reply invalid source document identity") from exc
+        if not rows or len(set(actual))!=len(rows):
+            raise ValueError("AI reply contains duplicate or empty document identities")
+        if len(rows)==len(batch) and set(actual)==expected:
+            candidates.append(rows)
+        elif all(no<first for no,_ in actual):
+            print("IGNORED_DUPLICATE_PREVIOUS_JSON_PREFIX",
+                  min(no for no,_ in actual),max(no for no,_ in actual),flush=True)
+        else:
+            raise ValueError("AI reply omitted, mixed, or contained future document IDs")
+    if not candidates:
+        raise ValueError("AI reply omitted requested document IDs")
+    rows=candidates[0]
+    if any(candidate!=rows for candidate in candidates[1:]):
+        raise ValueError("Conflicting duplicate JSON responses for same document IDs")
     for row in rows:
         if any(k not in row for k in ("school","grade","semester","subject","edition","download","reason")):
             raise ValueError("AI reply missing required category column")
