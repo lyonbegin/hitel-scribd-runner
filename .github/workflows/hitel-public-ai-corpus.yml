@@ -175,6 +175,12 @@ jobs:
           retention-days: 90
           if-no-files-found: warn
 
+      - name: Mark incomplete no-progress or server failure as failed, after checkpoint upload
+        if: steps.classify.outcome != 'success' || (steps.verify.outputs.progress == '0' && steps.verify.outputs.remaining != '0')
+        run: |
+          echo 'AI_UNFINISHED_OR_ERROR: inspect preserved real AI checkpoint, do not count as full completion'
+          exit 1
+
       - name: Immediately continue to next verified AI batch window (no schedule)
         if: steps.verify.outputs.continue == 'true' && steps.classify.outcome == 'success' && steps.verify.outcome == 'success'
         shell: bash
