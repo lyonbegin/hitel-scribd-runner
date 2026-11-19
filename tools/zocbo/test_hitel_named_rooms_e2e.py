@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import time
 import urllib.request
+import urllib.error
 import uuid
 
 BASE="https://hitel-integration-api-production.up.railway.app"
@@ -16,8 +17,13 @@ def request(path,payload=None):
     req=urllib.request.Request(BASE+path,data=data,
         method="POST" if data is not None else "GET",
         headers={"Content-Type":"application/json","Accept":"application/json"})
-    with HTTP.open(req,timeout=45) as r:
-        return r.status,json.loads(r.read().decode("utf-8"))
+    try:
+        with HTTP.open(req,timeout=45) as r:
+            return r.status,json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail=exc.read().decode("utf-8","replace")[:800]
+        record("http_error",{"path":path,"status":exc.code,"detail":detail})
+        raise RuntimeError("HITEL_HTTP_"+str(exc.code)+": "+detail) from None
 def record(event,info):
     EVENTS.append({"event":event,**info})
     OUT.write_text(json.dumps(EVENTS,ensure_ascii=False,indent=2),encoding="utf-8")
