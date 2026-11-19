@@ -180,6 +180,26 @@ class TestResume20(unittest.TestCase):
 
 
 
+    def test_current_json_after_previous_reply_is_recovered_without_resend(self):
+        current=[{"번호":i,"문서 ID":str(300000+i),"원문 제목":f"교재 {i}"}
+                 for i in range(181,201)]
+        def row(i):
+            return {"no":i,"id":str(300000+i),"school":"고등",
+                    "grade":"해당없음","semester":"해당없음",
+                    "subject":"수학","edition":"판본검토",
+                    "download":"판본검토","reason":"확인 필요"}
+        old=json.dumps({"rows":[row(i) for i in range(161,181)]},ensure_ascii=False)
+        new=json.dumps({"rows":[row(i) for i in range(181,201)]},ensure_ascii=False)
+        result=corpus.validated_rows(old+"\n"+new,current)
+        self.assertEqual(len(result),20)
+        self.assertEqual([x["no"] for x in result],list(range(181,201)))
+        with self.assertRaisesRegex(ValueError,"Conflicting duplicate"):
+            corrupt=json.loads(new)
+            corrupt["rows"][0]["reason"]="충돌"
+            corpus.validated_rows(old+"\n"+new+"\n"+json.dumps(corrupt,ensure_ascii=False),current)
+        with self.assertRaisesRegex(ValueError,"future document IDs"):
+            corpus.validated_rows(new+"\n"+json.dumps({"rows":[row(201)]}),current)
+
     def test_submit_503_retries_exact_same_saved_request_id(self):
         import urllib.error
         with tempfile.TemporaryDirectory() as root:
