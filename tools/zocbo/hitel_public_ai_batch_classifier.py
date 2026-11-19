@@ -41,7 +41,8 @@ def validate(answer,batch):
     s=(answer or "").strip()
     fence=chr(96)*3
     if s.startswith(fence):s=s.split("\n",1)[-1].rsplit(fence,1)[0].strip()
-    rows=json.loads(s)["rows"]
+    parsed, end = json.JSONDecoder().raw_decode(s)
+    rows = parsed["rows"]  # only the first complete JSON; ignore duplicated trailing UI text
     e={(int(x["번호"]),str(x["문서 ID"])) for x in batch}
     a={(int(x["no"]),str(x["id"])) for x in rows}
     if len(rows)!=len(batch) or e!=a:raise ValueError("Missing/duplicate/unexpected AI row IDs")
