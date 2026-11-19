@@ -166,19 +166,29 @@ def execute_one(batch,room_id,folder,seconds):
             # Retry only transient transport failures with IDENTICAL request_id.
             # The public API provides request-id idempotency; never create a
             # new request ID on a connection error of unknown delivery status.
-            for submit_attempt in range(4):
+            # Signed GitHub Chrome startup is not instantaneous. The old
+            # four-attempt/30-second 503 loop aborted during an ordinary worker
+            # reboot, even though the request ID was safely persisted.
+            # Wait up to 15 minutes; all attempts use the SAME immutable
+            # request_id to avoid a duplicate on an ambiguous HTTP response.
+            submit_deadline=time.monotonic()+min(900,max(180,seconds//4))
+            submit_attempt=0
+            while True:
+                submit_attempt+=1
                 try:
                     status,result=call("/integrations/v1/public/chat",
                         {"room_id":room_id,"text":question,"request_id":state["request_id"]})
                     break
                 except urllib.error.HTTPError as exc:
-                    if exc.code not in (502,503,504) or submit_attempt==3:
+                    if exc.code not in (502,503,504) or time.monotonic()>=submit_deadline:
                         raise
+                    retry_reason="HTTP_"+str(exc.code)
                 except (urllib.error.URLError,TimeoutError):
-                    if submit_attempt==3:raise
-                print("TRANSIENT_SUBMIT_RETRY_SAME_REQUEST_ID",key,
-                    submit_attempt+1,flush=True)
-                time.sleep(min(20,5*(submit_attempt+1)))
+                    if time.monotonic()>=submit_deadline:raise
+                    retry_reason="TRANSPORT"
+                print("WAIT_SIGNED_CHROME_WORKER_RETRY_SAME_REQUEST_ID",key,
+                    retry_reason,"attempt",submit_attempt,flush=True)
+                time.sleep(min(30,max(1,submit_deadline-time.monotonic())))
             if status!=202 or result.get("room_id")!=room_id or not result.get("job_id"):
                 raise RuntimeError("HITEL_ACCEPTED_WRONG_ROOM_OR_JOB")
             state["job_id"]=result["job_id"]
