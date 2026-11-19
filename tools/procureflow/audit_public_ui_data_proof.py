@@ -42,7 +42,12 @@ def classify(report, report_dir=None):
             continue
         path = Path(report_dir) / rel
         try:
-            raw = path.read_bytes()
+            root_resolved = Path(report_dir).resolve(strict=True)
+            path_resolved = path.resolve(strict=True)
+            if path_resolved.parent != root_resolved:
+                issues.append("RAW_PATH_ESCAPES_ROOT")
+                continue
+            raw = path_resolved.read_bytes()
         except OSError:
             issues.append("RAW_BYTES_MISSING")
             continue
