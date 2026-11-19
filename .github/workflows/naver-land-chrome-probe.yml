@@ -12,7 +12,7 @@ permissions:
   contents: read
 concurrency:
   group: naver-land-chrome-probe
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   naver-chrome-smoke:
     if: github.repository == 'lyonbegin/hitel-scribd-runner'
@@ -30,9 +30,12 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check playwright==1.56.0
-          python -m playwright install --with-deps chromium
-          which google-chrome || true
-          google-chrome --version || true
+          if command -v google-chrome >/dev/null 2>&1; then
+            google-chrome --version
+          else
+            echo "Google Chrome missing; install supported Chromium"
+            python -m playwright install chromium
+          fi
           python -m py_compile tools/realestate/naver_land_chrome.py
       - name: Open Naver Pay Land with real Chrome and inspect public listings
         shell: bash
