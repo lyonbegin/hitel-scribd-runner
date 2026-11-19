@@ -75,6 +75,18 @@ class PublicRawManifestTests(unittest.TestCase):
         self.assertIn("entry[3]:DUPLICATE_DETAIL_OFFICIAL_KEY", result["issues"])
         self.assertFalse(result["pass_sample_evidence"])
 
+    def test_symlink_escape_rejected_before_read(self):
+        items = [self.entry(1), self.entry(2),
+                 self.entry(1, "detail", key="contract-list-1")]
+        with tempfile.TemporaryDirectory() as outside:
+            external = Path(outside) / "external.json"
+            external.write_bytes((self.root / items[0]["raw_path"]).read_bytes())
+            (self.root / items[0]["raw_path"]).unlink()
+            (self.root / items[0]["raw_path"]).symlink_to(external)
+            result = audit_module.audit(items, self.root)
+        self.assertIn("entry[0]:RAW_PATH_ESCAPES_ROOT", result["issues"])
+        self.assertFalse(result["pass_sample_evidence"])
+
     def test_missing_raw_bytes_and_hash_are_fail_closed(self):
         items = [self.entry(1), self.entry(2), self.entry(1, "detail")]
         items[0]["sha256"] = "0" * 64
