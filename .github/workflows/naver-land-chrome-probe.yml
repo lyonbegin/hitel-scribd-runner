@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/naver-land-chrome-probe.yml
       - tools/realestate/naver_land_chrome.py
+      - tools/realestate/naver_land_domain_probe.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,7 +18,7 @@ jobs:
   naver-chrome-smoke:
     if: github.repository == 'lyonbegin/hitel-scribd-runner'
     runs-on: ubuntu-24.04
-    timeout-minutes: 16
+    timeout-minutes: 8
     steps:
       - name: Checkout isolated research branch
         uses: actions/checkout@v4
@@ -36,23 +37,17 @@ jobs:
             echo "Google Chrome missing; install supported Chromium"
             python -m playwright install chromium
           fi
-          python -m py_compile tools/realestate/naver_land_chrome.py
+          python -m py_compile tools/realestate/naver_land_domain_probe.py
       - name: Open Naver Pay Land with real Chrome and inspect public listings
         shell: bash
         run: |
           set -euo pipefail
-          python tools/realestate/naver_land_chrome.py --out naver-land-results --limit 7
-          python - <<'PY'
-          import json
-          with open('naver-land-results/summary.json', encoding='utf-8') as f: data=json.load(f)
-          print('NAVER_REPORT_COUNTS',json.dumps({'areas':len(data['areas']),'rows':data['items'],
-            'statuses':{x['slug']:x['status'] for x in data['areas']}},ensure_ascii=False))
-          PY
+          python tools/realestate/naver_land_domain_probe.py
       - name: Preserve evidence - screenshot, listing CSV and detailed JSON
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: naver-land-chrome-evidence
-          path: naver-land-results/
+          name: naver-land-domain-evidence
+          path: naver-domain-results/
           retention-days: 7
           if-no-files-found: warn
