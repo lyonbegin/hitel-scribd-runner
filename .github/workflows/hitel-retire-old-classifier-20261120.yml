@@ -21,8 +21,8 @@ jobs:
           STATE="$(gh api "repos/$REPO/actions/runs/$TARGET" --jq '.status')"
           echo "STUCK_HITEL_RUN=$TARGET PREVIOUS_STATUS=$STATE"
           if [[ "$STATE" == "in_progress" || "$STATE" == "queued" || "$STATE" == "pending" || "$STATE" == "waiting" ]]; then
-            gh api --method POST "repos/$REPO/actions/runs/$TARGET/cancel" > /dev/null
-            echo "REQUESTED_CANCELLATION_FOR=$TARGET"
+            gh api --method POST "repos/$REPO/actions/runs/$TARGET/force-cancel" > /dev/null
+            echo "REQUESTED_FORCE_CANCELLATION_FOR=$TARGET"
           else
             echo "ALREADY_TERMINAL=$TARGET STATE=$STATE"
           fi
