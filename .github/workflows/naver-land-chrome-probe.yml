@@ -16,7 +16,7 @@ concurrency:
 jobs:
   naver-chrome-smoke:
     if: github.repository == 'lyonbegin/hitel-scribd-runner'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 16
     steps:
       - name: Checkout isolated research branch
