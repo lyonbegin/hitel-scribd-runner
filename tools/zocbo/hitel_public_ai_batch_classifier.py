@@ -65,13 +65,13 @@ def batch_job(batch,out,seconds):
     digest=hashlib.sha256(text.encode()).hexdigest()[:16]
     job=json.loads(jobfile.read_text("utf-8")) if jobfile.exists() else {}
     if job and job["digest"]!=digest:return key,"SOURCE_CHANGED"
-    if not job:
-        request_id="scribd-"+key+"-"+digest
+    if not job.get("job_id"):
+        request_id="scribd-"+key+"-"+digest+"-r"+str(job.get("retry",0))
         try:
             http,accepted=call("/integrations/v1/public/chat",{"text":text,"request_id":request_id})
             if http!=202 or not accepted.get("job_id"):return key,"NO_JOB_RECEIPT"
         except Exception as exc:return key,"SUBMIT_ERROR: "+str(exc)
-        job={"digest":digest,"job_id":accepted["job_id"],"request_id":request_id}
+        job={"digest":digest,"job_id":accepted["job_id"],"request_id":request_id,"retry":job.get("retry",0)}
         save(jobfile,job)
     deadline=time.monotonic()+seconds
     while time.monotonic()<deadline:
@@ -87,7 +87,10 @@ def batch_job(batch,out,seconds):
             return key,"COMPLETED"
         if status=="failed":
             save(out/"errors"/(key+".json"),state)
-            return key,"FAILED_NO_RESUBMIT"
+            if job.get("retry",0)<2:
+                save(jobfile,{"digest":digest,"retry":job.get("retry",0)+1})
+                return batch_job(batch,out,max(60,int(deadline-time.monotonic())))
+            return key,"FAILED_AFTER_3_API_JOBS"
         time.sleep(5)
     return key,"PENDING_SAVED_FOR_RESUME"
 
@@ -124,17 +127,19 @@ def main():
     if a.limit:src=src[:a.limit]
     for i,row in enumerate(src):row["번호"]=i+1
     batches=[src[i:i+a.batch_size] for i in range(0,len(src),a.batch_size)]
-    if a.max_batches:batches=batches[:a.max_batches]
+    out=Path(a.out)
+    if a.max_batches:
+        batches=[b for b in batches if not (out/"completed"/(f'{b[0]["번호"]:05d}-{b[-1]["번호"]:05d}.json')).exists()][:a.max_batches]
     print("INPUT",len(src),"BATCHES",len(batches),flush=True)
     if a.dry_run:
         print("PROMPT_CHARACTERS",[len(prompt(x)) for x in batches[:5]]);return 0
-    out=Path(a.out);out.mkdir(exist_ok=True,parents=True)
+    out.mkdir(exist_ok=True,parents=True)
     with ThreadPoolExecutor(max_workers=a.workers) as ex:
         tasks=[ex.submit(batch_job,b,out,a.poll_seconds) for b in batches]
         for task in as_completed(tasks):
             print(*task.result(),flush=True)
             print("STATUS",json.dumps(export(src,out),ensure_ascii=False),flush=True)
     result=export(src,out);print("FINAL",json.dumps(result,ensure_ascii=False))
-    return 0 if not result["남은건"] else 2
+    return 0 if (not result["남은건"] or a.max_batches) else 2
 
 if __name__=="__main__":raise SystemExit(main())
