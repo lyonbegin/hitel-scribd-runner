@@ -9,7 +9,11 @@ import re
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from playwright.sync_api import sync_playwright, TimeoutError as PwTimeout
-from public_readonly_raw import retain_public_json
+try:
+    from .public_readonly_raw import retain_public_json
+except ImportError:
+    # Direct execution as a script places this directory on sys.path.
+    from public_readonly_raw import retain_public_json
 
 SITES = {
     "g2b": "https://www.g2b.go.kr/",
