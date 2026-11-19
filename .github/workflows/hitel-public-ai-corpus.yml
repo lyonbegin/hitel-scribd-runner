@@ -1,5 +1,5 @@
 name: HITEL 18109 AI classification - continue and verify
-# 2026-11-19: last bounded 121-140 trial with NFC-normalized model-facing titles only; restore 120 verified, preserve source CSV.
+# 2026-11-19: restore SHA-verified 18109 corpus and 120 completed rows; run next incomplete 20 as smoke, then full only on verified success.
 on:
   push:
     branches: [main]
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Smoke next 20 titles or continue full 18109 corpus'
+        description: 'Smoke the next uncompleted 20 rows within the full original corpus, or continue the full corpus'
         required: true
         type: choice
         options: [smoke, full]
@@ -96,7 +96,10 @@ jobs:
                   assert src[number-1]['문서 ID']==str(row['id']),'Checkpoint document ID/source mismatch'
                   assert number not in ids,'Duplicate completion'
                   ids.add(number)
-          assert len(ids)>=120,'Checkpoint must retain 120 verified original classifications before the 121-140 retry'
+          assert set(range(1,121)).issubset(ids),'Verified rows 1-120 missing or corrupted'
+          import os
+          if os.environ.get('GITHUB_EVENT_NAME')=='push':
+              assert ids==set(range(1,121)),'Push smoke must resume exactly from 120/18109'
           print('PASS_RESTORED_AI_COMPLETIONS',len(ids))
           PY
 
@@ -117,15 +120,15 @@ jobs:
         timeout-minutes: 280
         shell: bash
         env:
-          RUN_MODE: ${{ github.event.inputs.mode || 'full' }}
+          RUN_MODE: ${{ github.event_name == 'push' && 'smoke' || github.event.inputs.mode || 'full' }}
           # User-authorized retry only for terminal job 121-140, not future failures.
-          HITEL_USER_AUTHORIZED_RETRY_JOB_ID: job_401243c252fe44c4b722b9d66ffa0d36
+          HITEL_USER_AUTHORIZED_RETRY_JOB_ID: job_bc4d195225724a72acca9e385083af8a
           HITEL_USER_AUTHORIZED_RETRY_SCOPE: 121-140-ONCE
         run: |
           if [[ "$RUN_MODE" == "smoke" ]]; then
             python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
               --input Raw_Documents_18109.csv --out hitel-ai-batches \
-              --limit 60 --batch-size 20 --max-batches 1 \
+              --batch-size 20 --max-batches 1 \
               --workers 1 --poll-seconds 14400 --recover-terminal-failed
           else
             python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
@@ -138,27 +141,45 @@ jobs:
         id: verify
         shell: bash
         env:
-          RUN_MODE: ${{ github.event.inputs.mode || 'full' }}
+          RUN_MODE: ${{ github.event_name == 'push' && 'smoke' || github.event.inputs.mode || 'full' }}
         run: |
           python3 - <<'PY'
-          import csv,os
+          import csv,json,os
           from pathlib import Path
           original=list(csv.DictReader(open("Raw_Documents_18109.csv",encoding="utf-8-sig",newline="")))
+          assert len(original)==18109, "Original source size changed"
           path=Path("hitel-ai-batches/Scribd_AI_분류결과.csv")
           assert path.exists(), "No AI results CSV created"
           classified=list(csv.DictReader(path.open(encoding="utf-8-sig",newline="")))
-          expected=len(original) if os.environ["RUN_MODE"]=="full" else 60
-          assert len(classified)==expected, (len(classified),expected)
+          assert len(classified)==len(original), "Smoke must retain all 18,109 rows"
           for idx,r in enumerate(classified):
-              assert r["문서 ID"]==original[idx]["문서 ID"],"Original ID changed"
-              assert r["원문 제목"]==original[idx]["원문 제목"],"Original title changed"
-              assert r["번호"]==str(idx+1),"Original order changed"
-          done=sum(r["학교급"]!="미처리" for r in classified)
+              assert r["문서 ID"]==original[idx]["문서 ID"], "Original ID changed"
+              assert r["원문 제목"]==original[idx]["원문 제목"], "Original title changed"
+              assert r["번호"]==str(idx+1), "Original order changed"
+              assert r["Scribd 상세URL"]==original[idx]["Scribd 상세URL"], "Original URL changed"
+          completed={}
+          required=("no","id","school","grade","semester","subject","edition","download","reason")
+          for f in Path("hitel-ai-batches/completed").glob("*.json"):
+              for row in json.loads(f.read_text(encoding="utf-8"))["rows"]:
+                  no=int(row["no"])
+                  assert no not in completed, "Duplicate AI result number"
+                  assert 1<=no<=len(original) and str(row["id"])==original[no-1]["문서 ID"], "AI document ID mismatch"
+                  assert all(k in row and str(row[k]).strip() for k in required), "AI schema missing or blank"
+                  assert row["school"] in ("초등","중등","고등","대상외","판정보류"), "Invalid school classification"
+                  assert row["download"] in ("대상","제외","판본검토"), "Invalid download classification"
+                  completed[no]=row
+          done=len(completed)
           before=int(os.environ["AI_BEFORE"])
           full=len(original)
-          remaining=full-done if os.environ["RUN_MODE"]=="full" else 60-done
+          assert set(range(1,done+1))==set(completed), "AI completions must be contiguous, no omissions"
+          assert sum(r["학교급"]!="미처리" for r in classified)==done, "CSV/JSON classification count mismatch"
+          remaining=full-done
           advance=done-before
-          follow=(remaining>0 and advance>0) or (os.environ["RUN_MODE"]=="smoke" and done==60)
+          expected_increment=min(20,full-before)
+          assert advance==expected_increment, (before,done,advance,expected_increment)
+          if os.environ["RUN_MODE"]=="smoke":
+              assert (before,done)==(120,140), "Smoke must validate only source rows 121-140"
+          follow=(remaining>0 and advance==expected_increment)
           print("REAL_AI_COMPLETED",done,"PREVIOUS_COMPLETED",before,"NEW_COMPLETED",advance,
                 "TOTAL_CORPUS",full,"REMAINING_IN_RUN_SCOPE",remaining)
           with open(os.environ["GITHUB_OUTPUT"],"a") as o:
@@ -166,8 +187,8 @@ jobs:
               o.write("remaining="+str(remaining)+"\n")
               o.write("progress="+str(advance)+"\n")
               o.write("continue="+str(follow).lower()+"\n")
-          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as s:
-              s.write(f"AI verified: {done}/{full if os.environ['RUN_MODE']=='full' else 60}, new: {advance}\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as summary:
+              summary.write(f"Real AI: {done}/{full}; prior: {before}; new: {advance}; remaining: {remaining}; next: {done+1 if remaining else 'none'}\n")
           PY
 
       - name: Preserve results, 1:1 source mapping, and job checkpoints
