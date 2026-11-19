@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   ai:
-    # 2026-11-19: verified real A/A/B/A v2 ChatGPT dialog, plus 20/20 original Scribd title AI pilot.
+    # 2026-11-19: verified real A/A/B/A v2 ChatGPT dialog, plus 40/40 verified actual Scribd title judgments.
     runs-on: ubuntu-latest
     timeout-minutes: 200
     steps:
@@ -59,14 +59,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p hitel-ai-batches
-          RUN_ID=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=hitel-ai-18109-v2-checkpoint&per_page=100" \
+          RUN_ID=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=hitel-ai-18109-v3-checkpoint&per_page=100" \
             --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | reverse | .[0].workflow_run.id // empty')
           if [[ -z "$RUN_ID" ]]; then
             # A known verified pilot: 20 real AI classifications (2026-11-19)
-            RUN_ID=44438675220
-            ARTIFACT_NAME=hitel-scribd-ai-real20-checkpoint
+            RUN_ID=44442243981
+            ARTIFACT_NAME=hitel-ai-18109-clean40-checkpoint
           else
-            ARTIFACT_NAME=hitel-ai-18109-v2-checkpoint
+            ARTIFACT_NAME=hitel-ai-18109-v3-checkpoint
           fi
           if [[ -n "$RUN_ID" ]]; then
             echo "RESTORING_CHECKPOINT_RUN=$RUN_ID"
@@ -95,7 +95,7 @@ jobs:
                   assert src[number-1]['문서 ID']==str(row['id']),'Checkpoint document ID/source mismatch'
                   assert number not in ids,'Duplicate completion'
                   ids.add(number)
-          assert len(ids)>=20,'Checkpoint must include at least 20 verified real AI classifications'
+          assert len(ids)>=40,'Checkpoint must include at least 40 verified real AI classifications'
           print('PASS_RESTORED_AI_COMPLETIONS',len(ids))
           PY
 
@@ -121,12 +121,12 @@ jobs:
           if [[ "$RUN_MODE" == "smoke" ]]; then
             python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
               --input Raw_Documents_18109.csv --out hitel-ai-batches \
-              --limit 40 --batch-size 20 --max-batches 2 \
+              --limit 50 --batch-size 10 --max-batches 1 \
               --workers 1 --poll-seconds 240
           else
             python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
               --input Raw_Documents_18109.csv --out hitel-ai-batches \
-              --batch-size 20 --max-batches 20 \
+              --batch-size 10 --max-batches 20 \
               --workers 1 --poll-seconds 600
           fi
 
@@ -143,7 +143,7 @@ jobs:
           path=Path("hitel-ai-batches/Scribd_AI_분류결과.csv")
           assert path.exists(), "No AI results CSV created"
           classified=list(csv.DictReader(path.open(encoding="utf-8-sig",newline="")))
-          expected=len(original) if os.environ["RUN_MODE"]=="full" else 40
+          expected=len(original) if os.environ["RUN_MODE"]=="full" else 50
           assert len(classified)==expected, (len(classified),expected)
           for idx,r in enumerate(classified):
               assert r["문서 ID"]==original[idx]["문서 ID"],"Original ID changed"
@@ -152,9 +152,9 @@ jobs:
           done=sum(r["학교급"]!="미처리" for r in classified)
           before=int(os.environ["AI_BEFORE"])
           full=len(original)
-          remaining=full-done if os.environ["RUN_MODE"]=="full" else 40-done
+          remaining=full-done if os.environ["RUN_MODE"]=="full" else 50-done
           advance=done-before
-          follow=(remaining>0 and advance>0) or (os.environ["RUN_MODE"]=="smoke" and done==40)
+          follow=(remaining>0 and advance>0) or (os.environ["RUN_MODE"]=="smoke" and done==50)
           print("REAL_AI_COMPLETED",done,"PREVIOUS_COMPLETED",before,"NEW_COMPLETED",advance,
                 "TOTAL_CORPUS",full,"REMAINING_IN_RUN_SCOPE",remaining)
           with open(os.environ["GITHUB_OUTPUT"],"a") as o:
@@ -163,14 +163,14 @@ jobs:
               o.write("progress="+str(advance)+"\n")
               o.write("continue="+str(follow).lower()+"\n")
           with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as s:
-              s.write(f"AI verified: {done}/{full if os.environ['RUN_MODE']=='full' else 40}, new: {advance}\n")
+              s.write(f"AI verified: {done}/{full if os.environ['RUN_MODE']=='full' else 50}, new: {advance}\n")
           PY
 
       - name: Preserve results, 1:1 source mapping, and job checkpoints
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: hitel-ai-18109-v2-checkpoint
+          name: hitel-ai-18109-v3-checkpoint
           path: hitel-ai-batches/
           retention-days: 90
           if-no-files-found: warn
