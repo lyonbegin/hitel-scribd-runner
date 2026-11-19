@@ -2,11 +2,6 @@ name: Naver Land Korea PC - self-hosted Chrome real estate smoke
 run-name: "Naver Land | user's existing Windows PC Chrome | public page probe"
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - research/naver-land-chrome-20261119
-    paths:
-      - .github/workflows/naver-land-windows-pc.yml
 permissions:
   contents: read
 concurrency:
