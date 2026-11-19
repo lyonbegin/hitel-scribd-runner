@@ -188,7 +188,7 @@ class TestResume20(unittest.TestCase):
                     "download":"대상","reason":"중등 수학"}
         old=json.dumps({"rows":[row(i) for i in range(221,241)]},ensure_ascii=False)
         new=json.dumps({"rows":[row(i) for i in range(241,261)]},ensure_ascii=False)
-        malformed=old+"\\n"+new[1:]
+        malformed=old+"\n"+new[1:]
         checked=corpus.validated_rows(malformed,current)
         self.assertEqual([(r["no"],r["id"]) for r in checked],
                          [(i,str(800000+i)) for i in range(241,261)])
