@@ -119,13 +119,36 @@ def execute_one(batch,room_id,folder,seconds):
         STOP.set();return key,"PROMPT_EXCEEDS_24000_CHARS"
     digest=hashlib.sha256(question.encode("utf-8")).hexdigest()[:20]
     state=json.loads(jobpath.read_text(encoding="utf-8")) if jobpath.exists() else {}
-    if state and (state.get("digest")!=digest or state.get("room_id")!=room_id):
+    if state and state.get("room_id")!=room_id:
+        # Only an explicitly verified server-terminal failure may change rooms.
+        roomfile=folder/"rooms"/(f"G{(batch[0]['번호']-1)//ROOM_ROWS:03d}.json")
+        room=json.loads(roomfile.read_text(encoding="utf-8")) if roomfile.exists() else {}
+        allowed=any(item.get("job_id")==state.get("job_id") and
+                    item.get("room_id")==state.get("room_id")
+                    for item in room.get("recovery_history",[]))
+        if not (allowed and room.get("room_id")==room_id and
+                state.get("digest")==digest):
+            STOP.set()
+            return key,"CHECKPOINT_OR_ROOM_MISMATCH"
+        old_job=state["job_id"]
+        # Archive old job and failure evidence BEFORE writing new request_id.
+        save(folder/"jobs"/"history"/f"{key}-{old_job}.json",state)
+        errorfile=folder/"errors"/(key+".json")
+        if errorfile.exists():
+            prior=json.loads(errorfile.read_text(encoding="utf-8"))
+            if ((prior.get("checkpoint") or {}).get("job_id")==old_job):
+                save(folder/"errors"/"history"/f"{key}-{old_job}.json",prior)
+                errorfile.unlink()
+        state={}
+        print("ARCHIVED_TERMINAL_FAILED_JOB_FOR_NEW_ROOM",key,old_job,flush=True)
+    if state and state.get("digest")!=digest:
         STOP.set()
         return key,"CHECKPOINT_OR_ROOM_MISMATCH"
     if not state:
         state={"digest":digest,"room_id":room_id,
-               "request_id":f"scribd-{key}-{digest}-named"}
-        # Save idempotency key BEFORE the POST for crash-safe retry.
+               "request_id":f"scribd-{key}-{digest}-r{room_id[5:13]}"}
+        # The room-scoped idempotency key is checkpointed BEFORE the POST.
+        # Different room => different request_id; same room => same request_id.
         save(jobpath,state)
     if not state.get("job_id"):
         try:
@@ -202,11 +225,11 @@ def execute_one(batch,room_id,folder,seconds):
     return key,"STILL_PENDING_SAVED_JOB"
 
 def recover_terminal_failure(out,block,enabled):
-    """After confirming the old job failed, use one deterministic NEW room.
+    """Rotate a failed room only after live server confirms a terminal failure.
 
-    Never resend an uncertain job in its prior ChatGPT room. The old job,
-    room and failure evidence remain in the artifact, and the recovery
-    transition itself is checkpointed before any new submission.
+    Support repeated recoveries across thousands of 20-title batches. Every
+    failed job/room is kept in recovery_history; do not overwrite its evidence
+    or blindly resend a job with uncertain delivery status.
     """
     if not enabled:
         return
@@ -214,11 +237,15 @@ def recover_terminal_failure(out,block,enabled):
     if not roomfile.exists():
         return
     saved=json.loads(roomfile.read_text(encoding="utf-8"))
-    if saved.get("recovered_from_job"):
-        return
     old_room=saved.get("room_id")
     if not old_room:
         return
+    history=list(saved.get("recovery_history") or [])
+    if not history and saved.get("recovered_from_job"):
+        # Backward-compatible migration of the first verified recovery.
+        history=[{"job_id":saved["recovered_from_job"],
+                  "room_id":saved.get("prior_room_id"),
+                  "room_name":saved.get("prior_room_name")}]
     for errorfile in sorted((out/"errors").glob("*.json")):
         failure=json.loads(errorfile.read_text(encoding="utf-8"))
         checkpoint=failure.get("checkpoint") or {}
@@ -230,7 +257,9 @@ def recover_terminal_failure(out,block,enabled):
                 recorded.get("status")!="failed" or
                 not isinstance(jid,str) or not jid.startswith("job_")):
             continue
-        # A local error file alone cannot authorize a replacement send.
+        if any(item.get("job_id")==jid for item in history):
+            raise ValueError("RECOVERY_JOB_ALREADY_IN_HISTORY")
+        # A local error file is not sufficient: check the actual server job.
         code,live=call("/integrations/v1/public/jobs/"+jid)
         if (code!=200 or live.get("job_id")!=jid or
                 live.get("room_id")!=old_room or live.get("status")!="failed" or
@@ -238,9 +267,15 @@ def recover_terminal_failure(out,block,enabled):
                 live.get("error")!="WEB2API_SEND_OR_VERIFY_FAILED"):
             raise ValueError("RECOVERY_REQUIRES_EXACT_SERVER_CONFIRMED_TERMINAL_FAILURE")
         fresh=f"HITEL-SCRIBD-18109-RECOVER-G{block:03d}-{jid[4:12]}"
+        history.append({"job_id":jid,"room_id":old_room,
+                        "room_name":saved["room_name"],"source_key":errorfile.stem,
+                        "reason":"verified_web2api_terminal_failure"})
+        # Persist recovery authorization before replacing the old job record.
+        # execute_one archives the old job and error under history/ before POST.
         save(roomfile,{**saved,"room_id":None,"room_name":fresh,
             "prior_room_id":old_room,"prior_room_name":saved["room_name"],
-            "recovered_from_job":jid,"recovery_reason":"verified_web2api_terminal_failure"})
+            "recovered_from_job":jid,"recovery_history":history,
+            "recovery_reason":"verified_web2api_terminal_failure"})
         print("VERIFIED_TERMINAL_FAILURE_NEW_ROOM",block,"old_job",jid,flush=True)
         return
 
