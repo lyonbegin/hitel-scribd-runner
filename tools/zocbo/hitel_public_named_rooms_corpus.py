@@ -229,6 +229,34 @@ def execute_one(batch,room_id,folder,seconds):
                     "prior_job",old_job,flush=True)
                 return execute_one(batch,room_id,folder,
                     max(240,int(deadline-time.monotonic())))
+            # One bounded transport recovery for this READ-ONLY title
+            # classification, not an unlimited resend loop. A WebSocket
+            # disconnect does not prove absence of a ChatGPT response. Preserve
+            # this ambiguity and the old room/job evidence explicitly.
+            if (status.get("stage")=="connection_lost"
+                    and reason=="GitHub Chrome disconnected; not automatically retried"
+                    and status.get("result_text") is None
+                    and int(state.get("connection_lost_retries",0))<1):
+                code,room_status=call("/integrations/v1/public/rooms")
+                matches=[r for r in room_status.get("rooms",[])
+                         if r.get("room_id")==room_id] if code==200 else []
+                if len(matches)==1 and matches[0].get("conversation_linked") is True:
+                    old_job=state["job_id"]
+                    saved_error={"type":"connection_lost_readonly_recovery",
+                        "response":status,"checkpoint":dict(state),
+                        "prior_chat_reply_unverified":True,
+                        "retry_policy":"single_same_room_attempt"}
+                    save(folder/"errors"/"history"/f"{key}-{old_job}.json",saved_error)
+                    save(folder/"jobs"/"history"/f"{key}-{old_job}.json",state)
+                    state.setdefault("prior_failed_jobs",[]).append(old_job)
+                    state["connection_lost_retries"]=1
+                    state["request_id"]=f"scribd-{key}-{digest}-reconnect-once"
+                    state.pop("job_id",None)
+                    save(jobpath,state)
+                    print("RECONNECT_READONLY_SAME_ROOM_ONCE_OLD_JOB_PRESERVED",
+                          key,old_job,flush=True)
+                    return execute_one(batch,room_id,folder,
+                        max(240,int(deadline-time.monotonic())))
             STOP.set()
             save(folder/"errors"/(key+".json"),{"type":"failed","response":status,"checkpoint":state})
             return key,"FAILED_STOP_NO_AUTO_RESEND"
