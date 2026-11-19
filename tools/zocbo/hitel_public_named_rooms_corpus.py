@@ -76,7 +76,20 @@ def validated_rows(reply,batch):
 def open_room(out,block):
     name=f"HITEL-SCRIBD-18109-TITLE-CLASSIFY-G{block:03d}"
     roomfile=out/"rooms"/(f"G{block:03d}.json")
-    code,reply=call("/integrations/v1/public/rooms",{"name":name})
+    # POST /rooms is name-idempotent. Retry transient 502/503/504 or
+    # networking errors with the SAME name and no create_new flag.
+    for attempt in range(6):
+        try:
+            code,reply=call("/integrations/v1/public/rooms",{"name":name})
+            break
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (502,503,504) or attempt==5:
+                raise
+        except (urllib.error.URLError,TimeoutError):
+            if attempt==5:raise
+        pause=min(30,5*(2**attempt))
+        print("ROOM_OPEN_TRANSIENT_RETRY",name,"attempt",attempt+1,"sleep",pause,flush=True)
+        time.sleep(pause)
     rid=reply.get("room_id")
     if code not in (200,201) or not isinstance(rid,str) or not rid.startswith("room_"):
         raise ValueError("HITEL public named room unavailable: "+str(reply)[:500])
@@ -109,8 +122,22 @@ def execute_one(batch,room_id,folder,seconds):
         save(jobpath,state)
     if not state.get("job_id"):
         try:
-            status,result=call("/integrations/v1/public/chat",
-                {"room_id":room_id,"text":question,"request_id":state["request_id"]})
+            # Retry only transient transport failures with IDENTICAL request_id.
+            # The public API provides request-id idempotency; never create a
+            # new request ID on a connection error of unknown delivery status.
+            for submit_attempt in range(4):
+                try:
+                    status,result=call("/integrations/v1/public/chat",
+                        {"room_id":room_id,"text":question,"request_id":state["request_id"]})
+                    break
+                except urllib.error.HTTPError as exc:
+                    if exc.code not in (502,503,504) or submit_attempt==3:
+                        raise
+                except (urllib.error.URLError,TimeoutError):
+                    if submit_attempt==3:raise
+                print("TRANSIENT_SUBMIT_RETRY_SAME_REQUEST_ID",key,
+                    submit_attempt+1,flush=True)
+                time.sleep(min(20,5*(submit_attempt+1)))
             if status!=202 or result.get("room_id")!=room_id or not result.get("job_id"):
                 raise RuntimeError("HITEL_ACCEPTED_WRONG_ROOM_OR_JOB")
             state["job_id"]=result["job_id"]
