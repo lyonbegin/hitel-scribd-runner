@@ -1,5 +1,5 @@
-name: HITEL 18109 AI classification - continue and verify
-# Continuous 18,109-title verified 20-row chain from latest checkpoint; bounded same-room disconnect recovery and Chrome watchdog self-handoff, no cron.
+name: HITEL 18109 AI classification - always advance; preserve unverified
+# User policy 2026-11-19: after each attempted 20 source rows, continue even if AI reply invalid. Preserve skipped rows separately; NEVER count them as verified. No cron.
 on:
   push:
     branches: [main]
@@ -78,39 +78,50 @@ jobs:
             echo "FIRST_RUN_NO_CHECKPOINT"
           fi
 
-      - name: Guard restored checkpoint against stale failed runs
+      - name: Guard restored verified and skipped checkpoints against source mismatch
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import csv,json
           src=list(csv.DictReader(open('Raw_Documents_18109.csv',encoding='utf-8-sig',newline='')))
-          completed=list(Path('hitel-ai-batches/completed').glob('*.json'))
-          assert completed,'No completed AI classification checkpoint; refusing to treat a failed run as a seed'
-          ids=set()
-          for f in completed:
+          done=set()
+          skipped=set()
+          for f in Path('hitel-ai-batches/completed').glob('*.json'):
+              for row in json.loads(f.read_text('utf-8'))['rows']:
+                  n=int(row['no'])
+                  assert 1<=n<=len(src) and src[n-1]['문서 ID']==str(row['id'])
+                  assert n not in done, 'Duplicate verified original'
+                  done.add(n)
+          for f in Path('hitel-ai-batches/skipped').glob('*.json'):
               obj=json.loads(f.read_text('utf-8'))
-              for row in obj['rows']:
-                  number=int(row['no'])
-                  assert 1<=number<=len(src)
-                  assert src[number-1]['문서 ID']==str(row['id']),'Checkpoint document ID/source mismatch'
-                  assert number not in ids,'Duplicate completion'
-                  ids.add(number)
-          assert set(range(1,121)).issubset(ids),'Verified rows 1-120 missing or corrupted'
-          import os
-          assert ids==set(range(1,len(ids)+1)), 'Checkpoint must be contiguous; do not skip or reclassify any prior row'
-          print('PASS_RESTORED_AI_COMPLETIONS',len(ids))
+              assert obj.get('status')=='unverified_skipped' and obj.get('never_count_as_completed') is True
+              for row in obj['source_ids']:
+                  n=int(row['no'])
+                  assert 1<=n<=len(src) and src[n-1]['문서 ID']==str(row['id'])
+                  assert n not in skipped and n not in done, 'Duplicated verified/skipped row'
+                  skipped.add(n)
+          assert set(range(1,121)).issubset(done), 'Initial 120 AI rows must remain verified'
+          processed=done|skipped
+          assert processed==set(range(1,len(processed)+1)), 'Processed rows must be contiguous'
+          print('PASS_RESTORED_AI_COMPLETIONS',len(done))
+          print('PASS_UNVERIFIED_SKIPPED',len(skipped))
+          print('PASS_PROCESSED_SOURCE_CURSOR',len(processed))
           PY
 
-      - name: Record completed row count before this execution
+      - name: Record verified counts and processed source cursor
         shell: bash
         run: |
           python3 - <<'PY' >> "$GITHUB_ENV"
           from pathlib import Path
           import json
-          files=list(Path("hitel-ai-batches/completed").glob("*.json"))
-          count=sum(len(json.loads(f.read_text("utf-8"))["rows"]) for f in files)
-          print("AI_BEFORE="+str(count))
+          verified=sum(len(json.loads(f.read_text("utf-8"))["rows"])
+                       for f in Path("hitel-ai-batches/completed").glob("*.json"))
+          skipped=sum(len(json.loads(f.read_text("utf-8"))["source_ids"])
+                      for f in Path("hitel-ai-batches/skipped").glob("*.json"))
+          print("AI_BEFORE="+str(verified))
+          print("AI_UNVERIFIED_BEFORE="+str(skipped))
+          print("AI_PROCESSED_BEFORE="+str(verified+skipped))
           PY
 
       - name: Reconcile saved completed Web2API job before next 20-title submission
@@ -133,11 +144,9 @@ jobs:
               --workers 1 --poll-seconds 14400 --recover-terminal-failed
           fi
 
-      - name: Verify every original row and count only real AI completed IDs
+      - name: Verify original source and independently count verified, failed and processed rows
         id: verify
         shell: bash
-        env:
-          RUN_MODE: ${{ github.event_name == 'push' && 'smoke' || github.event.inputs.mode || 'full' }}
         run: |
           python3 - <<'PY'
           import csv,json,os
@@ -145,46 +154,65 @@ jobs:
           original=list(csv.DictReader(open("Raw_Documents_18109.csv",encoding="utf-8-sig",newline="")))
           assert len(original)==18109, "Original source size changed"
           path=Path("hitel-ai-batches/Scribd_AI_분류결과.csv")
-          assert path.exists(), "No AI results CSV created"
+          assert path.exists(), "No results CSV created"
           classified=list(csv.DictReader(path.open(encoding="utf-8-sig",newline="")))
-          assert len(classified)==len(original), "Smoke must retain all 18,109 rows"
-          for idx,r in enumerate(classified):
-              assert r["문서 ID"]==original[idx]["문서 ID"], "Original ID changed"
-              assert r["원문 제목"]==original[idx]["원문 제목"], "Original title changed"
-              assert r["번호"]==str(idx+1), "Original order changed"
-              assert r["Scribd 상세URL"]==original[idx]["Scribd 상세URL"], "Original URL changed"
-          completed={}
+          assert len(classified)==len(original), "Original 18109 row count must be preserved"
+          for i,row in enumerate(classified):
+              assert row["문서 ID"]==original[i]["문서 ID"], "Original document ID changed"
+              assert row["원문 제목"]==original[i]["원문 제목"], "Original title changed"
+              assert row["Scribd 상세URL"]==original[i]["Scribd 상세URL"], "Original URL changed"
+              assert row["번호"]==str(i+1), "Original order changed"
+          verified={}
           required=("no","id","school","grade","semester","subject","edition","download","reason")
           for f in Path("hitel-ai-batches/completed").glob("*.json"):
-              for row in json.loads(f.read_text(encoding="utf-8"))["rows"]:
+              for row in json.loads(f.read_text("utf-8"))["rows"]:
                   no=int(row["no"])
-                  assert no not in completed, "Duplicate AI result number"
-                  assert 1<=no<=len(original) and str(row["id"])==original[no-1]["문서 ID"], "AI document ID mismatch"
-                  assert all(k in row and str(row[k]).strip() for k in required), "AI schema missing or blank"
-                  assert row["school"] in ("초등","중등","고등","대상외","판정보류"), "Invalid school classification"
-                  assert row["download"] in ("대상","제외","판본검토"), "Invalid download classification"
-                  completed[no]=row
-          done=len(completed)
+                  assert no not in verified
+                  assert 1<=no<=len(original) and str(row["id"])==original[no-1]["문서 ID"]
+                  assert all(k in row and str(row[k]).strip() for k in required)
+                  assert row["school"] in ("초등","중등","고등","대상외","판정보류")
+                  assert row["download"] in ("대상","제외","판본검토")
+                  verified[no]=row
+          skipped={}
+          for f in Path("hitel-ai-batches/skipped").glob("*.json"):
+              marker=json.loads(f.read_text("utf-8"))
+              assert marker.get("status")=="unverified_skipped"
+              assert marker.get("never_count_as_completed") is True
+              assert marker.get("reason")
+              for row in marker["source_ids"]:
+                  no=int(row["no"])
+                  assert no not in skipped and no not in verified
+                  assert 1<=no<=len(original) and str(row["id"])==original[no-1]["문서 ID"]
+                  skipped[no]=marker["reason"]
+          done=len(verified)
+          rejected=len(skipped)
+          processed=done+rejected
           before=int(os.environ["AI_BEFORE"])
-          full=len(original)
-          assert set(range(1,done+1))==set(completed), "AI completions must be contiguous, no omissions"
-          assert sum(r["학교급"]!="미처리" for r in classified)==done, "CSV/JSON classification count mismatch"
-          remaining=full-done
-          advance=done-before
-          expected_increment=min(20,full-before)
-          assert advance==expected_increment, (before,done,advance,expected_increment)
-          if os.environ["RUN_MODE"]=="smoke":
-              assert before>=120 and advance==expected_increment, "Smoke must advance exactly one next incomplete 20-row batch"
-          follow=(remaining>0 and advance==expected_increment)
-          print("REAL_AI_COMPLETED",done,"PREVIOUS_COMPLETED",before,"NEW_COMPLETED",advance,
-                "TOTAL_CORPUS",full,"REMAINING_IN_RUN_SCOPE",remaining)
+          skipped_before=int(os.environ["AI_UNVERIFIED_BEFORE"])
+          processed_before=int(os.environ["AI_PROCESSED_BEFORE"])
+          assert before+skipped_before==processed_before
+          assert set(range(1,processed+1))==set(verified)|set(skipped), "Source cursor contains gaps"
+          assert set(range(1,121)).issubset(verified), "Never lose the verified original 120"
+          assert sum(r["학교급"]!="미처리" for r in classified)==done, "CSV must count only verified rows"
+          advance=processed-processed_before
+          expected_advance=min(20,len(original)-processed_before)
+          assert advance==expected_advance, ("Expected one next batch attempted",advance,expected_advance)
+          assert done>=before and rejected>=skipped_before
+          assert done-before+rejected-skipped_before==advance
+          follow=(processed<len(original))
+          print("REAL_AI_COMPLETED",done,"NEW_VERIFIED",done-before,
+                "UNVERIFIED_SKIPPED",rejected,"NEW_SKIPPED",rejected-skipped_before,
+                "PROCESSED",processed,"TOTAL_CORPUS",len(original),
+                "REMAINING_UNATTEMPTED",len(original)-processed)
           with open(os.environ["GITHUB_OUTPUT"],"a") as o:
               o.write("completed="+str(done)+"\n")
-              o.write("remaining="+str(remaining)+"\n")
+              o.write("skipped="+str(rejected)+"\n")
+              o.write("processed="+str(processed)+"\n")
+              o.write("remaining="+str(len(original)-processed)+"\n")
               o.write("progress="+str(advance)+"\n")
               o.write("continue="+str(follow).lower()+"\n")
-          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as summary:
-              summary.write(f"Real AI: {done}/{full}; prior: {before}; new: {advance}; remaining: {remaining}; next: {done+1 if remaining else 'none'}\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+              f.write(f"AI verified: {done} | unverified skipped: {rejected} | source rows attempted: {processed}/{len(original)} | next: {processed+1 if follow else 'none'}\n")
           PY
 
       - name: Preserve results, 1:1 source mapping, and job checkpoints
@@ -196,13 +224,13 @@ jobs:
           retention-days: 90
           if-no-files-found: warn
 
-      - name: Mark incomplete no-progress or server failure as failed, after checkpoint upload
-        if: steps.classify.outcome != 'success' || (steps.verify.outputs.progress == '0' && steps.verify.outputs.remaining != '0')
+      - name: Fail only for unrecoverable execution or source/checkpoint corruption
+        if: steps.classify.outcome != 'success' || steps.verify.outcome != 'success'
         run: |
-          echo 'AI_UNFINISHED_OR_ERROR: inspect preserved real AI checkpoint, do not count as full completion'
+          echo 'PROCESS_DID_NOT_PRESERVE_NEXT_SOURCE_WINDOW: artifact retained for recovery'
           exit 1
 
-      - name: Immediately continue to next verified AI batch window (no schedule)
+      - name: Continue next source window even when prior AI response failed validation
         if: steps.verify.outputs.continue == 'true' && steps.classify.outcome == 'success' && steps.verify.outcome == 'success'
         shell: bash
         env:
