@@ -1,0 +1,42 @@
+name: Scribd 18109 original CSV integrity verification
+on:
+  push:
+    branches: [feature/hitel-public-ai-batches-20261119]
+    paths:
+      - .github/workflows/hitel-public-ai-source-verify.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reassemble original 18109-row CSV and verify its original SHA256
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import csv,hashlib
+          parts=sorted(Path("data/raw_18109").glob("part_*.csv"))
+          assert len(parts)==20, f"Expected 20 CSV parts, found {len(parts)}"
+          all_text="".join(part.read_text("utf-8") for part in parts)
+          restored=b"\xef\xbb\xbf"+all_text.replace("\n","\r\n").encode("utf-8")
+          sha=hashlib.sha256(restored).hexdigest()
+          expected="c9ac45f833dd30a002cffac64cb3ced763ed4eb18b0e121c4ab00b935a9b82e3"
+          print("SOURCE_BYTES",len(restored),"SOURCE_SHA256",sha)
+          assert sha==expected, f"Source mismatch, expected {expected}"
+          Path("Raw_Documents_18109.csv").write_bytes(restored)
+          with Path("Raw_Documents_18109.csv").open("r",encoding="utf-8-sig",newline="") as f:
+              rows=list(csv.DictReader(f))
+          assert len(rows)==18109, len(rows)
+          ids=[x["문서 ID"] for x in rows]
+          assert len(set(ids))==len(ids)
+          print("SOURCE_VERIFIED",len(rows),"UNIQUE_IDS",len(set(ids)))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scribd-18109-source-verified
+          path: Raw_Documents_18109.csv
+          retention-days: 30
