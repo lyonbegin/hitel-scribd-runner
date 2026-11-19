@@ -1,5 +1,7 @@
 """Regression tests: HTTP 200 and response SHA do not establish real records."""
 import importlib.util
+import hashlib
+import tempfile
 import pathlib
 import unittest
 
@@ -39,6 +41,39 @@ class PublicAuditTests(unittest.TestCase):
         r = module.classify({"post_response_count_total": 0,
             "tracked_post_responses": [{"method": "POST", "status": 200}]})
         self.assertIn("POST_RESPONSE_COUNT_INCONSISTENT", r["issues"])
+
+    def test_raw_symlink_escape_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = pathlib.Path(temp)
+            root = base / "proof"
+            root.mkdir()
+            outside = base / "outside.json"
+            raw = b'{"result":[]}'
+            outside.write_bytes(raw)
+            (root / "response.json").symlink_to(outside)
+            digest = hashlib.sha256(raw).hexdigest()
+            report = {"read_only_response_proofs": [{
+                "status": 200, "body_bytes": len(raw),
+                "body_sha256": digest, "raw_saved": True,
+                "raw_path": "response.json", "raw_sha256": digest,
+                "raw_bytes": len(raw)}]}
+            result = module.classify(report, root)
+            self.assertIn("RAW_PATH_ESCAPES_ROOT", result["issues"])
+            self.assertEqual(result["verified_raw_response_bytes"], 0)
+
+    def test_raw_regular_file_rehashes_without_record_claim(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            raw = b'{"result":[]}'
+            (root / "response.json").write_bytes(raw)
+            digest = hashlib.sha256(raw).hexdigest()
+            result = module.classify({"read_only_response_proofs": [{
+                "status": 200, "body_bytes": len(raw),
+                "body_sha256": digest, "raw_saved": True,
+                "raw_path": "response.json", "raw_sha256": digest,
+                "raw_bytes": len(raw)}]}, root)
+            self.assertEqual(result["verified_raw_response_bytes"], 1)
+            self.assertEqual(result["verified_list_records"], 0)
 
     def test_missing_proof_is_not_success(self):
         self.assertEqual(module.classify({})["status"], "NOT_VERIFIED")
