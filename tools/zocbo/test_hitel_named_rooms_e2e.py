@@ -57,7 +57,7 @@ def ask(room_id,name,text,limit_seconds=480):
         time.sleep(5)
     raise TimeoutError("No completed response in same room for "+jid)
 def main():
-    stamp="hitel-scribd-18109-named-room-e2e"
+    stamp="hitel-scribd-18109-named-room-e2e-"+os.environ.get("GITHUB_RUN_ID","local")+"-"+os.environ.get("GITHUB_RUN_ATTEMPT","1")
     a_name=stamp+"-mathematics"
     b_name=stamp+"-english"
     _,status=request("/integrations/v1/public/status")
