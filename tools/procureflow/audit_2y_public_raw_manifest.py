@@ -40,8 +40,14 @@ def audit(manifest, root):
         if path.is_absolute() or ".." in path.parts:
             issues.append(f"{tag}:UNSAFE_RAW_PATH")
             continue
+        # Resolve symlinks before reading: lexical checks alone permit escape.
+        root_resolved = Path(root).resolve()
+        resolved = (root_resolved / path).resolve()
+        if not resolved.is_relative_to(root_resolved):
+            issues.append(f"{tag}:RAW_PATH_ESCAPES_ROOT")
+            continue
         try:
-            raw = (root / path).read_bytes()
+            raw = resolved.read_bytes()
         except OSError:
             issues.append(f"{tag}:RAW_BYTES_MISSING")
             continue
