@@ -100,10 +100,12 @@ def open_room(out,block):
         raise ValueError("HITEL public named room unavailable: "+str(reply)[:500])
     if roomfile.exists():
         old=json.loads(roomfile.read_text(encoding="utf-8"))
-        if old["room_id"]!=rid:
+        if old.get("room_id") and old["room_id"]!=rid:
             STOP.set()
             raise ValueError("ROOM_CHANGED_FOR_SAME_NAME: refuse to lose original ChatGPT context")
-    save(roomfile,{"room_id":rid,"room_name":name,"block":block})
+    # Preserve the history of a deliberately recovered, server-confirmed
+    # terminal failure. This is a new room, never a silent relink.
+    save(roomfile,{**saved,"room_id":rid,"room_name":name,"block":block})
     return rid
 
 def execute_one(batch,room_id,folder,seconds):
@@ -199,8 +201,53 @@ def execute_one(batch,room_id,folder,seconds):
         time.sleep(5)
     return key,"STILL_PENDING_SAVED_JOB"
 
-def work_group(block,batches,out,poll):
+def recover_terminal_failure(out,block,enabled):
+    """After confirming the old job failed, use one deterministic NEW room.
+
+    Never resend an uncertain job in its prior ChatGPT room. The old job,
+    room and failure evidence remain in the artifact, and the recovery
+    transition itself is checkpointed before any new submission.
+    """
+    if not enabled:
+        return
+    roomfile=out/"rooms"/(f"G{block:03d}.json")
+    if not roomfile.exists():
+        return
+    saved=json.loads(roomfile.read_text(encoding="utf-8"))
+    if saved.get("recovered_from_job"):
+        return
+    old_room=saved.get("room_id")
+    if not old_room:
+        return
+    for errorfile in sorted((out/"errors").glob("*.json")):
+        failure=json.loads(errorfile.read_text(encoding="utf-8"))
+        checkpoint=failure.get("checkpoint") or {}
+        recorded=failure.get("response") or {}
+        jid=checkpoint.get("job_id")
+        if (failure.get("type")!="failed" or
+                checkpoint.get("room_id")!=old_room or
+                recorded.get("stage")!="web2api_failed" or
+                recorded.get("status")!="failed" or
+                not isinstance(jid,str) or not jid.startswith("job_")):
+            continue
+        # A local error file alone cannot authorize a replacement send.
+        code,live=call("/integrations/v1/public/jobs/"+jid)
+        if (code!=200 or live.get("job_id")!=jid or
+                live.get("room_id")!=old_room or live.get("status")!="failed" or
+                live.get("stage")!="web2api_failed" or
+                live.get("error")!="WEB2API_SEND_OR_VERIFY_FAILED"):
+            raise ValueError("RECOVERY_REQUIRES_EXACT_SERVER_CONFIRMED_TERMINAL_FAILURE")
+        fresh=f"HITEL-SCRIBD-18109-RECOVER-G{block:03d}-{jid[4:12]}"
+        save(roomfile,{**saved,"room_id":None,"room_name":fresh,
+            "prior_room_id":old_room,"prior_room_name":saved["room_name"],
+            "recovered_from_job":jid,"recovery_reason":"verified_web2api_terminal_failure"})
+        print("VERIFIED_TERMINAL_FAILURE_NEW_ROOM",block,"old_job",jid,flush=True)
+        return
+
+
+def work_group(block,batches,out,poll,recover_failed):
     if STOP.is_set():return []
+    recover_terminal_failure(out,block,recover_failed)
     rid=open_room(out,block)
     log=[]
     for b in batches:
@@ -240,7 +287,8 @@ def main():
     p.add_argument("--input",required=True);p.add_argument("--out",default="hitel-ai-batches")
     p.add_argument("--batch-size",type=int,default=20);p.add_argument("--workers",type=int,default=2)
     p.add_argument("--limit",type=int,default=0);p.add_argument("--max-batches",type=int,default=20)
-    p.add_argument("--poll-seconds",type=int,default=600);p.add_argument("--dry-run",action="store_true")
+    p.add_argument("--poll-seconds",type=int,default=14400);p.add_argument("--dry-run",action="store_true")
+    p.add_argument("--recover-terminal-failed",action="store_true")
     opts=p.parse_args()
     if not 1<=opts.batch_size<=40 or not 1<=opts.workers<=4:p.error("batch-size 1-40 and workers 1-4")
     with open(opts.input,encoding="utf-8-sig",newline="") as f:rows=list(csv.DictReader(f))
@@ -276,7 +324,7 @@ def main():
         return 0
     out.mkdir(parents=True,exist_ok=True)
     with ThreadPoolExecutor(max_workers=opts.workers) as pool:
-        tasks={pool.submit(work_group,k,v,out,opts.poll_seconds):k for k,v in groups.items()}
+        tasks={pool.submit(work_group,k,v,out,opts.poll_seconds,opts.recover_terminal_failed):k for k,v in groups.items()}
         for t in as_completed(tasks):
             try:log=t.result()
             except Exception as e:
