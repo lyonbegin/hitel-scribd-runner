@@ -61,8 +61,7 @@ class ExplicitStalledRetryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             out,path,state,remote=self.fixture(d)
             current=self.call(out,path,state,remote)
-            self.assertEqual(current,{"room_name":runner.ROOM,
-                                      "room_id":state["room_id"],"seq":3})
+            self.assertEqual(current,{"room_name":runner.RECOVERY_ROOM,"seq":0})
             self.assertEqual(json.loads(path.read_text("utf-8")),current)
             audit=out/"ws"/"stalled_history"/(self.KEY+"-"+self.JOB+".json")
             data=json.loads(audit.read_text("utf-8"))
@@ -97,6 +96,38 @@ class ExplicitStalledRetryTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,"NOT_CONFIRMED_SAFE"):
                     self.call(out,path,state,remote)
                 self.assertEqual(json.loads(path.read_text("utf-8")),state)
+
+
+    def test_confirmed_room_conflict_rotates_and_archives_rejected_state(self):
+        with tempfile.TemporaryDirectory() as d:
+            out,path,state,remote=self.fixture(d)
+            prior=out/"ws"/"stalled_history"/(self.KEY+"-"+self.JOB+".json")
+            runner.save(prior,{"original_state":state,"original_counted_verified":False})
+            rejected=dict(state)
+            rejected.pop("job_id")
+            rejected["status"]="rejected"
+            rejected["error_code"]="ROOM_OR_REQUEST_CONFLICT"
+            rejected["request_id"]="hitel-client-"+"c"*32
+            runner.save(path,rejected)
+            with patch.dict(os.environ,{"HITEL_EXPLICIT_RETRY_STALLED_JOB":self.JOB}):
+                result=runner.rotate_rejected_conflict_to_new_room(
+                    out,self.KEY,path,rejected)
+            self.assertEqual(result,{"room_name":runner.RECOVERY_ROOM,"seq":0})
+            evidence=(out/"ws"/"rejected_history"/
+                      (self.KEY+"-"+rejected["request_id"]+".json"))
+            self.assertTrue(evidence.exists())
+            self.assertEqual(json.loads(evidence.read_text("utf-8"))["rejected_state"],rejected)
+            self.assertFalse(json.loads(evidence.read_text("utf-8"))["counted_verified"])
+
+    def test_rejected_rotation_fails_without_stalled_job_audit(self):
+        with tempfile.TemporaryDirectory() as d:
+            out,path,state,remote=self.fixture(d)
+            state["status"]="rejected"
+            state["error_code"]="ROOM_OR_REQUEST_CONFLICT"
+            with patch.dict(os.environ,{"HITEL_EXPLICIT_RETRY_STALLED_JOB":self.JOB}):
+                with self.assertRaisesRegex(ValueError,"ORIGINAL_AUDIT_MISSING"):
+                    runner.rotate_rejected_conflict_to_new_room(out,self.KEY,path,state)
+            self.assertEqual(json.loads(path.read_text("utf-8"))["status"],"unverified")
 
 
 if __name__=="__main__":
