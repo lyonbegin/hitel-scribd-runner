@@ -36,6 +36,24 @@ RETRY_1101_ERROR="WEB2API_ADAPTER_HTTP_500_UPSTREAM_RATE_LIMITED"
 RETRY_1101_OLD_ROOM=FRESH_ROOM_PREFIX+RETRY_1101_KEY
 RETRY_1101_NEW_ROOM="HITEL-SCRIBD-18109-REPAIRED-VENDOR-20261121-"+RETRY_1101_KEY
 
+
+def refuse_repaired_1101_replay_without_checkpoint(key, room_name, statefile):
+    """The current long-running runner may be terminated before publishing its
+    1101-1120 checkpoint. Never infer that an existing remote room is unused:
+    the prior ChatGPT SEND may already be accepted or completed. Without its
+    request/job ID, only an explicit read-only reconciliation can recover it.
+    """
+    if key != RETRY_1101_KEY or statefile.exists():
+        return
+    with urlopen(PUBLIC_API+"/rooms",timeout=15) as response:
+        payload=json.load(response)
+    rooms=payload.get("rooms") if isinstance(payload,dict) else None
+    if not isinstance(rooms,list) or not all(isinstance(r,dict) for r in rooms):
+        raise RuntimeError("REMOTE_ROOM_INVENTORY_UNVERIFIED_NO_CHAT_SENT")
+    if any(r.get("room_name")==room_name for r in rooms):
+        raise RuntimeError("REMOTE_REPAIRED_ROOM_EXISTS_WITHOUT_CHECKPOINT_REFUSE_REPLAY")
+
+
 def fresh_room_name(key):
     """Route the one authorized capacity repair to its new public room."""
     return CAPACITY_ROOM if key==FAILED_KEY else (RETRY_1101_NEW_ROOM if key==RETRY_1101_KEY else FRESH_ROOM_PREFIX+key)
@@ -337,6 +355,7 @@ def run_one(rows,out,client):
             command.append("--resume")
             print("RESUME_ORIGINAL_WS_REQUEST_NO_RESEND",key,flush=True)
         else:
+            refuse_repaired_1101_replay_without_checkpoint(key,chosen_room,statefile)
             check_worker_ready()
             command += ["--room",chosen_room,"--text",prompt]
             print("NEW_SINGLE_WS_REQUEST",key,"SOURCE_IDS",len(batch),
