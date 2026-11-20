@@ -123,10 +123,11 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
               f.write(f"verified={len(rows)}\n")
           PY
-      - name: Resume interrupted 1001-1020 in audited fresh room
+      - name: Resume 1001-1020 after verified corrected Chrome worker startup
         id: classify
-        # A single operator-authorized retry; archive the old uncertain job.
-        # Only new API reply.done verifies results; other uncertain jobs are never auto-reposted.
+        # The old HTTP 500 uncertainty and the subsequent exact pre-send
+        # ROOM_TAB_CAPACITY_EXCEEDED job are archived independently.
+        # Reuse no failed room; trust only API reply.done with source ID checks.
         env:
           HITEL_EXPLICIT_RESTART_FAILED_KEY: "01001-01020"
         shell: bash
