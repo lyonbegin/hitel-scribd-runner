@@ -130,5 +130,84 @@ class ExplicitStalledRetryTests(unittest.TestCase):
             self.assertEqual(json.loads(path.read_text("utf-8"))["status"],"unverified")
 
 
+class FreshStartCleanupTests(unittest.TestCase):
+    KEY="00361-00380"
+
+    def fixture(self,root):
+        out=Path(root)
+        state=out/"ws"/"scribd_room.json"
+        active=out/"ws"/"active_batch.json"
+        completed=out/"completed"/"00341-00360.json"
+        saved_job={
+            "room_name":runner.RECOVERY_ROOM,
+            "room_id":"room_"+"d"*32,
+            "request_id":"hitel-client-"+"e"*32,
+            "job_id":"job_"+"f"*32,
+            "seq":4,
+            "status":"running"
+        }
+        runner.save(state,saved_job)
+        runner.save(active,{"key":self.KEY,"prompt_sha256":"same","source_ids":[]})
+        runner.save(completed,{"rows":[{"no":341,"id":"confirmed"}]})
+        return out,state,active,completed,saved_job
+
+    def test_fresh_room_name_changes_per_batch(self):
+        self.assertNotEqual(runner.fresh_room_name("00361-00380"),
+                            runner.fresh_room_name("00381-00400"))
+        self.assertNotEqual(runner.fresh_room_name(self.KEY),runner.RECOVERY_ROOM)
+
+    def test_clean_transient_removes_legacy_but_preserves_verified(self):
+        with tempfile.TemporaryDirectory() as root:
+            out,state,active,completed,job=self.fixture(root)
+            remote={
+                "job_id":job["job_id"],"room_id":job["room_id"],
+                "request_id":job["request_id"],"status":"stalled",
+                "stage":"connection_lost","error_code":"WORKER_CONNECTION_LOST",
+                "result_ready":False}
+            with patch.dict(os.environ,{"HITEL_RESET_STUCK_BATCH":self.KEY}):
+                with patch.object(runner,"urlopen",return_value=io.BytesIO(
+                    json.dumps(remote).encode())) as fetch:
+                    runner.retire_legacy_state_once(out,self.KEY)
+                fetch.assert_called_once()
+            self.assertFalse(state.exists())
+            self.assertFalse(active.exists())
+            self.assertTrue(completed.exists())
+            self.assertEqual(json.loads(completed.read_text())["rows"][0]["no"],341)
+            audit=json.loads((out/"ws"/"retired_state"/(self.KEY+".json")).read_text())
+            self.assertEqual(audit["old_client_state"],job)
+            self.assertEqual(audit["old_remote_read_only"]["status"],"stalled")
+            self.assertFalse(audit["counted_as_completed"])
+
+    def test_no_reset_without_exact_authorization(self):
+        with tempfile.TemporaryDirectory() as root:
+            out,state,active,completed,job=self.fixture(root)
+            with patch.dict(os.environ,{"HITEL_RESET_STUCK_BATCH":"other"}):
+                with patch.object(runner,"urlopen") as fetch:
+                    runner.retire_legacy_state_once(out,self.KEY)
+                fetch.assert_not_called()
+            self.assertTrue(state.exists())
+            self.assertTrue(active.exists())
+            self.assertTrue(completed.exists())
+
+    def test_rejects_reset_of_unrelated_active_batch(self):
+        with tempfile.TemporaryDirectory() as root:
+            out,state,active,completed,job=self.fixture(root)
+            runner.save(active,{"key":"OTHER_BATCH"})
+            with patch.dict(os.environ,{"HITEL_RESET_STUCK_BATCH":self.KEY}):
+                with self.assertRaisesRegex(ValueError,"OTHER_ACTIVE_BATCH"):
+                    runner.retire_legacy_state_once(out,self.KEY)
+            self.assertTrue(state.exists())
+            self.assertTrue(active.exists())
+
+    def test_preflight_checks_actual_worker_ready_not_runner_presence(self):
+        status={"worker_connected":True,"worker_heartbeat_recent":True,
+                "worker_bootstrap_ready":True,"worker_available_for_new_job":True,
+                "worker_busy":False,"worker_active_jobs_count":0,"worker_capacity":2}
+        with patch.object(runner,"urlopen",return_value=io.BytesIO(
+                json.dumps(status).encode())) as fetch:
+            runner.check_worker_ready()
+        fetch.assert_called_once()
+
+
 if __name__=="__main__":
     unittest.main()
