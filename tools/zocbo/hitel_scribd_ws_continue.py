@@ -8,6 +8,7 @@ state; any unresolved delivery is resumed, never resent.
 from __future__ import annotations
 import argparse,csv,hashlib,json,os,subprocess,sys
 from pathlib import Path
+from urllib.request import urlopen
 from hitel_public_named_rooms_corpus import title_prompt,validated_rows,output_file,save
 
 ROOM="HITEL-SCRIBD-18109-RECOVERY-WS-20261120"
@@ -41,6 +42,59 @@ def next_batch(rows,verified):
         result.append(rows[n-1])
     return result
 
+
+def manually_retry_one_confirmed_stalled_job(out,key,statefile,room_state):
+    """One user-authorized retry. Archive original uncertainty; never mark it completed.
+
+    This is deliberately limited to one exact prior job ID supplied by the
+    workflow, not a general automatic retry of unverified deliveries.
+    """
+    allowed=os.environ.get("HITEL_EXPLICIT_RETRY_STALLED_JOB","").strip()
+    if not allowed or room_state.get("job_id")!=allowed:
+        return room_state
+    if (room_state.get("status")!="unverified"
+        or room_state.get("room_name")!=ROOM
+        or not room_state.get("request_id")
+        or not room_state.get("room_id")
+        or not isinstance(room_state.get("seq"),int)):
+        raise ValueError("EXPLICIT_STALLED_RETRY_CHECKPOINT_INVALID")
+    url=("https://hitel-integration-api-production.up.railway.app"
+         "/integrations/v1/public/jobs/"+allowed)
+    with urlopen(url,timeout=15) as response:
+        remote=json.load(response)
+    for field in ("job_id","request_id","room_id"):
+        if remote.get(field)!=room_state.get(field):
+            raise ValueError("EXPLICIT_STALLED_RETRY_REMOTE_SCOPE_MISMATCH_"+field)
+    if (remote.get("status")!="stalled"
+        or remote.get("error_code")!="WORKER_CONNECTION_LOST"
+        or remote.get("result_ready") is not False
+        or remote.get("assistant_reply_observed") is True
+        or remote.get("chatgpt_send_confirmed") is True):
+        raise ValueError("EXPLICIT_STALLED_RETRY_NOT_CONFIRMED_SAFE")
+    audit=out/"ws"/"stalled_history"/(key+"-"+allowed+".json")
+    prior={"batch_key":key,
+           "original_state":room_state,
+           "read_only_remote_snapshot":remote,
+           "operator_authorization":"manual_resume_after_api_fix_20261121",
+           "delivery_uncertainty":"ChatGPT send was not confirmed; duplicate possible",
+           "old_request_replayed":False,
+           "original_counted_verified":False}
+    if audit.exists():
+        existing=json.loads(audit.read_text(encoding="utf-8"))
+        if existing.get("original_state")!=room_state:
+            raise ValueError("EXPLICIT_STALLED_RETRY_AUDIT_CONFLICT")
+    else:
+        save(audit,prior)
+    # Retain room binding and increasing sequence. The HITEL client itself
+    # generates a fresh request_id; never overwrite original audit.
+    clean={"room_name":ROOM,"room_id":room_state["room_id"],
+           "seq":room_state["seq"]}
+    save(statefile,clean)
+    print("MANUAL_RETRY_TERMINAL_STALLED_ONLY",key,
+          "PRIOR_JOB",allowed,
+          "UNCERTAIN_PRIOR_DELIVERY_PRESERVED",flush=True)
+    return clean
+
 def run_one(rows,out,client):
     verified=load_verified(rows,out)
     batch=next_batch(rows,verified)
@@ -70,6 +124,7 @@ def run_one(rows,out,client):
     room_state=json.loads(statefile.read_text(encoding="utf-8")) if statefile.exists() else {}
     if room_state.get("room_name") not in (None,ROOM):
         raise ValueError("SAVED_WS_ROOM_NAME_CHANGED")
+    room_state=manually_retry_one_confirmed_stalled_job(out,key,statefile,room_state)
     if room_state.get("status")=="completed" and active.exists() and room_state.get("text_sha256")==digest:
         # A previous job returned successfully but the GitHub runner exited
         # before the completed row JSON could be written.
@@ -95,7 +150,10 @@ def run_one(rows,out,client):
             return 2
         if run.returncode:
             # No batch advances after any uncertain transport or JSON error.
-            print("WS_CLIENT_FAILED_CHECK_SAVED_STATE",key,"returncode",run.returncode,flush=True)
+            # The documented client emits only safe transport diagnostics to stderr.
+            # Do not print its stdout: it may contain a full AI reply.
+            print("WS_CLIENT_FAILED_CHECK_SAVED_STATE",key,"returncode",run.returncode,
+                  "stderr_tail",run.stderr[-1200:],flush=True)
             return 2
         room_state=json.loads(statefile.read_text(encoding="utf-8"))
         answer=room_state.get("answer")
