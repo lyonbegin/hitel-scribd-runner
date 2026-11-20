@@ -197,6 +197,22 @@ def main():
                         inlineScriptCount: Array.from(document.scripts).filter(x => !x.src).length
                     })"""),
                     "visible_controls": labels[:300],
+                    # Report controls can be inputs/selects rather than anchors.
+                    # Metadata only: never read field values, credentials or submit forms.
+                    "read_only_form_controls": page.evaluate("""() =>
+                        Array.from(document.querySelectorAll('input,select,textarea'))
+                          .filter(e => {
+                              const r = e.getBoundingClientRect();
+                              return r.width > 0 && r.height > 0;
+                          }).slice(0,100).map(e => ({
+                              tag: e.tagName.toLowerCase(),
+                              type: (e.getAttribute('type') || '').slice(0,30),
+                              id: (e.id || '').slice(0,100),
+                              name: (e.getAttribute('name') || '').slice(0,100),
+                              placeholder: (e.getAttribute('placeholder') || '').slice(0,100),
+                              aria_label: (e.getAttribute('aria-label') || '').slice(0,100),
+                              disabled: Boolean(e.disabled)
+                          }))"""),
                     "frame_urls": [short(frame.url, 180) for frame in page.frames],
                     "context_pages": [short(p.url, 180) for p in context.pages],
                     "script_sources": page.locator("script[src]").evaluate_all("els=>els.map(x=>x.src).slice(0,35)"),
