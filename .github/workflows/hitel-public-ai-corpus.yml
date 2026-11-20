@@ -43,6 +43,10 @@ jobs:
         run: |
           python3 -m pip install -q websockets==13.1
           python3 -m py_compile tools/zocbo/hitel_scribd_ws_continue.py hitel-client/tools/hitel_chat.py
+      - name: Offline regression - one terminal-stalled request only
+        shell: bash
+        run: |
+          python3 tools/zocbo/test_hitel_scribd_ws_stalled_retry.py
       - name: Rebuild and verify the exact original 18109 source
         shell: bash
         run: |
@@ -117,6 +121,10 @@ jobs:
           PY
       - name: Submit or resume exactly one source-aligned 20-title batch
         id: classify
+        # The user explicitly requested one restart after fixing the external API.
+        # Only the exact old job is eligible; all other uncertain jobs are resume-only.
+        env:
+          HITEL_EXPLICIT_RETRY_STALLED_JOB: job_057e914e0e574fa9b66f85394db257ef
         shell: bash
         run: |
           set -euo pipefail
