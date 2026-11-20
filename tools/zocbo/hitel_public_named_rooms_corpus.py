@@ -6,7 +6,7 @@ Each fixed room handles its own batches in order; different rooms may run concur
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor,as_completed
 from pathlib import Path
-import argparse,csv,hashlib,json,os,threading,time,unicodedata,urllib.error,urllib.request
+import argparse,base64,csv,hashlib,json,os,threading,time,unicodedata,urllib.error,urllib.request
 
 BASE="https://hitel-integration-api-production.up.railway.app"
 HTTP=urllib.request.build_opener(urllib.request.ProxyHandler({})) # No proxy or VPN
@@ -20,6 +20,51 @@ def call(path,body=None):
          "Accept":"application/json"},method="POST" if body is not None else "GET")
     with HTTP.open(r,timeout=45) as response:
         return response.status,json.loads(response.read().decode("utf-8"))
+
+def read_completed_result(job_id,status):
+    """Return every verified response byte, including >65536-byte replies.
+
+    This is a read-only endpoint. Never submit or repeat a ChatGPT message to
+    recover an already completed answer. Reject mismatched IDs and digests.
+    """
+    if (status.get("status")!="completed" or status.get("result_ready") is not True
+            or not isinstance(job_id,str) or not job_id.startswith("job_")):
+        raise ValueError("COMPLETED_AI_RESULT_NOT_VERIFIED")
+    length=status.get("result_length_bytes")
+    digest=status.get("result_sha256")
+    if (not isinstance(length,int) or not 0<length<=2_000_000
+            or not isinstance(digest,str) or len(digest)!=64):
+        raise ValueError("COMPLETED_AI_RESULT_METADATA_INVALID")
+    inline=status.get("result_text")
+    if isinstance(inline,str):
+        raw=inline.encode("utf-8")
+    else:
+        raw=bytearray()
+        offset=0
+        for _ in range((length+65535)//65536):
+            code,chunk=call("/integrations/v1/public/jobs/"+job_id+
+                            "/result?offset="+str(offset)+"&limit=65536")
+            if (code!=200 or chunk.get("job_id")!=job_id
+                    or chunk.get("room_id")!=status.get("room_id")
+                    or chunk.get("result_length_bytes")!=length
+                    or chunk.get("result_sha256")!=digest
+                    or chunk.get("offset")!=offset):
+                raise ValueError("AI_RESULT_CHUNK_IDENTITY_OR_OFFSET_MISMATCH")
+            piece=base64.b64decode(chunk.get("content_base64",""),validate=True)
+            if (not piece or len(piece)!=chunk.get("bytes_returned")
+                    or chunk.get("next_offset")!=offset+len(piece)
+                    or offset+len(piece)>length):
+                raise ValueError("AI_RESULT_CHUNK_INTEGRITY_FAILED")
+            raw.extend(piece)
+            offset+=len(piece)
+            if chunk.get("complete") is True:
+                break
+        raw=bytes(raw)
+        if offset!=length:
+            raise ValueError("AI_RESULT_CHUNKS_INCOMPLETE")
+    if len(raw)!=length or hashlib.sha256(raw).hexdigest()!=digest:
+        raise ValueError("AI_RESULT_HASH_OR_LENGTH_MISMATCH")
+    return raw.decode("utf-8")
 
 def save(path,value):
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -255,11 +300,13 @@ def execute_one(batch,room_id,folder,seconds):
             print("TERMINAL_UNVERIFIED_NO_RESEND_NEXT_BATCH",key,current,flush=True)
             return key,"STALLED_NO_AUTO_RESEND"
         if current=="completed":
-            try:parsed=validated_rows(status.get("result_text"),batch)
+            try:
+                full_reply=read_completed_result(state["job_id"],status)
+                parsed=validated_rows(full_reply,batch)
             except Exception as err:
                 STOP.set()
                 save(folder/"errors"/(key+".json"),{"type":"invalid_ai_answer","error":str(err),
-                     "reply":status.get("result_text"),"checkpoint":state})
+                     "result_digest":status.get("result_sha256"),"checkpoint":state})
                 return key,"INVALID_AI_ANSWER"
             save(done,{"rows":parsed,"job_id":state["job_id"],"room_id":room_id})
             return key,"COMPLETED"
@@ -587,12 +634,12 @@ def main():
         for t in as_completed(tasks):
             try:log=t.result()
             except Exception as e:
-                # An unavailable room should not block the remaining corpus.
-                # Preserve the attempted source IDs; never report AI success.
-                log=[("ROOM_ERROR",str(e))]
-                for batch in groups[tasks[t]]:
-                    record_unverified(batch,out,"ROOM_ERROR:"+type(e).__name__)
-                STOP.clear()
+                # A room preflight/recovery exception is not a ChatGPT attempt.
+                # Never advance the corpus cursor or mark unsent batches as
+                # unverified_skipped. Preserve the original checkpoint and fail.
+                log=[("ROOM_ERROR",type(e).__name__+":"+str(e)[:160])]
+                STOP.set()
+                print("ROOM_PREFLIGHT_FAILED_NO_SOURCE_ADVANCE",tasks[t],type(e).__name__,flush=True)
             print("ROOM_RESULTS",log,flush=True)
             print("CHECKPOINT",output_file(rows,out),flush=True)
     stats=output_file(rows,out)
