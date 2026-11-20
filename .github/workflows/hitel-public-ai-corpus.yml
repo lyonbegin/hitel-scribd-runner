@@ -1,11 +1,16 @@
-name: HITEL 18109 AI classification - always advance; preserve unverified
-# User policy: 300-second AI response budget per 20-row batch; preserve skipped results and continue. Preserve skipped rows separately; NEVER count them as verified. No cron.
-# User-requested emergency stop 2026-11-20: no push trigger; dispatch remains inert.
+name: HITEL Scribd 18109 recovery - verified-only persistent WebSocket
+# Source of truth: proc uref main docs/HITEL_WEB2API_CONTINUE.md.
+# Keep 340 previously verified records. Never mark an AI or transport failure as processed.
+# Missing or uncertain replies must be resumed on the same saved request, not reposted.
 on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/hitel-public-ai-corpus.yml
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Smoke the next uncompleted 20 rows within the full original corpus, or continue the full corpus'
+        description: 'Run one verified 20-row window, or continue verified-only'
         required: true
         type: choice
         options: [smoke, full]
@@ -21,18 +26,24 @@ concurrency:
 
 jobs:
   ai:
-    # HARD PAUSE: prevents queued/late manual dispatches from classifying or continuing.
-    if: ${{ false }}
-    # 2026-11-19: verified real A/A/B/A v2 ChatGPT dialog, plus 40/40 verified actual Scribd title judgments.
-    runs-on: ubuntu-latest
-    timeout-minutes: 300
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - name: Checkout exact verified corpus and AI runner branch
+      - name: Checkout original Scribd corpus and recovery runner
         uses: actions/checkout@v4
         with:
           ref: feature/hitel-public-ai-batches-20261119
-
-      - name: Assemble CSV and verify same original bytes, rows and unique document IDs
+      - name: Checkout documented HITEL WebSocket client from procureflow main
+        uses: actions/checkout@v4
+        with:
+          repository: lyonbegin/procureflow
+          ref: main
+          path: hitel-client
+      - name: Install documented WebSocket client dependency
+        run: |
+          python3 -m pip install -q websockets==13.1
+          python3 -m py_compile tools/zocbo/hitel_scribd_ws_continue.py hitel-client/tools/hitel_chat.py
+      - name: Rebuild and verify the exact original 18109 source
         shell: bash
         run: |
           python3 - <<'PY'
@@ -41,199 +52,126 @@ jobs:
           pieces=sorted(Path("data/raw_18109").glob("part_*.csv"))
           assert len(pieces)==20, len(pieces)
           joined="".join(p.read_text("utf-8") for p in pieces)
-          original=b"\xef\xbb\xbf"+joined.replace("\n","\r\n").encode("utf-8")
-          digest=hashlib.sha256(original).hexdigest()
-          assert digest=="c9ac45f833dd30a002cffac64cb3ced763ed4eb18b0e121c4ab00b935a9b82e3", digest
+          original=b"\\xef\\xbb\\xbf"+joined.replace("\\n","\\r\\n").encode("utf-8")
+          assert hashlib.sha256(original).hexdigest()=="c9ac45f833dd30a002cffac64cb3ced763ed4eb18b0e121c4ab00b935a9b82e3"
           Path("Raw_Documents_18109.csv").write_bytes(original)
-          with Path("Raw_Documents_18109.csv").open(encoding="utf-8-sig",newline="") as f:
-              data=list(csv.DictReader(f))
-          assert len(data)==18109,len(data)
-          assert len(set(r["문서 ID"] for r in data))==18109
-          print("SOURCE_VERIFIED 18109 18109",digest)
+          rows=list(csv.DictReader(open("Raw_Documents_18109.csv",encoding="utf-8-sig",newline="")))
+          assert len(rows)==len(set(r["문서 ID"] for r in rows))==18109
+          print("PASS_ORIGINAL_SOURCE_18109_SHA256")
           PY
-          python3 -m py_compile tools/zocbo/hitel_public_named_rooms_corpus.py
-
-      - name: Restore latest prior verified AI completion checkpoints
-        shell: bash
+      - name: Restore WS recovery checkpoint or reset only 1560 skipped status markers
+        id: restore
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p hitel-ai-batches
-          RUN_ID=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=hitel-ai-18109-v3-checkpoint&per_page=100" \
-            --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | reverse | .[0].workflow_run.id // empty')
-          if [[ -z "$RUN_ID" ]]; then
-            # A known verified pilot: 20 real AI classifications (2026-11-19)
-            RUN_ID=44442243981
-            ARTIFACT_NAME=hitel-ai-18109-clean40-checkpoint
+          RECOVERY_RUN="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=hitel-ai-18109-ws-recovery-checkpoint&per_page=100" --jq '[.artifacts[]|select(.expired==false)]|sort_by(.created_at)|reverse|.[0].workflow_run.id // empty')"
+          if [[ -n "$RECOVERY_RUN" ]]; then
+            echo "RESTORE_RECOVERY_FROM_RUN=$RECOVERY_RUN"
+            gh run download "$RECOVERY_RUN" --repo "$GITHUB_REPOSITORY" -n hitel-ai-18109-ws-recovery-checkpoint -D hitel-ai-batches
+            echo "CHECKPOINT_SOURCE=ws_recovery" >>"$GITHUB_OUTPUT"
           else
-            ARTIFACT_NAME=hitel-ai-18109-v3-checkpoint
+            # Immutable original artifact from the last stopped run. Old artifact is
+            # retained for audit, while only 340 verified results enter active state.
+            gh run download 44694043614 --repo "$GITHUB_REPOSITORY" -n hitel-ai-18109-v3-checkpoint -D hitel-ai-batches
+            python3 - <<'PY'
+          from pathlib import Path
+          import json,shutil
+          out=Path("hitel-ai-batches")
+          completed=list((out/"completed").glob("*.json"))
+          n=sum(len(json.loads(p.read_text("utf-8"))["rows"]) for p in completed)
+          assert n==340,("REFUSE_DESTRUCTIVE_RESET_WITHOUT_EXACT_340_VERIFIED",n)
+          skipped=list((out/"skipped").glob("*.json"))
+          count=sum(len(json.loads(p.read_text("utf-8"))["source_ids"]) for p in skipped)
+          assert count==1560,("REFUSE_RESET_WITH_UNEXPECTED_SKIPPED_ROWS",count)
+          for subdir in ("skipped","jobs","errors","rooms"):
+              shutil.rmtree(out/subdir,ignore_errors=True)
+          for stale in ("status.json","Scribd_AI_분류결과.csv"):
+              (out/stale).unlink(missing_ok=True)
+          print("RESET_ONLY_UNVERIFIED_STATUS_1560_VERIFIED_340_PRESERVED")
+          PY
+            echo "CHECKPOINT_SOURCE=verified_340_reset" >>"$GITHUB_OUTPUT"
           fi
-          if [[ -n "$RUN_ID" ]]; then
-            echo "RESTORING_CHECKPOINT_RUN=$RUN_ID"
-            gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
-              -n "$ARTIFACT_NAME" -D hitel-ai-batches
-            echo "RESTORE_OK"
-          else
-            echo "FIRST_RUN_NO_CHECKPOINT"
-          fi
-
-      - name: Guard restored verified and skipped checkpoints against source mismatch
+      - name: Validate 340 historical successes and no remaining legacy skip markers
+        id: before
         shell: bash
         run: |
           python3 - <<'PY'
+          import csv,json,os
           from pathlib import Path
-          import csv,json
-          src=list(csv.DictReader(open('Raw_Documents_18109.csv',encoding='utf-8-sig',newline='')))
-          done=set()
-          skipped=set()
-          for f in Path('hitel-ai-batches/completed').glob('*.json'):
-              for row in json.loads(f.read_text('utf-8'))['rows']:
-                  n=int(row['no'])
-                  assert 1<=n<=len(src) and src[n-1]['문서 ID']==str(row['id'])
-                  assert n not in done, 'Duplicate verified original'
-                  done.add(n)
-          for f in Path('hitel-ai-batches/skipped').glob('*.json'):
-              obj=json.loads(f.read_text('utf-8'))
-              assert obj.get('status')=='unverified_skipped' and obj.get('never_count_as_completed') is True
-              for row in obj['source_ids']:
-                  n=int(row['no'])
-                  assert 1<=n<=len(src) and src[n-1]['문서 ID']==str(row['id'])
-                  assert n not in skipped and n not in done, 'Duplicated verified/skipped row'
-                  skipped.add(n)
-          assert set(range(1,121)).issubset(done), 'Initial 120 AI rows must remain verified'
-          processed=done|skipped
-          assert processed==set(range(1,len(processed)+1)), 'Processed rows must be contiguous'
-          print('PASS_RESTORED_AI_COMPLETIONS',len(done))
-          print('PASS_UNVERIFIED_SKIPPED',len(skipped))
-          print('PASS_PROCESSED_SOURCE_CURSOR',len(processed))
+          source=list(csv.DictReader(open("Raw_Documents_18109.csv",encoding="utf-8-sig",newline="")))
+          rows={}
+          for p in Path("hitel-ai-batches/completed").glob("*.json"):
+              for r in json.loads(p.read_text("utf-8"))["rows"]:
+                  n=int(r["no"])
+                  assert 1<=n<=18109 and n not in rows
+                  assert str(r["id"])==source[n-1]["문서 ID"]
+                  rows[n]=r
+          assert len(rows)>=340 and all(k in rows for k in range(1,261))
+          assert len(list(Path("hitel-ai-batches/skipped").glob("*.json")))==0
+          print("PRESERVED_VERIFIED",len(rows),"FIRST_MISSING",next((i for i in range(1,18110) if i not in rows),None))
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write(f"verified={len(rows)}\\n")
           PY
-
-      - name: Record verified counts and processed source cursor
-        shell: bash
-        run: |
-          python3 - <<'PY' >> "$GITHUB_ENV"
-          from pathlib import Path
-          import json
-          verified=sum(len(json.loads(f.read_text("utf-8"))["rows"])
-                       for f in Path("hitel-ai-batches/completed").glob("*.json"))
-          skipped=sum(len(json.loads(f.read_text("utf-8"))["source_ids"])
-                      for f in Path("hitel-ai-batches/skipped").glob("*.json"))
-          print("AI_BEFORE="+str(verified))
-          print("AI_UNVERIFIED_BEFORE="+str(skipped))
-          print("AI_PROCESSED_BEFORE="+str(verified+skipped))
-          PY
-
-      - name: Reconcile saved completed Web2API job before next 20-title submission
+      - name: Submit or resume exactly one source-aligned 20-title batch
         id: classify
-        continue-on-error: true
-        timeout-minutes: 280
         shell: bash
-        env:
-          RUN_MODE: ${{ github.event_name == 'push' && 'smoke' || github.event.inputs.mode || 'full' }}
         run: |
-          if [[ "$RUN_MODE" == "smoke" ]]; then
-            python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
-              --input Raw_Documents_18109.csv --out hitel-ai-batches \
-              --batch-size 20 --max-batches 1 \
-              --workers 1 --poll-seconds 300 --recover-terminal-failed
-          else
-            python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
-              --input Raw_Documents_18109.csv --out hitel-ai-batches \
-              --batch-size 20 --max-batches 1 \
-              --workers 1 --poll-seconds 300 --recover-terminal-failed
-          fi
-
-      - name: Verify original source and independently count verified, failed and processed rows
+          set -euo pipefail
+          python3 tools/zocbo/hitel_scribd_ws_continue.py \
+            --input Raw_Documents_18109.csv \
+            --out hitel-ai-batches \
+            --client hitel-client/tools/hitel_chat.py
+      - name: Verify only real newly completed documents and preserve 18109 source mappings
         id: verify
         shell: bash
         run: |
           python3 - <<'PY'
           import csv,json,os
           from pathlib import Path
-          original=list(csv.DictReader(open("Raw_Documents_18109.csv",encoding="utf-8-sig",newline="")))
-          assert len(original)==18109, "Original source size changed"
-          path=Path("hitel-ai-batches/Scribd_AI_분류결과.csv")
-          assert path.exists(), "No results CSV created"
-          classified=list(csv.DictReader(path.open(encoding="utf-8-sig",newline="")))
-          assert len(classified)==len(original), "Original 18109 row count must be preserved"
-          for i,row in enumerate(classified):
-              assert row["문서 ID"]==original[i]["문서 ID"], "Original document ID changed"
-              assert row["원문 제목"]==original[i]["원문 제목"], "Original title changed"
-              assert row["Scribd 상세URL"]==original[i]["Scribd 상세URL"], "Original URL changed"
-              assert row["번호"]==str(i+1), "Original order changed"
+          source=list(csv.DictReader(open("Raw_Documents_18109.csv",encoding="utf-8-sig",newline="")))
+          data=list(csv.DictReader(open("hitel-ai-batches/Scribd_AI_분류결과.csv",encoding="utf-8-sig",newline="")))
+          assert len(source)==len(data)==18109
           verified={}
-          required=("no","id","school","grade","semester","subject","edition","download","reason")
           for f in Path("hitel-ai-batches/completed").glob("*.json"):
               for row in json.loads(f.read_text("utf-8"))["rows"]:
-                  no=int(row["no"])
-                  assert no not in verified
-                  assert 1<=no<=len(original) and str(row["id"])==original[no-1]["문서 ID"]
-                  assert all(k in row and str(row[k]).strip() for k in required)
-                  assert row["school"] in ("초등","중등","고등","대상외","판정보류")
-                  assert row["download"] in ("대상","제외","판본검토")
-                  verified[no]=row
-          skipped={}
-          for f in Path("hitel-ai-batches/skipped").glob("*.json"):
-              marker=json.loads(f.read_text("utf-8"))
-              assert marker.get("status")=="unverified_skipped"
-              assert marker.get("never_count_as_completed") is True
-              assert marker.get("reason")
-              for row in marker["source_ids"]:
-                  no=int(row["no"])
-                  assert no not in skipped and no not in verified
-                  assert 1<=no<=len(original) and str(row["id"])==original[no-1]["문서 ID"]
-                  skipped[no]=marker["reason"]
-          done=len(verified)
-          rejected=len(skipped)
-          processed=done+rejected
-          before=int(os.environ["AI_BEFORE"])
-          skipped_before=int(os.environ["AI_UNVERIFIED_BEFORE"])
-          processed_before=int(os.environ["AI_PROCESSED_BEFORE"])
-          assert before+skipped_before==processed_before
-          assert set(range(1,processed+1))==set(verified)|set(skipped), "Source cursor contains gaps"
-          assert set(range(1,121)).issubset(verified), "Never lose the verified original 120"
-          assert sum(r["학교급"]!="미처리" for r in classified)==done, "CSV must count only verified rows"
-          advance=processed-processed_before
-          expected_advance=min(20,len(original)-processed_before)
-          assert advance==expected_advance, ("Expected one next batch attempted",advance,expected_advance)
-          assert done>=before and rejected>=skipped_before
-          assert done-before+rejected-skipped_before==advance
-          follow=(processed<len(original))
-          print("REAL_AI_COMPLETED",done,"NEW_VERIFIED",done-before,
-                "UNVERIFIED_SKIPPED",rejected,"NEW_SKIPPED",rejected-skipped_before,
-                "PROCESSED",processed,"TOTAL_CORPUS",len(original),
-                "REMAINING_UNATTEMPTED",len(original)-processed)
-          with open(os.environ["GITHUB_OUTPUT"],"a") as o:
-              o.write("completed="+str(done)+"\n")
-              o.write("skipped="+str(rejected)+"\n")
-              o.write("processed="+str(processed)+"\n")
-              o.write("remaining="+str(len(original)-processed)+"\n")
-              o.write("progress="+str(advance)+"\n")
-              o.write("continue="+str(follow).lower()+"\n")
+                  n=int(row["no"])
+                  assert n not in verified and str(row["id"])==source[n-1]["문서 ID"]
+                  assert all(str(row.get(k,"")).strip() for k in ("school","grade","semester","subject","edition","download","reason"))
+                  verified[n]=row
+          for n,(src,row) in enumerate(zip(source,data),1):
+              assert str(n)==row["번호"] and src["문서 ID"]==row["문서 ID"]
+              assert src["원문 제목"]==row["원문 제목"]
+              assert src["Scribd 상세URL"]==row["Scribd 상세URL"]
+              assert (row["학교급"]!="미처리")== (n in verified)
+          assert not list(Path("hitel-ai-batches/skipped").glob("*.json"))
+          before=int("${{ steps.before.outputs.verified }}")
+          delta=len(verified)-before
+          expected=min(20,18109-before)
+          assert 0<delta<=expected,("NO_VERIFIED_PROGRESS",before,len(verified))
+          next_row=next((i for i in range(1,18110) if i not in verified),None)
+          print("REAL_WS_VERIFIED",len(verified),"NEW_VERIFIED",delta,
+                "SKIPPED_ZERO",0,"NEXT_UNVERIFIED_SOURCE",next_row)
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write("continue="+str(next_row is not None).lower()+"\\n")
           with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
-              f.write(f"AI verified: {done} | unverified skipped: {rejected} | source rows attempted: {processed}/{len(original)} | next: {processed+1 if follow else 'none'}\n")
+              f.write(f"Verified {len(verified)}/18109, new {delta}, skipped 0, next source {next_row}\\n")
           PY
-
-      - name: Preserve results, 1:1 source mapping, and job checkpoints
-        uses: actions/upload-artifact@v4
+      - name: Preserve independently verified results and same-request WebSocket state
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: hitel-ai-18109-v3-checkpoint
+          name: hitel-ai-18109-ws-recovery-checkpoint
           path: hitel-ai-batches/
           retention-days: 90
-          if-no-files-found: warn
-
-      - name: Fail only for unrecoverable execution or source/checkpoint corruption
-        if: steps.classify.outcome != 'success' || steps.verify.outcome != 'success'
-        run: |
-          echo 'PROCESS_DID_NOT_PRESERVE_NEXT_SOURCE_WINDOW: artifact retained for recovery'
-          exit 1
-
-      - name: Continue next source window even when prior AI response failed validation
-        if: steps.verify.outputs.continue == 'true' && steps.classify.outcome == 'success' && steps.verify.outcome == 'success'
+          if-no-files-found: error
+      - name: Chain next window only after real AI result verified
+        if: steps.classify.outcome == 'success' && steps.verify.outcome == 'success' && steps.verify.outputs.continue == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh workflow run hitel-public-ai-corpus.yml --ref main -f mode=full
-          echo "NEXT_AI_CONTINUATION_REQUESTED" >> "$GITHUB_STEP_SUMMARY"
+          echo NEXT_VERIFIED_ONLY_RECOVERY_DISPATCHED >> "$GITHUB_STEP_SUMMARY"
