@@ -123,11 +123,12 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
               f.write(f"verified={len(rows)}\n")
           PY
-      - name: Await native API terminal reply for one isolated 20-title batch
+      - name: Resume interrupted 1001-1020 in audited fresh room
         id: classify
-        # No user-invented completion deadline; API emits reply.done or
-        # reply.unverified. Local request_id survives reconnect and resume.
-        # Save completed records only after native SHA-256 verified reply.
+        # A single operator-authorized retry; archive the old uncertain job.
+        # Only new API reply.done verifies results; other uncertain jobs are never auto-reposted.
+        env:
+          HITEL_EXPLICIT_RESTART_FAILED_KEY: "01001-01020"
         shell: bash
         run: |
           set -euo pipefail
