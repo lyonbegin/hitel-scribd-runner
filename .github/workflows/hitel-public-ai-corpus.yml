@@ -2,8 +2,8 @@ name: HITEL Scribd 18109 recovery - verified-only persistent WebSocket
 # Source of truth: proc uref main docs/HITEL_WEB2API_CONTINUE.md.
 # Keep 340 previously verified records. Never mark an AI or transport failure as processed.
 # Missing or uncertain replies are never implicitly reposted.
-# After a user-approved recovery with exact terminal proof, archive the old
-# stalled job and any server-rejected same-room attempt, then use a fresh room.
+# After the user-approved clean restart, archive and retire the old pending
+# 361-380 client state, use one never-reused room per 20-title batch.
 on:
   push:
     branches: [main]
@@ -121,12 +121,13 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
               f.write(f"verified={len(rows)}\n")
           PY
-      - name: Submit or resume exactly one source-aligned 20-title batch
+      - name: Fresh-start one isolated 20-title batch after live API preflight
         id: classify
-        # The user explicitly requested one restart after fixing the external API.
-        # Only the exact old job is eligible; all other uncertain jobs are resume-only.
+        # Explicitly authorized: retire only stale 361-380 transient client state.
+        # Keep all 420 independently verified completed rows and source mappings.
+        # Each batch uses its own new room and request checkpoint; no old room reuse.
         env:
-          HITEL_EXPLICIT_RETRY_STALLED_JOB: job_057e914e0e574fa9b66f85394db257ef
+          HITEL_RESET_STUCK_BATCH: 00361-00380
         shell: bash
         run: |
           set -euo pipefail
