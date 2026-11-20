@@ -52,7 +52,7 @@ jobs:
           pieces=sorted(Path("data/raw_18109").glob("part_*.csv"))
           assert len(pieces)==20, len(pieces)
           joined="".join(p.read_text("utf-8") for p in pieces)
-          original=b"\\xef\\xbb\\xbf"+joined.replace("\\n","\\r\\n").encode("utf-8")
+          original=b"\xef\xbb\xbf"+joined.replace("\n","\r\n").encode("utf-8")
           assert hashlib.sha256(original).hexdigest()=="c9ac45f833dd30a002cffac64cb3ced763ed4eb18b0e121c4ab00b935a9b82e3"
           Path("Raw_Documents_18109.csv").write_bytes(original)
           rows=list(csv.DictReader(open("Raw_Documents_18109.csv",encoding="utf-8-sig",newline="")))
@@ -113,7 +113,7 @@ jobs:
           assert len(list(Path("hitel-ai-batches/skipped").glob("*.json")))==0
           print("PRESERVED_VERIFIED",len(rows),"FIRST_MISSING",next((i for i in range(1,18110) if i not in rows),None))
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
-              f.write(f"verified={len(rows)}\\n")
+              f.write(f"verified={len(rows)}\n")
           PY
       - name: Submit or resume exactly one source-aligned 20-title batch
         id: classify
@@ -155,9 +155,9 @@ jobs:
           print("REAL_WS_VERIFIED",len(verified),"NEW_VERIFIED",delta,
                 "SKIPPED_ZERO",0,"NEXT_UNVERIFIED_SOURCE",next_row)
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
-              f.write("continue="+str(next_row is not None).lower()+"\\n")
+              f.write("continue="+str(next_row is not None).lower()+"\n")
           with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
-              f.write(f"Verified {len(verified)}/18109, new {delta}, skipped 0, next source {next_row}\\n")
+              f.write(f"Verified {len(verified)}/18109, new {delta}, skipped 0, next source {next_row}\n")
           PY
       - name: Preserve independently verified results and same-request WebSocket state
         if: always()
