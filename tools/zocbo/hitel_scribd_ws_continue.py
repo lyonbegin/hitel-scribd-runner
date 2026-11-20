@@ -30,10 +30,15 @@ RECOVERY_ROOM="HITEL-SCRIBD-18109-EXPLICIT-RESTART-20261121-"+FAILED_KEY
 CAPACITY_JOB="job_3e186fbd148c44c7b13bb9e6f88d3550"
 CAPACITY_ROOM="HITEL-SCRIBD-18109-POST-CAPACITY-FIX-20261121-"+FAILED_KEY
 CAPACITY_ERROR="ROOM_TAB_CAPACITY_EXCEEDED"
+RETRY_1101_KEY="01101-01120"
+RETRY_1101_JOB="job_76b2cdb22e624248a80d8492aee26825"
+RETRY_1101_ERROR="WEB2API_ADAPTER_HTTP_500_UPSTREAM_RATE_LIMITED"
+RETRY_1101_OLD_ROOM=FRESH_ROOM_PREFIX+RETRY_1101_KEY
+RETRY_1101_NEW_ROOM="HITEL-SCRIBD-18109-REPAIRED-VENDOR-20261121-"+RETRY_1101_KEY
 
 def fresh_room_name(key):
     """Route the one authorized capacity repair to its new public room."""
-    return CAPACITY_ROOM if key==FAILED_KEY else FRESH_ROOM_PREFIX+key
+    return CAPACITY_ROOM if key==FAILED_KEY else (RETRY_1101_NEW_ROOM if key==RETRY_1101_KEY else FRESH_ROOM_PREFIX+key)
 
 def archive_confirmed_capacity_failure(out,key,digest,expected_ids,state,active):
     """Capacity rejection occurred before a ChatGPT send. Verify remote first.
@@ -159,6 +164,62 @@ def archive_failed_window_before_restart(out,key,digest,expected_ids):
     print("EXPLICIT_STALLED_WINDOW_ARCHIVED_NEW_ROOM",key,
           "OLD_JOB",FAILED_JOB,"POSSIBLE_OLD_DELIVERY_AUDITED",flush=True)
 
+def archive_stalled_1101_before_authorized_restart(out,key,digest,expected_ids):
+    """One audited recovery of the specific 1101-1120 HTTP 500 stalled job.
+
+    The original ChatGPT send is *not* known to have failed; its remote job
+    remains terminal-stalled. Preserve full original request evidence before
+    a one-time user-authorized new room. Never replay an arbitrary stalled job.
+    """
+    if key!=RETRY_1101_KEY or os.environ.get("HITEL_EXPLICIT_RESTART_FAILED_KEY")!=RETRY_1101_KEY:
+        return
+    ws=out/"ws"
+    statefile=ws/(key+".json")
+    active=ws/"active_batch.json"
+    audit=ws/"restart_audit"/(key+"-"+RETRY_1101_JOB+".json")
+    if audit.exists():
+        if not statefile.exists():
+            return
+        state=json.loads(statefile.read_text(encoding="utf-8"))
+        if state.get("room_name")!=RETRY_1101_NEW_ROOM:
+            raise ValueError("RETRY_1101_AUDIT_WITH_UNEXPECTED_ROOM")
+        return
+    if not statefile.exists() or not active.exists():
+        raise ValueError("RETRY_1101_SOURCE_STATE_OR_ACTIVE_MISSING")
+    state=json.loads(statefile.read_text(encoding="utf-8"))
+    saved=json.loads(active.read_text(encoding="utf-8"))
+    if (saved.get("key")!=key or saved.get("prompt_sha256")!=digest
+        or saved.get("source_ids")!=expected_ids
+        or state.get("room_name")!=RETRY_1101_OLD_ROOM
+        or state.get("job_id")!=RETRY_1101_JOB
+        or state.get("status")!="unverified"
+        or state.get("error_code")!=RETRY_1101_ERROR
+        or state.get("text_sha256")!=digest):
+        raise ValueError("RETRY_1101_ORIGINAL_CHECKPOINT_SCOPE_MISMATCH")
+    with urlopen(PUBLIC_API+"/jobs/"+RETRY_1101_JOB,timeout=15) as response:
+        remote=json.load(response)
+    if any(remote.get(k)!=state.get(k) for k in ("job_id","request_id","room_id")):
+        raise ValueError("RETRY_1101_REMOTE_IDENTITY_MISMATCH")
+    if (remote.get("status")!="stalled" or remote.get("error_code")!=RETRY_1101_ERROR
+        or remote.get("result_ready") is not False
+        or remote.get("chatgpt_send_confirmed") is True
+        or remote.get("assistant_reply_observed") is True):
+        raise ValueError("RETRY_1101_REMOTE_NOT_SAFE_TO_RESTART")
+    save(audit,{"key":key,"prompt_sha256":digest,"source_ids":expected_ids,
+                "original_active":saved,"original_client_state":state,
+                "original_remote_status":{k:remote.get(k) for k in
+                   ("job_id","request_id","room_id","status","stage","error_code",
+                    "result_ready","chatgpt_send_confirmed","assistant_reply_observed")},
+                "possible_prior_delivery":True,"original_result_verified":False,
+                "new_room":RETRY_1101_NEW_ROOM,"authorized_single_restart":True})
+    # Only the active pointer and per-window state are reset; verified rows and
+    # prior 1001/1020 audits remain untouched. Never bulk-delete checkpoints.
+    statefile.unlink()
+    active.unlink()
+    print("RETRY_1101_OLD_STALLED_JOB_AUDITED_NEW_ROOM",key,
+          "ORIGINAL_JOB",RETRY_1101_JOB,flush=True)
+
+
 def check_worker_ready():
     """Read the live API's own worker availability before making a new send."""
     with urlopen(PUBLIC_API+"/status",timeout=12) as response:
@@ -242,6 +303,7 @@ def run_one(rows,out,client):
     if len(prompt)>24000:raise ValueError("PROMPT_EXCEEDS_SAFE_LENGTH")
     wsdir=out/"ws";wsdir.mkdir(parents=True,exist_ok=True)
     archive_failed_window_before_restart(out,key,digest,expected_ids)
+    archive_stalled_1101_before_authorized_restart(out,key,digest,expected_ids)
     active=wsdir/"active_batch.json"
     statefile=wsdir/(key+".json")
     chosen_room=fresh_room_name(key)
