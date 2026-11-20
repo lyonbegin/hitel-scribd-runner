@@ -27,7 +27,51 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  worker_ready:
+    runs-on: ubuntu-24.04
+    # This waits for the existing signed Chrome worker without consuming the
+    # classifier job's separately allotted observation time.
+    timeout-minutes: 300
+    steps:
+      - name: Verify currently connected corrected Web2API worker, without pinning its run ID
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Do not bind all subsequent windows to the single GitHub worker run
+          # 44798708561. A worker session can rotate while the 18109-row
+          # classifier continues. Never cancel a worker or resend a chat.
+          while true; do
+            WORKER_RUN="$(gh api 'repos/lyonbegin/procureflow/actions/runs?per_page=20&status=in_progress' \
+              --jq '[.workflow_runs[] | select(.name == "HITEL - Start Chrome API worker (manual) / Verify owner pairing" and .head_branch == "main") | .id] | first // empty')"
+            if [[ -n "$WORKER_RUN" ]]; then
+              ACTIVE_STEP="$(gh api "repos/lyonbegin/procureflow/actions/runs/$WORKER_RUN/jobs" \
+                --jq '[.jobs[].steps[]? | select(.name == "Keep connected worker running for the selected session") | .status] | first // ""')"
+              if [[ "$ACTIVE_STEP" == "in_progress" ]]; then
+                if python3 - <<'PY'
+          import json,urllib.request
+          url="https://hitel-integration-api-production.up.railway.app/integrations/v1/public/status"
+          with urllib.request.urlopen(url,timeout=15) as response:
+              status=json.load(response)
+          required=("worker_connected","worker_heartbeat_recent",
+                    "worker_bootstrap_ready","worker_available_for_new_job")
+          if not all(status.get(k) is True for k in required):
+              raise SystemExit("WORKER_NOT_READY_YET_NO_CHAT_SENT")
+          print("PASS_LIVE_WORKER_CONNECTED_HEARTBEAT_BOOTSTRAPPED_CAPACITY",flush=True)
+          PY
+                then
+                  echo "PASS_CORRECTED_WEB2API_WORKER_RUN=$WORKER_RUN"
+                  break
+                fi
+              fi
+            fi
+            echo "WAIT_LIVE_WEB2API_WORKER_NO_CHAT_SENT"
+            sleep 15
+          done
+
   ai:
+    needs: worker_ready
     runs-on: ubuntu-24.04
     # GitHub host safety bound above the API server's own 15000s observer
     # and the 240-minute Chrome worker session, not a 10-minute model timeout.
@@ -123,42 +167,6 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
               f.write(f"verified={len(rows)}\n")
           PY
-      - name: Verify currently connected corrected Web2API worker, without pinning its run ID
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          # Do not bind all subsequent windows to the single GitHub worker run
-          # 44798708561. A worker session can rotate while the 18109-row
-          # classifier continues. Never cancel a worker or resend a chat.
-          while true; do
-            WORKER_RUN="$(gh api 'repos/lyonbegin/procureflow/actions/runs?per_page=20&status=in_progress' \
-              --jq '[.workflow_runs[] | select(.name == "HITEL - Start Chrome API worker (manual) / Verify owner pairing" and .head_branch == "main") | .id] | first // empty')"
-            if [[ -n "$WORKER_RUN" ]]; then
-              ACTIVE_STEP="$(gh api "repos/lyonbegin/procureflow/actions/runs/$WORKER_RUN/jobs" \
-                --jq '[.jobs[].steps[]? | select(.name == "Keep connected worker running for the selected session") | .status] | first // ""')"
-              if [[ "$ACTIVE_STEP" == "in_progress" ]]; then
-                if python3 - <<'PY'
-          import json,urllib.request
-          url="https://hitel-integration-api-production.up.railway.app/integrations/v1/public/status"
-          with urllib.request.urlopen(url,timeout=15) as response:
-              status=json.load(response)
-          required=("worker_connected","worker_heartbeat_recent",
-                    "worker_bootstrap_ready","worker_available_for_new_job")
-          if not all(status.get(k) is True for k in required):
-              raise SystemExit("WORKER_NOT_READY_YET_NO_CHAT_SENT")
-          print("PASS_LIVE_WORKER_CONNECTED_HEARTBEAT_BOOTSTRAPPED_CAPACITY",flush=True)
-          PY
-                then
-                  echo "PASS_CORRECTED_WEB2API_WORKER_RUN=$WORKER_RUN"
-                  break
-                fi
-              fi
-            fi
-            echo "WAIT_LIVE_WEB2API_WORKER_NO_CHAT_SENT"
-            sleep 15
-          done
       - name: Restart 1101-1120 from audited stalled upstream job
         id: classify
         # The old HTTP 500 uncertainty and the subsequent exact pre-send
