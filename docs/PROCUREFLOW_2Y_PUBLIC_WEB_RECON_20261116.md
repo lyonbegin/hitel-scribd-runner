@@ -70,3 +70,14 @@
 우선 복구: 연구 브랜치의 `.github/workflows/procureflow-stage2-unprocessed-repair.yml`에서 10-worker Chrome+Xvfb로 기존 공식 큐 중 `processed=0`인 169~172번 샤드 **네 개만** 선택 복구하고 원본 Release는 그대로 두며 지속 보존 Release에는 새 수정 시도 ZIP+상태 JSON을 추가한다. 실제 자동 재개 실행 `43868699164`를 시작했으며, 불완전 샤드 176여 개를 일률적으로 재실행하지 않는다. 외부 요청은 복구 대상의 실패 원본에 한정한다. 9,509건의 미확인 결과는 `no_bidder_rows_unverified`의 공식 상태 의미와 원본을 확인하여 개별적으로 분류·검증한다.
 
 해당 수치는 ZIP 3개만 본문 해시를 확인한 현 단계의 감사 결과이며, 운영 DB 적재·수의계약·최종 낙찰·납품연계 및 엑셀 검증은 완료 근거가 없다. 완료 선언·전체 전수검증 100% 표기를 금지한다.
+
+
+## 후속 독립 로그 재검증 — 2026-11-20 (원본 재수집 없음)
+
+- 공개 웹 진단 실행 [#44514404481](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/44514404481)의 4개 작업이 성공했으며, UI/부트스트랩/공개 JS 아티팩트 3개가 보존되어 있다. **작업 성공은 계약 데이터 수집 성공이 아니다.**
+- UI 작업의 `PUBLIC_WEB_EVIDENCE_ONLY` 감사 결과: 나라장터 읽기 전용 응답 1개, 데이터허브 15개, 쇼핑몰 4개, 총 20개 원본 응답 파일의 바이트 재해시 검증 통과. 세 사이트 모두 `verified_list_records=0`, `verified_detail_records=0`, `verified_page_transitions=0`, `verified_join_rows=0`, `status=NOT_VERIFIED`. 테스트 3+11+5+19=38개 통과. **초기 화면/메타데이터 응답은 계약 목록·상세·페이징으로 간주하지 않는다.**
+- 부트스트랩 작업은 나라장터, 데이터허브 첫 화면, 112R, 113R, 쇼핑몰 다섯 대상을 모두 `NOT_VERIFIED`로 분류. 각 대상에서 초기 HTTP 200, 빈 DOM, WebSquare 로드 및 OIDC 302 두 건이 관측되었으나, 이 별도 부트스트랩 시험의 `observed_post_count=0`을 UI 작업의 20개 POST와 혼동하지 않는다. SSO 302만으로 공개 조회 전체가 로그인 필수라고 단정하지 않는다.
+- 선택 복구 [#43868699164](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/43868699164) 원본 로그: 169번 5,000건 중 `verified_complete=3385`, `no_opening_data=1512`, `no_bidder_rows_unverified=103`, `verified_bidder_rows=331902`, `complete=false`. 보존된 복구 ZIP 41,473,929바이트의 기록 SHA256은 `a6c35cd037bb84d6b32261a73b1694bda8d402bc0eb3047ff4b4767315f4553d`. 당시 `new_shards_remaining=3`; 이는 170~172번의 현재 상태를 입증하지 않는다.
+- `HTTP 200 + result.successBidInfo=[]`를 확정 무응찰 0건으로 재분류하지 않는다. 실제 `result.bidInfo`·`result.etcData` 상태 및 공식 낙찰·계약 원본을 개별 검증해야 한다.
+- 다음 실증 게이트: 공개 계약조회·112R/113R·쇼핑몰 각각에서 **실제 공개 목록 1건 → 공식 상세 1건 → 페이지 전환 1회**를 HTTP 메서드/원본 URL/응답 바이트 SHA256과 함께 재현하고, 공고차수·분류·집행차수·계약차수·업체 공식키 JOIN을 검증할 것. 공개 접근 불가면 차단 증빙만 보존하고 임의 인증 우회·대량 수집 금지.
+- 기존 공고 930,379건, 187쌍 원본 Release, 운영/복구 워크플로, self-hosted PC Runner는 변경하지 않았다. 이 문서 갱신은 **실데이터 적재 또는 전체 완료를 의미하지 않는다.**
