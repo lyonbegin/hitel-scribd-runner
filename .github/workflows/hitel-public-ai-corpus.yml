@@ -123,13 +123,48 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
               f.write(f"verified={len(rows)}\n")
           PY
-      - name: Resume 1001-1020 after verified corrected Chrome worker startup
+      - name: Use corrected Web2API worker only after its actual Chrome session is connected
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # The previous Chrome session is still serving other work. Do not
+          # cancel or replace it. Do not send this corpus to the stale vendor.
+          # The latest vendor-patch worker was already queued by procureflow.
+          while true; do
+            run_state="$(gh api repos/lyonbegin/procureflow/actions/runs/44798708561 --jq '.status')"
+            if [[ "$run_state" == "completed" ]]; then
+              echo "CORRECTED_WEB2API_WORKER_ENDED_WITHOUT_ACTIVE_SESSION"
+              exit 2
+            fi
+            active_step="$(gh api repos/lyonbegin/procureflow/actions/runs/44798708561/jobs --jq '[.jobs[].steps[]? | select(.name == "Keep connected worker running for the selected session") | .status] | first // ""')"
+            if [[ "$run_state" == "in_progress" && "$active_step" == "in_progress" ]]; then
+              if python3 - <<'PY'
+          import json,urllib.request
+          url="https://hitel-integration-api-production.up.railway.app/integrations/v1/public/status"
+          with urllib.request.urlopen(url,timeout=15) as response:
+              status=json.load(response)
+          required=("worker_connected","worker_heartbeat_recent",
+                    "worker_bootstrap_ready","worker_available_for_new_job")
+          if not all(status.get(x) is True for x in required):
+              raise SystemExit("REPAIRED_WORKER_NOT_READY_YET")
+          print("CONFIRMED_CORRECTED_CHROME_WORKER_LIVE",flush=True)
+          PY
+              then
+                break
+              fi
+            fi
+            echo "WAIT_CORRECTED_CHROME_WORKER_NO_CHAT_SENT run=$run_state step=$active_step"
+            sleep 15
+          done
+      - name: Restart 1101-1120 from audited stalled upstream job
         id: classify
         # The old HTTP 500 uncertainty and the subsequent exact pre-send
         # ROOM_TAB_CAPACITY_EXCEEDED job are archived independently.
         # Reuse no failed room; trust only API reply.done with source ID checks.
         env:
-          HITEL_EXPLICIT_RESTART_FAILED_KEY: "01001-01020"
+          HITEL_EXPLICIT_RESTART_FAILED_KEY: "01101-01120"
         shell: bash
         run: |
           set -euo pipefail
