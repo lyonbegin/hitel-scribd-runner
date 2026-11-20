@@ -9,7 +9,7 @@ Do not impose a classification timeout: the API owns terminal job status.
 A verified batch is recorded only after reply.done and source ID validation.
 """
 from __future__ import annotations
-import argparse,csv,hashlib,json,subprocess,sys
+import argparse,csv,hashlib,json,os,subprocess,sys
 from pathlib import Path
 from urllib.request import urlopen
 from hitel_public_named_rooms_corpus import title_prompt,validated_rows,output_file,save
@@ -19,9 +19,87 @@ REQUIRED_INITIAL=340
 FRESH_ROOM_PREFIX="HITEL-SCRIBD-18109-CLEAN-20261121-"
 PUBLIC_API="https://hitel-integration-api-production.up.railway.app/integrations/v1/public"
 
+# A single operator-authorized recovery of the interrupted 1001-1020 window.
+# The previous remote job is stalled, but ChatGPT delivery is not proven absent.
+# Preserve its audit without classifying it completed or hiding duplicate risk.
+FAILED_KEY="01001-01020"
+FAILED_JOB="job_5f672c582a9d4610be76fb281580dc92"
+FAILED_ERROR="WEB2API_ADAPTER_HTTP_500_UPSTREAM_RATE_LIMITED"
+FAILED_ROOM=FRESH_ROOM_PREFIX+FAILED_KEY
+RECOVERY_ROOM="HITEL-SCRIBD-18109-EXPLICIT-RESTART-20261121-"+FAILED_KEY
+
 def fresh_room_name(key):
-    """Each batch gets its own never-reused public room and client checkpoint."""
-    return FRESH_ROOM_PREFIX+key
+    """New recovery room only for the explicitly failed window; otherwise one room per batch."""
+    return RECOVERY_ROOM if key==FAILED_KEY else FRESH_ROOM_PREFIX+key
+
+
+def archive_failed_window_before_restart(out,key,digest,expected_ids):
+    """One authorized new send after confirming exact old job is stalled.
+
+    A 500 upstream response means delivery is *uncertain*, not absent.
+    Audit the original job and retain all verified rows. Never automatically
+    retry another uncertain job or a currently active/answered job.
+    """
+    if os.environ.get("HITEL_EXPLICIT_RESTART_FAILED_KEY","").strip()!=FAILED_KEY:
+        return
+    if key!=FAILED_KEY:
+        return
+    ws=out/"ws"
+    statefile=ws/(key+".json")
+    active=ws/"active_batch.json"
+    if not statefile.exists():
+        # Already restarted or checkpoint was externally tampered with:
+        # do not silently invent a request to cover missing evidence.
+        if (ws/"restart_audit"/(key+"-"+FAILED_JOB+".json")).exists():
+            return
+        raise ValueError("ORIGINAL_FAILED_JOB_STATE_MISSING_REFUSE_RESTART")
+    state=json.loads(statefile.read_text(encoding="utf-8"))
+    audit=ws/"restart_audit"/(key+"-"+FAILED_JOB+".json")
+    if state.get("room_name")==RECOVERY_ROOM:
+        if not audit.exists():
+            raise ValueError("RECOVERY_STATE_WITHOUT_AUDIT")
+        return
+    if not active.exists():
+        raise ValueError("FAILED_ACTIVE_BATCH_CHECKPOINT_MISSING")
+    target=json.loads(active.read_text(encoding="utf-8"))
+    if (target.get("key")!=key or target.get("prompt_sha256")!=digest
+        or target.get("source_ids")!=expected_ids
+        or state.get("room_name")!=FAILED_ROOM
+        or state.get("job_id")!=FAILED_JOB
+        or state.get("status")!="unverified"
+        or state.get("error_code")!=FAILED_ERROR
+        or state.get("text_sha256")!=digest):
+        raise ValueError("FAILED_WINDOW_CHECKPOINT_MISMATCH_REFUSE_RESTART")
+    with urlopen(PUBLIC_API+"/jobs/"+FAILED_JOB,timeout=15) as response:
+        remote=json.load(response)
+    if any(remote.get(k)!=state.get(k) for k in
+           ("job_id","request_id","room_id")):
+        raise ValueError("FAILED_WINDOW_REMOTE_SCOPE_MISMATCH")
+    if (remote.get("status")!="stalled"
+        or remote.get("error_code")!=FAILED_ERROR
+        or remote.get("result_ready") is not False
+        or remote.get("assistant_reply_observed") is True
+        or remote.get("chatgpt_send_confirmed") is True):
+        raise ValueError("FAILED_WINDOW_NOT_STALLED_OR_MAY_HAVE_REPLY")
+    record={"key":key,"prompt_sha256":digest,"source_ids":expected_ids,
+            "old_active":target,"old_client_state":state,
+            "old_remote_snapshot":{k:remote.get(k) for k in
+                ("job_id","request_id","room_id","status","stage","error_code",
+                 "result_ready","assistant_reply_observed","chatgpt_send_confirmed")},
+            "authorized_explicit_restart":True,
+            "old_result_verified":False,
+            "possible_previous_delivery":True,
+            "original_job_replayed":False}
+    if audit.exists():
+        if json.loads(audit.read_text(encoding="utf-8"))!=record:
+            raise ValueError("RESTART_AUDIT_CONFLICT_REFUSE_OVERWRITE")
+    else:
+        save(audit,record)
+    # Save first; then clear only the old *active* pointer, not completed rows.
+    statefile.unlink()
+    active.unlink()
+    print("EXPLICIT_STALLED_WINDOW_ARCHIVED_NEW_ROOM",key,
+          "OLD_JOB",FAILED_JOB,"POSSIBLE_OLD_DELIVERY_AUDITED",flush=True)
 
 def check_worker_ready():
     """Read the live API's own worker availability before making a new send."""
@@ -105,6 +183,7 @@ def run_one(rows,out,client):
     digest=hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     if len(prompt)>24000:raise ValueError("PROMPT_EXCEEDS_SAFE_LENGTH")
     wsdir=out/"ws";wsdir.mkdir(parents=True,exist_ok=True)
+    archive_failed_window_before_restart(out,key,digest,expected_ids)
     active=wsdir/"active_batch.json"
     statefile=wsdir/(key+".json")
     chosen_room=fresh_room_name(key)
