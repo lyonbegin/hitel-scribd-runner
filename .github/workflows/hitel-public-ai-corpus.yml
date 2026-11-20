@@ -1,9 +1,9 @@
-name: HITEL Scribd 18109 recovery - verified-only persistent WebSocket
+name: HITEL Scribd 18109 - native Web2API completion verified
 # Source of truth: proc uref main docs/HITEL_WEB2API_CONTINUE.md.
 # Keep 340 previously verified records. Never mark an AI or transport failure as processed.
 # Missing or uncertain replies are never implicitly reposted.
-# After the user-approved clean restart, archive and retire the old pending
-# 361-380 client state, use one never-reused room per 20-title batch.
+# Each 20-title batch binds a fresh room and follows API job.progress to
+# reply.done / reply.unverified. No artificial per-request 600s cutoff.
 on:
   push:
     branches: [main]
@@ -29,7 +29,9 @@ concurrency:
 jobs:
   ai:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # GitHub host safety bound above the API server's own 15000s observer
+    # and the 240-minute Chrome worker session, not a 10-minute model timeout.
+    timeout-minutes: 300
     steps:
       - name: Checkout original Scribd corpus and recovery runner
         uses: actions/checkout@v4
@@ -45,7 +47,7 @@ jobs:
         run: |
           python3 -m pip install -q websockets==13.1
           python3 -m py_compile tools/zocbo/hitel_scribd_ws_continue.py hitel-client/tools/hitel_chat.py
-      - name: Offline regression - one terminal-stalled request only
+      - name: Offline regression - native Web2API send resume verified result
         shell: bash
         run: |
           python3 tools/zocbo/test_hitel_scribd_ws_stalled_retry.py
@@ -121,13 +123,11 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
               f.write(f"verified={len(rows)}\n")
           PY
-      - name: Fresh-start one isolated 20-title batch after live API preflight
+      - name: Await native API terminal reply for one isolated 20-title batch
         id: classify
-        # Explicitly authorized: retire only stale 361-380 transient client state.
-        # Keep all 420 independently verified completed rows and source mappings.
-        # Each batch uses its own new room and request checkpoint; no old room reuse.
-        env:
-          HITEL_RESET_STUCK_BATCH: 00361-00380
+        # No user-invented completion deadline; API emits reply.done or
+        # reply.unverified. Local request_id survives reconnect and resume.
+        # Save completed records only after native SHA-256 verified reply.
         shell: bash
         run: |
           set -euo pipefail
