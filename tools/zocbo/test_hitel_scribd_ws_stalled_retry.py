@@ -294,5 +294,82 @@ class CapacityRejectionRecoveryTests(unittest.TestCase):
             self.assertTrue(verified.exists())
 
 
+class Stalled1101RestartTests(unittest.TestCase):
+    KEY=runner.RETRY_1101_KEY
+    DIGEST="d"*64
+    IDS=[{"no":i,"id":str(i)} for i in range(1101,1121)]
+
+    def fixture(self,path):
+        root=Path(path)
+        active=root/"ws"/"active_batch.json"
+        statefile=root/"ws"/(self.KEY+".json")
+        state={"room_name":runner.RETRY_1101_OLD_ROOM,
+               "room_id":"room_"+"b"*32,
+               "request_id":"hitel-client-"+"c"*32,
+               "job_id":runner.RETRY_1101_JOB,"status":"unverified",
+               "error_code":runner.RETRY_1101_ERROR,
+               "text_sha256":self.DIGEST}
+        runner.save(statefile,state)
+        runner.save(active,{"key":self.KEY,"prompt_sha256":self.DIGEST,
+                           "source_ids":self.IDS})
+        kept=root/"completed"/"01081-01100.json"
+        runner.save(kept,{"rows":[{"no":1100,"id":"retained"}]})
+        remote={"job_id":state["job_id"],"request_id":state["request_id"],
+                "room_id":state["room_id"],"status":"stalled",
+                "error_code":runner.RETRY_1101_ERROR,"result_ready":False,
+                "chatgpt_send_confirmed":None,"assistant_reply_observed":None}
+        return root,active,statefile,kept,remote
+
+    def test_stalled_1101_restart_preserves_verified_and_audits_uncertainty(self):
+        with tempfile.TemporaryDirectory() as d:
+            root,active,statefile,kept,remote=self.fixture(d)
+            with patch.dict("os.environ",{"HITEL_EXPLICIT_RESTART_FAILED_KEY":self.KEY}):
+                with patch.object(runner,"urlopen",
+                    return_value=io.BytesIO(json.dumps(remote).encode())):
+                    runner.archive_stalled_1101_before_authorized_restart(
+                        root,self.KEY,self.DIGEST,self.IDS)
+            self.assertFalse(active.exists())
+            self.assertFalse(statefile.exists())
+            self.assertTrue(kept.exists())
+            audit=root/"ws"/"restart_audit"/(self.KEY+"-"+runner.RETRY_1101_JOB+".json")
+            saved=json.loads(audit.read_text())
+            self.assertTrue(saved["possible_prior_delivery"])
+            self.assertFalse(saved["original_result_verified"])
+            self.assertEqual(runner.fresh_room_name(self.KEY),runner.RETRY_1101_NEW_ROOM)
+
+    def test_stalled_1101_refuses_unconfirmed_previous_delivery(self):
+        for key,value in (("status","running"),("result_ready",True),
+                         ("chatgpt_send_confirmed",True),
+                         ("assistant_reply_observed",True)):
+            with self.subTest(key=key),tempfile.TemporaryDirectory() as d:
+                root,active,statefile,kept,remote=self.fixture(d)
+                remote[key]=value
+                with patch.dict("os.environ",{"HITEL_EXPLICIT_RESTART_FAILED_KEY":self.KEY}):
+                    with patch.object(runner,"urlopen",
+                        return_value=io.BytesIO(json.dumps(remote).encode())):
+                        with self.assertRaisesRegex(ValueError,"NOT_SAFE_TO_RESTART"):
+                            runner.archive_stalled_1101_before_authorized_restart(
+                                root,self.KEY,self.DIGEST,self.IDS)
+                self.assertTrue(active.exists())
+                self.assertTrue(kept.exists())
+
+    def test_stalled_1101_requires_explicit_key_and_exact_checkpoint(self):
+        with tempfile.TemporaryDirectory() as d:
+            root,active,statefile,kept,remote=self.fixture(d)
+            with patch.dict("os.environ",{"HITEL_EXPLICIT_RESTART_FAILED_KEY":""}):
+                with patch.object(runner,"urlopen") as call:
+                    runner.archive_stalled_1101_before_authorized_restart(
+                        root,self.KEY,self.DIGEST,self.IDS)
+                call.assert_not_called()
+            with patch.dict("os.environ",{"HITEL_EXPLICIT_RESTART_FAILED_KEY":self.KEY}):
+                with patch.object(runner,"urlopen") as call:
+                    with self.assertRaisesRegex(ValueError,"SCOPE_MISMATCH"):
+                        runner.archive_stalled_1101_before_authorized_restart(
+                            root,self.KEY,"changed",self.IDS)
+                call.assert_not_called()
+            self.assertTrue(statefile.exists())
+            self.assertTrue(kept.exists())
+
+
 if __name__=="__main__":
     unittest.main()
