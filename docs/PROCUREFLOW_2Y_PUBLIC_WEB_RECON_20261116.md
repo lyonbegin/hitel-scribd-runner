@@ -81,3 +81,13 @@
 - `HTTP 200 + result.successBidInfo=[]`를 확정 무응찰 0건으로 재분류하지 않는다. 실제 `result.bidInfo`·`result.etcData` 상태 및 공식 낙찰·계약 원본을 개별 검증해야 한다.
 - 다음 실증 게이트: 공개 계약조회·112R/113R·쇼핑몰 각각에서 **실제 공개 목록 1건 → 공식 상세 1건 → 페이지 전환 1회**를 HTTP 메서드/원본 URL/응답 바이트 SHA256과 함께 재현하고, 공고차수·분류·집행차수·계약차수·업체 공식키 JOIN을 검증할 것. 공개 접근 불가면 차단 증빙만 보존하고 임의 인증 우회·대량 수집 금지.
 - 기존 공고 930,379건, 187쌍 원본 Release, 운영/복구 워크플로, self-hosted PC Runner는 변경하지 않았다. 이 문서 갱신은 **실데이터 적재 또는 전체 완료를 의미하지 않는다.**
+
+## 2026-11-21 원본 작업 로그 교차검증 — 클라이언트 차단과 서버 거절 분리
+
+- GitHub-hosted 공개 웹 실행 [#44793063465](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/44793063465)의 `inspect-public-g2b` 작업 로그에서 HTTP 원본 응답 **23개**(g2b 1, data 15, shop 7)의 바이트 재해시를 통과했다. 단위시험 3+5+11+6+19=44개가 통과했다. 그러나 각 사이트 `verified_list_records=0`, `verified_detail_records=0`, `verified_page_transitions=0`, `verified_join_rows=0`, 전체 `complete=false`다.
+- 같은 실행의 `diagnose-websquare-bootstrap` 작업에서 **나라장터 초기화 요청 2건은 실제 서버 HTTP 거절이 아니라 클라이언트 안전 가드에 의해 차단**되었다(`failed_post_count=2`, `confirmed_client_guard_post_count=2`, `ambiguous_post_failure_count=0`, `observed_post_count=0`). 이를 '나라장터가 POST를 거절함' 또는 '계약 공개 조회가 불가능함'이라고 해석하지 않는다. 클라이언트 차단으로 실제 응답 상태코드가 존재하지 않으므로 200/403 등으로 임의 기재하지 않는다.
+- 같은 부트스트랩 실행에서 데이터허브 첫 화면·112R·113R·쇼핑몰은 각각 `observed_post_count=0`, `dom_empty=true`, `oidc_302_count=2`, `verified_data_rows=0`였다. 나라장터는 `dom_empty=false`이나 계약 목록·상세·페이징은 미확보였다. 이는 사이트별 화면 상태를 동일하게 취급해서는 안 된다는 근거다.
+- 선택 복구 [#43868699164](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/43868699164)의 실제 작업 로그에서 169번 샤드 `processed=5000`, `verified_complete=3385`, `no_opening_data=1512`, `no_bidder_rows_unverified=103`, `complete=false`, `new_shards_remaining=3`를 재확인했다. 후속 샤드 완료 여부는 별도 증빙 없이는 판단하지 않는다.
+- **다음 코드 검증의 우선순위:** 차단된 초기화 POST의 메서드·경로·호출 스택·안전 가드 차단 사유를 공개 정적 자산 및 진단 로그로 구분한다. 계약·보고서·쇼핑몰의 실제 조회 요청으로 식별되기 전에는 가드를 해제하거나 임의 POST를 재생하지 않는다. 공식 공개 조회임이 확인된 경우에만 제한된 읽기 전용 시험에서 응답 원본·SHA256·목록/상세/페이징을 검증한다. 기존 공고 930,379건·187쌍 Release·운영/복구 워크플로·PC Runner는 변경하지 않는다.
+
+이 감사는 새 계약 실데이터 적재나 전수 완료를 의미하지 않는다.
