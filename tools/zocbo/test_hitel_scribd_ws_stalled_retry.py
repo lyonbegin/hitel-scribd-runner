@@ -132,5 +132,92 @@ class CurrentAPIContractTests(unittest.TestCase):
             self.assertTrue((out/"ws"/"active_batch.json").exists())
 
 
+class ExplicitInterruptedWindowRecoveryTests(unittest.TestCase):
+    KEY=runner.FAILED_KEY
+    JOB=runner.FAILED_JOB
+    PROMPT_DIGEST="f"*64
+    IDS=[{"no":i,"id":str(i)} for i in range(1001,1021)]
+
+    def make_state(self,dir):
+        out=Path(dir)
+        active=out/"ws"/"active_batch.json"
+        statefile=out/"ws"/(self.KEY+".json")
+        completed=out/"completed"/"00981-01000.json"
+        state={"room_name":runner.FAILED_ROOM,
+               "room_id":"room_"+"a"*32,
+               "request_id":"hitel-client-"+"b"*32,
+               "job_id":self.JOB,"status":"unverified",
+               "error_code":runner.FAILED_ERROR,
+               "text_sha256":self.PROMPT_DIGEST,
+               "seq":1}
+        runner.save(statefile,state)
+        runner.save(active,{"key":self.KEY,"prompt_sha256":self.PROMPT_DIGEST,
+                            "source_ids":self.IDS})
+        runner.save(completed,{"rows":[{"no":981,"id":"confirmed"}]})
+        remote={"job_id":self.JOB,"request_id":state["request_id"],
+                "room_id":state["room_id"],"status":"stalled",
+                "error_code":runner.FAILED_ERROR,"stage":"web2api_received",
+                "result_ready":False,"assistant_reply_observed":None,
+                "chatgpt_send_confirmed":None}
+        return out,statefile,active,completed,state,remote
+
+    def test_old_stalled_job_audited_before_fresh_room_and_completed_preserved(self):
+        with tempfile.TemporaryDirectory() as d:
+            out,statefile,active,completed,state,remote=self.make_state(d)
+            with patch.dict("os.environ",{"HITEL_EXPLICIT_RESTART_FAILED_KEY":self.KEY}):
+                with patch.object(runner,"urlopen",
+                        return_value=io.BytesIO(json.dumps(remote).encode())) as get:
+                    runner.archive_failed_window_before_restart(
+                        out,self.KEY,self.PROMPT_DIGEST,self.IDS)
+                get.assert_called_once()
+            self.assertFalse(statefile.exists())
+            self.assertFalse(active.exists())
+            self.assertTrue(completed.exists())
+            audit=json.loads((out/"ws"/"restart_audit"/(self.KEY+"-"+self.JOB+".json")).read_text())
+            self.assertEqual(audit["old_client_state"],state)
+            self.assertTrue(audit["possible_previous_delivery"])
+            self.assertFalse(audit["old_result_verified"])
+            self.assertNotEqual(runner.fresh_room_name(self.KEY),runner.FAILED_ROOM)
+
+    def test_never_restart_if_remote_reply_or_delivery_confirmed(self):
+        for key,value in (("result_ready",True),("assistant_reply_observed",True),
+                          ("chatgpt_send_confirmed",True),("status","running")):
+            with self.subTest(key=key),tempfile.TemporaryDirectory() as d:
+                out,statefile,active,completed,state,remote=self.make_state(d)
+                remote[key]=value
+                with patch.dict("os.environ",{"HITEL_EXPLICIT_RESTART_FAILED_KEY":self.KEY}):
+                    with patch.object(runner,"urlopen",
+                            return_value=io.BytesIO(json.dumps(remote).encode())):
+                        with self.assertRaisesRegex(ValueError,"NOT_STALLED_OR_MAY_HAVE_REPLY"):
+                            runner.archive_failed_window_before_restart(
+                                out,self.KEY,self.PROMPT_DIGEST,self.IDS)
+                self.assertTrue(statefile.exists())
+                self.assertTrue(active.exists())
+                self.assertTrue(completed.exists())
+
+    def test_no_restart_without_exact_explicit_authorization(self):
+        with tempfile.TemporaryDirectory() as d:
+            out,statefile,active,completed,state,remote=self.make_state(d)
+            with patch.dict("os.environ",{"HITEL_EXPLICIT_RESTART_FAILED_KEY":""}):
+                with patch.object(runner,"urlopen") as get:
+                    runner.archive_failed_window_before_restart(
+                        out,self.KEY,self.PROMPT_DIGEST,self.IDS)
+                get.assert_not_called()
+            self.assertTrue(statefile.exists())
+            self.assertTrue(active.exists())
+
+    def test_reject_changed_source_mapping_or_digest(self):
+        with tempfile.TemporaryDirectory() as d:
+            out,statefile,active,completed,state,remote=self.make_state(d)
+            with patch.dict("os.environ",{"HITEL_EXPLICIT_RESTART_FAILED_KEY":self.KEY}):
+                with patch.object(runner,"urlopen") as get:
+                    with self.assertRaisesRegex(ValueError,"CHECKPOINT_MISMATCH"):
+                        runner.archive_failed_window_before_restart(
+                            out,self.KEY,"changed-digest",self.IDS)
+                get.assert_not_called()
+            self.assertTrue(completed.exists())
+            self.assertTrue(statefile.exists())
+
+
 if __name__=="__main__":
     unittest.main()
