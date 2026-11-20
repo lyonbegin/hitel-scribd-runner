@@ -42,6 +42,13 @@ def classify(status: int, raw: bytes) -> dict:
         result["reason"] = "EMPTY_SUCCESS_BID_INFO_REQUIRES_OFFICIAL_OPENING_STATE"
         result["bidInfo_present"] = "bidInfo" in body
         result["etcData_present"] = "etcData" in body
+        # Preserve the original application-level opening context without
+        # interpreting an empty bidder array as a verified no-bid event.
+        # Field types are diagnostic only; no bidder identities are copied.
+        result["bidInfo_type"] = type(body.get("bidInfo")).__name__ if "bidInfo" in body else "missing"
+        result["etcData_type"] = type(body.get("etcData")).__name__ if "etcData" in body else "missing"
+        result["application_success_root"] = doc.get("success") if isinstance(doc.get("success"), bool) else None
+        result["application_success_result"] = body.get("success") if isinstance(body.get("success"), bool) else None
     elif isinstance(bidders, list) and bidders:
         result["status"] = "bidder_rows_present_unverified"
         result["bidder_row_count"] = len(bidders)
