@@ -219,5 +219,80 @@ class ExplicitInterruptedWindowRecoveryTests(unittest.TestCase):
             self.assertTrue(statefile.exists())
 
 
+class CapacityRejectionRecoveryTests(unittest.TestCase):
+    KEY=runner.FAILED_KEY
+    DIGEST="f"*64
+    IDS=[{"no":i,"id":str(i)} for i in range(1001,1021)]
+
+    def make_state(self,dir):
+        out=Path(dir)
+        old=out/"ws"/"restart_audit"/(self.KEY+"-"+runner.FAILED_JOB+".json")
+        runner.save(old,{"original_job":"archived"})
+        statefile=out/"ws"/(self.KEY+".json")
+        active=out/"ws"/"active_batch.json"
+        verified=out/"completed"/"00981-01000.json"
+        state={"room_name":runner.RECOVERY_ROOM,
+               "room_id":"room_"+"a"*32,
+               "request_id":"hitel-client-"+"b"*32,
+               "job_id":runner.CAPACITY_JOB,"status":"unverified",
+               "error_code":"web2api_failed",
+               "text_sha256":self.DIGEST,"seq":1}
+        runner.save(statefile,state)
+        runner.save(active,{"key":self.KEY,"prompt_sha256":self.DIGEST,
+                            "source_ids":self.IDS})
+        runner.save(verified,{"rows":[{"no":981,"id":"verified"}]})
+        remote={"job_id":runner.CAPACITY_JOB,"request_id":state["request_id"],
+                "room_id":state["room_id"],"status":"failed",
+                "stage":"web2api_failed","error":runner.CAPACITY_ERROR,
+                "result_ready":False,"assistant_reply_observed":None,
+                "chatgpt_send_confirmed":None}
+        return out,statefile,active,verified,state,remote
+
+    def test_exact_capacity_failure_archived_and_only_new_room_used(self):
+        with tempfile.TemporaryDirectory() as d:
+            out,statefile,active,verified,state,remote=self.make_state(d)
+            with patch.dict("os.environ",{"HITEL_EXPLICIT_RESTART_FAILED_KEY":self.KEY}):
+                with patch.object(runner,"urlopen",
+                        return_value=io.BytesIO(json.dumps(remote).encode())) as get:
+                    runner.archive_failed_window_before_restart(out,self.KEY,
+                                                                self.DIGEST,self.IDS)
+                get.assert_called_once()
+            self.assertTrue(verified.exists())
+            self.assertFalse(statefile.exists())
+            self.assertFalse(active.exists())
+            self.assertNotEqual(runner.fresh_room_name(self.KEY),runner.RECOVERY_ROOM)
+            audit=json.loads((out/"ws"/"restart_audit"/
+                              (self.KEY+"-"+runner.CAPACITY_JOB+".json")).read_text())
+            self.assertTrue(audit["capacity_rejected_before_send"])
+            self.assertFalse(audit["counted_as_completed"])
+
+    def test_rejects_any_uncertain_capacity_delivery_or_wrong_cause(self):
+        for field,value in (("status","running"),("error","OTHER_ERROR"),
+                            ("result_ready",True),("chatgpt_send_confirmed",True),
+                            ("assistant_reply_observed",True)):
+            with self.subTest(field=field),tempfile.TemporaryDirectory() as d:
+                out,statefile,active,verified,state,remote=self.make_state(d)
+                remote[field]=value
+                with patch.dict("os.environ",{"HITEL_EXPLICIT_RESTART_FAILED_KEY":self.KEY}):
+                    with patch.object(runner,"urlopen",
+                            return_value=io.BytesIO(json.dumps(remote).encode())):
+                        with self.assertRaisesRegex(ValueError,"CAPACITY_FAILURE_NOT_CONFIRMED_SAFE"):
+                            runner.archive_failed_window_before_restart(out,self.KEY,
+                                                                        self.DIGEST,self.IDS)
+                self.assertTrue(statefile.exists())
+                self.assertTrue(verified.exists())
+
+    def test_refuses_missing_original_audit(self):
+        with tempfile.TemporaryDirectory() as d:
+            out,statefile,active,verified,state,remote=self.make_state(d)
+            (out/"ws"/"restart_audit"/(self.KEY+"-"+runner.FAILED_JOB+".json")).unlink()
+            with patch.dict("os.environ",{"HITEL_EXPLICIT_RESTART_FAILED_KEY":self.KEY}):
+                with self.assertRaisesRegex(ValueError,"ORIGINAL_STALLED_AUDIT_MISSING"):
+                    runner.archive_failed_window_before_restart(out,self.KEY,
+                                                                self.DIGEST,self.IDS)
+            self.assertTrue(statefile.exists())
+            self.assertTrue(verified.exists())
+
+
 if __name__=="__main__":
     unittest.main()
