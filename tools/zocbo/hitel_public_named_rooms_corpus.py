@@ -245,6 +245,15 @@ def execute_one(batch,room_id,folder,seconds):
             save(folder/"errors"/(key+".json"),{"type":"job_room_mismatch","response":status,"checkpoint":state})
             return key,"JOB_ROOM_ID_MISMATCH"
         current=status.get("status")
+        if current in ("stalled","unknown"):
+            # The server has already declared the historic request not
+            # deliverable. Never re-send it (it might have rendered in ChatGPT).
+            # Record the exact original server job and move forward.
+            save(folder/"errors"/(key+".json"),
+                 {"type":"terminal_unverified_job","response":status,
+                  "checkpoint":state,"retry_performed":False})
+            print("TERMINAL_UNVERIFIED_NO_RESEND_NEXT_BATCH",key,current,flush=True)
+            return key,"STALLED_NO_AUTO_RESEND"
         if current=="completed":
             try:parsed=validated_rows(status.get("result_text"),batch)
             except Exception as err:
@@ -472,7 +481,8 @@ def work_group(block,batches,out,poll,recover_failed):
             # Fail OPEN for the queue, CLOSED for data validity. Never claim
             # validation succeeded, never repeat the unresolved request.
             if status in ("INVALID_AI_ANSWER","FAILED_STOP_NO_AUTO_RESEND",
-                          "SUBMIT_ERROR","STILL_PENDING_SAVED_JOB",
+                          "STALLED_NO_AUTO_RESEND","SUBMIT_ERROR",
+                          "STILL_PENDING_SAVED_JOB",
                           "PROMPT_EXCEEDS_24000_CHARS"):
                 record_unverified(b,out,status)
                 STOP.clear()  # one worker only; release old batch's stop flag
