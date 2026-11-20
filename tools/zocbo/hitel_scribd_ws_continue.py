@@ -27,10 +27,65 @@ FAILED_JOB="job_5f672c582a9d4610be76fb281580dc92"
 FAILED_ERROR="WEB2API_ADAPTER_HTTP_500_UPSTREAM_RATE_LIMITED"
 FAILED_ROOM=FRESH_ROOM_PREFIX+FAILED_KEY
 RECOVERY_ROOM="HITEL-SCRIBD-18109-EXPLICIT-RESTART-20261121-"+FAILED_KEY
+CAPACITY_JOB="job_3e186fbd148c44c7b13bb9e6f88d3550"
+CAPACITY_ROOM="HITEL-SCRIBD-18109-POST-CAPACITY-FIX-20261121-"+FAILED_KEY
+CAPACITY_ERROR="ROOM_TAB_CAPACITY_EXCEEDED"
 
 def fresh_room_name(key):
-    """New recovery room only for the explicitly failed window; otherwise one room per batch."""
-    return RECOVERY_ROOM if key==FAILED_KEY else FRESH_ROOM_PREFIX+key
+    """Route the one authorized capacity repair to its new public room."""
+    return CAPACITY_ROOM if key==FAILED_KEY else FRESH_ROOM_PREFIX+key
+
+def archive_confirmed_capacity_failure(out,key,digest,expected_ids,state,active):
+    """Capacity rejection occurred before a ChatGPT send. Verify remote first.
+
+    Unlike the original HTTP 500, a room-slot capacity rejection can be
+    classified by the server as failed. We still audit the exact job and
+    refuse to mark any of its source IDs as completed.
+    """
+    ws=out/"ws"
+    old_audit=ws/"restart_audit"/(key+"-"+FAILED_JOB+".json")
+    audit=ws/"restart_audit"/(key+"-"+CAPACITY_JOB+".json")
+    if not old_audit.exists():
+        raise ValueError("ORIGINAL_STALLED_AUDIT_MISSING")
+    if not active.exists():
+        raise ValueError("CAPACITY_FAILURE_ACTIVE_MARKER_MISSING")
+    target=json.loads(active.read_text(encoding="utf-8"))
+    if (target.get("key")!=key or target.get("prompt_sha256")!=digest
+        or target.get("source_ids")!=expected_ids
+        or state.get("room_name")!=RECOVERY_ROOM
+        or state.get("job_id")!=CAPACITY_JOB
+        or state.get("status")!="unverified"
+        or state.get("error_code")!="web2api_failed"
+        or state.get("text_sha256")!=digest):
+        raise ValueError("CAPACITY_FAILURE_CHECKPOINT_MISMATCH")
+    with urlopen(PUBLIC_API+"/jobs/"+CAPACITY_JOB,timeout=15) as response:
+        remote=json.load(response)
+    if any(remote.get(k)!=state.get(k) for k in ("job_id","request_id","room_id")):
+        raise ValueError("CAPACITY_FAILURE_REMOTE_SCOPE_MISMATCH")
+    if (remote.get("status")!="failed"
+        or remote.get("stage")!="web2api_failed"
+        or remote.get("error")!=CAPACITY_ERROR
+        or remote.get("result_ready") is not False
+        or remote.get("assistant_reply_observed") is True
+        or remote.get("chatgpt_send_confirmed") is True):
+        raise ValueError("CAPACITY_FAILURE_NOT_CONFIRMED_SAFE")
+    record={"key":key,"prompt_sha256":digest,"source_ids":expected_ids,
+            "old_active":target,"old_client_state":state,
+            "old_remote_snapshot":{k:remote.get(k) for k in
+                ("job_id","request_id","room_id","status","stage","error",
+                 "error_code","result_ready","assistant_reply_observed",
+                 "chatgpt_send_confirmed")},
+            "authorized_explicit_restart":True,"capacity_rejected_before_send":True,
+            "counted_as_completed":False}
+    if audit.exists():
+        if json.loads(audit.read_text(encoding="utf-8"))!=record:
+            raise ValueError("CAPACITY_RESTART_AUDIT_CONFLICT")
+    else:
+        save(audit,record)
+    (ws/(key+".json")).unlink()
+    active.unlink()
+    print("CAPACITY_FAILED_WINDOW_AUDITED_NEW_ROOM",key,
+          "OLD_JOB",CAPACITY_JOB,"VERIFIED_RESULTS_PRESERVED",flush=True)
 
 
 def archive_failed_window_before_restart(out,key,digest,expected_ids):
@@ -55,9 +110,12 @@ def archive_failed_window_before_restart(out,key,digest,expected_ids):
         raise ValueError("ORIGINAL_FAILED_JOB_STATE_MISSING_REFUSE_RESTART")
     state=json.loads(statefile.read_text(encoding="utf-8"))
     audit=ws/"restart_audit"/(key+"-"+FAILED_JOB+".json")
+    if state.get("room_name")==CAPACITY_ROOM:
+        if not audit.exists() or not (ws/"restart_audit"/(key+"-"+CAPACITY_JOB+".json")).exists():
+            raise ValueError("POST_CAPACITY_STATE_WITHOUT_BOTH_AUDITS")
+        return
     if state.get("room_name")==RECOVERY_ROOM:
-        if not audit.exists():
-            raise ValueError("RECOVERY_STATE_WITHOUT_AUDIT")
+        archive_confirmed_capacity_failure(out,key,digest,expected_ids,state,active)
         return
     if not active.exists():
         raise ValueError("FAILED_ACTIVE_BATCH_CHECKPOINT_MISSING")
