@@ -1,10 +1,7 @@
 name: HITEL 18109 AI classification - always advance; preserve unverified
 # User policy: 300-second AI response budget per 20-row batch; preserve skipped results and continue. Preserve skipped rows separately; NEVER count them as verified. No cron.
+# User-requested emergency stop 2026-11-20: no push trigger; dispatch remains inert.
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/hitel-public-ai-corpus.yml
   workflow_dispatch:
     inputs:
       mode:
@@ -24,6 +21,8 @@ concurrency:
 
 jobs:
   ai:
+    # HARD PAUSE: prevents queued/late manual dispatches from classifying or continuing.
+    if: ${{ false }}
     # 2026-11-19: verified real A/A/B/A v2 ChatGPT dialog, plus 40/40 verified actual Scribd title judgments.
     runs-on: ubuntu-latest
     timeout-minutes: 300
