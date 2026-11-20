@@ -1,7 +1,9 @@
 name: HITEL Scribd 18109 recovery - verified-only persistent WebSocket
 # Source of truth: proc uref main docs/HITEL_WEB2API_CONTINUE.md.
 # Keep 340 previously verified records. Never mark an AI or transport failure as processed.
-# Missing or uncertain replies must be resumed on the same saved request, not reposted.
+# Missing or uncertain replies are never implicitly reposted.
+# After a user-approved recovery with exact terminal proof, archive the old
+# stalled job and any server-rejected same-room attempt, then use a fresh room.
 on:
   push:
     branches: [main]
