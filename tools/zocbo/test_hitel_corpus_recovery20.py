@@ -15,6 +15,35 @@ import hitel_public_named_rooms_corpus as corpus
 
 
 class TestResume20(unittest.TestCase):
+    def test_old_621_640_stalled_job_never_resends(self):
+        import hashlib
+        batch=[{"번호":i,"문서 ID":str(810000+i),"원문 제목":f"교재 {i}"}
+               for i in range(621,641)]
+        with tempfile.TemporaryDirectory() as tmp:
+            out=Path(tmp)
+            room="room_"+"a"*32
+            job="job_"+"b"*32
+            digest=hashlib.sha256(corpus.title_prompt(batch).encode("utf-8")).hexdigest()[:20]
+            key="00621-00640"
+            corpus.save(out/"jobs"/(key+".json"),
+                {"digest":digest,"room_id":room,"job_id":job,"request_id":"scribd-test-saved"})
+            observed=[]
+            def fake_call(path,body=None):
+                observed.append((path,body))
+                self.assertTrue(path.endswith("/"+job))
+                self.assertIsNone(body)
+                return 200,{"job_id":job,"room_id":room,"status":"stalled",
+                    "stage":"connection_lost","result_text":None,
+                    "error_code":"WORKER_CONNECTION_LOST"}
+            with patch.object(corpus,"call",side_effect=fake_call):
+                answer=corpus.execute_one(batch,room,out,300)
+            self.assertEqual(answer,(key,"STALLED_NO_AUTO_RESEND"))
+            self.assertEqual(len(observed),1)
+            error=json.loads((out/"errors"/(key+".json")).read_text("utf-8"))
+            self.assertEqual(error["type"],"terminal_unverified_job")
+            self.assertFalse(error["retry_performed"])
+            self.assertFalse((out/"completed"/(key+".json")).exists())
+
     def fixture(self,root,server_stage="web2api_failed"):
         out=Path(root)
         old_room="room_"+"1"*32
