@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-"""Continue 18,109 Scribd title judgments using proc uref main tools/hitel_chat.py.
+"""Classify the original 18,109 Scribd titles against the current HITEL API.
 
-Preserve all 340 historically verified source IDs. Do NOT count skipped rows or
-retry ambiguous deliveries. Every send is bound to a durable WebSocket client
-state; any unresolved delivery is resumed, never resent.
+Use the checked-out proc ureflow main tools/hitel_chat.py protocol:
+room.open/bind, chat.send, job.accepted, job.progress, reply.chunk,
+reply.done (SHA-256 verified), job.resume (read-only), reply.unverified.
+
+Do not impose a classification timeout: the API owns terminal job status.
+A verified batch is recorded only after reply.done and source ID validation.
 """
 from __future__ import annotations
-import argparse,csv,hashlib,json,os,subprocess,sys
+import argparse,csv,hashlib,json,subprocess,sys
 from pathlib import Path
 from urllib.request import urlopen
 from hitel_public_named_rooms_corpus import title_prompt,validated_rows,output_file,save
 
-ROOM="HITEL-SCRIBD-18109-RECOVERY-WS-20261120"
-RECOVERY_ROOM=ROOM+"-R301-20261121"
 SOURCE_SHA="c9ac45f833dd30a002cffac64cb3ced763ed4eb18b0e121c4ab00b935a9b82e3"
 REQUIRED_INITIAL=340
 FRESH_ROOM_PREFIX="HITEL-SCRIBD-18109-CLEAN-20261121-"
@@ -22,103 +23,46 @@ def fresh_room_name(key):
     """Each batch gets its own never-reused public room and client checkpoint."""
     return FRESH_ROOM_PREFIX+key
 
-def retire_legacy_state_once(out,key):
-    """Explicit user-approved removal of old transient state, not verified results.
-
-    Move evidence out of the live lookup paths BEFORE dropping old room state.
-    Never send or resume the retired request; it remains auditable only.
-    """
-    if os.environ.get("HITEL_RESET_STUCK_BATCH","").strip()!=key:
-        return
-    ws=out/"ws"
-    legacy=ws/"scribd_room.json"
-    active=ws/"active_batch.json"
-    old_state=json.loads(legacy.read_text("utf-8")) if legacy.exists() else None
-    old_active=json.loads(active.read_text("utf-8")) if active.exists() else None
-    if old_active is not None and old_active.get("key")!=key:
-        raise ValueError("REFUSE_CLEANUP_OF_OTHER_ACTIVE_BATCH")
-    if old_state is None and old_active is None:
-        print("LEGACY_TRANSIENT_ALREADY_CLEARED",key,flush=True)
-        return
-    remote=None
-    if old_state and old_state.get("job_id"):
-        try:
-            with urlopen(PUBLIC_API+"/jobs/"+old_state["job_id"],timeout=12) as response:
-                r=json.load(response)
-            if any(r.get(x)!=old_state.get(x) for x in ("job_id","request_id","room_id")):
-                raise ValueError("LEGACY_REMOTE_JOB_SCOPE_MISMATCH")
-            remote={x:r.get(x) for x in
-                    ("job_id","request_id","room_id","status","stage","error_code",
-                     "result_ready","chatgpt_send_confirmed","assistant_reply_observed")}
-            print("OLD_UNVERIFIED_JOB_REMOTE",json.dumps(remote,ensure_ascii=False),
-                  flush=True)
-        except ValueError:
-            raise
-        except Exception as exc:
-            remote={"lookup_failed":type(exc).__name__}
-            print("OLD_JOB_REMOTE_LOOKUP_UNAVAILABLE",type(exc).__name__,flush=True)
-    audit=ws/"retired_state"/(key+".json")
-    saved={"batch_key":key,"old_active":old_active,"old_client_state":old_state,
-           "old_remote_read_only":remote,"counted_as_completed":False,
-           "manual_reset_authorized":True}
-    if audit.exists():
-        if json.loads(audit.read_text("utf-8"))!=saved:
-            raise ValueError("LEGACY_RESET_AUDIT_CONFLICT")
-    else:
-        save(audit,saved)
-    active.unlink(missing_ok=True)
-    legacy.unlink(missing_ok=True)
-    print("OLD_TRANSIENT_REMOVED_FRESH_ROOM_NEXT",key,
-          "VERIFIED_RESULTS_UNTOUCHED",flush=True)
-
 def check_worker_ready():
-    """Read-only live status. A running GitHub Action alone is insufficient."""
-    import time
-    last=None
-    for attempt in range(1,7):
-        try:
-            with urlopen(PUBLIC_API+"/status",timeout=12) as response:
-                status=json.load(response)
-            last={k:status.get(k) for k in
-                  ("worker_connected","worker_heartbeat_recent",
-                   "worker_bootstrap_ready","worker_available_for_new_job",
-                   "worker_busy","worker_active_jobs_count","worker_capacity")}
-            print("LIVE_WORKER_PREFLIGHT",attempt,
-                  json.dumps(last,ensure_ascii=False),flush=True)
-            if (last["worker_connected"] is True
-                and last["worker_heartbeat_recent"] is True
-                and last["worker_bootstrap_ready"] is True
-                and last["worker_available_for_new_job"] is True):
-                return
-        except Exception as exc:
-            print("LIVE_WORKER_PREFLIGHT_HTTP_ERROR",attempt,type(exc).__name__,
-                  str(exc)[:250],flush=True)
-        if attempt<6:
-            time.sleep(10)
-    raise RuntimeError("WORKER_NOT_READY_NO_NEW_REQUEST_SENT "+str(last))
+    """Read the live API's own worker availability before making a new send."""
+    with urlopen(PUBLIC_API+"/status",timeout=12) as response:
+        status=json.load(response)
+    fields=("worker_connected","worker_heartbeat_recent",
+            "worker_bootstrap_ready","worker_available_for_new_job",
+            "worker_busy","worker_active_jobs_count","worker_capacity")
+    snapshot={k:status.get(k) for k in fields}
+    print("LIVE_WORKER_PREFLIGHT",json.dumps(snapshot,ensure_ascii=False),flush=True)
+    if status.get("worker_available_for_new_job") is not True:
+        raise RuntimeError("API_WORKER_UNAVAILABLE_NO_QUESTION_SENT")
 
-def report_remote_after_timeout(statefile):
+
+def report_failed_api_job(statefile):
+    """Read remote status for diagnosis; never mutate or recreate the request."""
     if not statefile.exists():
-        print("WS_TIMEOUT_WITHOUT_PERSISTED_CLIENT_STATE",flush=True)
+        print("CLIENT_STATE_NOT_SAVED",flush=True)
         return
-    state=json.loads(statefile.read_text("utf-8"))
+    state=json.loads(statefile.read_text(encoding="utf-8"))
+    print("CLIENT_EXIT_STATE",json.dumps({k:state.get(k) for k in
+          ("room_name","status","job_id","error_code")},ensure_ascii=False),
+          flush=True)
     job_id=state.get("job_id")
-    print("WS_TIMEOUT_LOCAL_STATE",json.dumps({k:state.get(k) for k in
-          ("room_name","status","job_id","error_code")},ensure_ascii=False),flush=True)
-    if job_id:
-        try:
-            with urlopen(PUBLIC_API+"/jobs/"+job_id,timeout=12) as response:
-                remote=json.load(response)
-            if any(remote.get(x)!=state.get(x) for x in
-                   ("job_id","request_id","room_id")):
-                raise ValueError("TIMEOUT_REMOTE_SCOPE_MISMATCH")
-            print("WS_TIMEOUT_REMOTE_JOB",json.dumps({k:remote.get(k) for k in
-                  ("job_id","status","stage","error_code","result_ready",
-                   "chatgpt_send_confirmed","assistant_reply_observed")},
-                  ensure_ascii=False),flush=True)
-        except Exception as exc:
-            print("WS_TIMEOUT_REMOTE_QUERY_FAILED",type(exc).__name__,
-                  str(exc)[:250],flush=True)
+    if not job_id:
+        return
+    try:
+        with urlopen(PUBLIC_API+"/jobs/"+job_id,timeout=12) as response:
+            remote=json.load(response)
+        if any(remote.get(k)!=state.get(k) for k in
+               ("job_id","room_id","request_id")):
+            raise ValueError("API_JOB_SCOPE_MISMATCH")
+        print("API_JOB_TERMINAL_SNAPSHOT",json.dumps(
+            {k:remote.get(k) for k in
+             ("job_id","status","stage","error_code","result_ready",
+              "chatgpt_send_confirmed","assistant_reply_observed")},
+            ensure_ascii=False),flush=True)
+    except Exception as exc:
+        print("API_JOB_SNAPSHOT_UNAVAILABLE",type(exc).__name__,
+              str(exc)[:250],flush=True)
+
 
 def load_verified(rows,out):
     verified={}
@@ -148,99 +92,6 @@ def next_batch(rows,verified):
     return result
 
 
-def manually_retry_one_confirmed_stalled_job(out,key,statefile,room_state):
-    """One user-authorized retry. Archive original uncertainty; never mark it completed.
-
-    This is deliberately limited to one exact prior job ID supplied by the
-    workflow, not a general automatic retry of unverified deliveries.
-    """
-    allowed=os.environ.get("HITEL_EXPLICIT_RETRY_STALLED_JOB","").strip()
-    if not allowed or room_state.get("job_id")!=allowed:
-        return room_state
-    if (room_state.get("status")!="unverified"
-        or room_state.get("room_name")!=ROOM
-        or not room_state.get("request_id")
-        or not room_state.get("room_id")
-        or not isinstance(room_state.get("seq"),int)):
-        raise ValueError("EXPLICIT_STALLED_RETRY_CHECKPOINT_INVALID")
-    url=("https://hitel-integration-api-production.up.railway.app"
-         "/integrations/v1/public/jobs/"+allowed)
-    with urlopen(url,timeout=15) as response:
-        remote=json.load(response)
-    for field in ("job_id","request_id","room_id"):
-        if remote.get(field)!=room_state.get(field):
-            raise ValueError("EXPLICIT_STALLED_RETRY_REMOTE_SCOPE_MISMATCH_"+field)
-    if (remote.get("status")!="stalled"
-        or remote.get("error_code")!="WORKER_CONNECTION_LOST"
-        or remote.get("result_ready") is not False
-        or remote.get("assistant_reply_observed") is True
-        or remote.get("chatgpt_send_confirmed") is True):
-        raise ValueError("EXPLICIT_STALLED_RETRY_NOT_CONFIRMED_SAFE")
-    audit=out/"ws"/"stalled_history"/(key+"-"+allowed+".json")
-    prior={"batch_key":key,
-           "original_state":room_state,
-           "read_only_remote_snapshot":remote,
-           "operator_authorization":"manual_resume_after_api_fix_20261121",
-           "delivery_uncertainty":"ChatGPT send was not confirmed; duplicate possible",
-           "old_request_replayed":False,
-           "original_counted_verified":False}
-    if audit.exists():
-        existing=json.loads(audit.read_text(encoding="utf-8"))
-        if existing.get("original_state")!=room_state:
-            raise ValueError("EXPLICIT_STALLED_RETRY_AUDIT_CONFLICT")
-    else:
-        save(audit,prior)
-    # Terminal work may still reserve its old room. Open a new public room
-    # rather than ever attempting another chat.send against the stalled room.
-    clean={"room_name":RECOVERY_ROOM,"seq":0}
-    save(statefile,clean)
-    print("MANUAL_RETRY_TERMINAL_STALLED_NEW_ROOM",key,
-          "PRIOR_JOB",allowed,
-          "UNCERTAIN_PRIOR_DELIVERY_PRESERVED",flush=True)
-    return clean
-
-
-def rotate_rejected_conflict_to_new_room(out,key,statefile,room_state):
-    """Repair the failed same-room recovery attempt without retrying its send.
-
-    The API explicitly rejected that send with ROOM_OR_REQUEST_CONFLICT.
-    Require the archived terminal-stalled original job before changing rooms.
-    """
-    allowed=os.environ.get("HITEL_EXPLICIT_RETRY_STALLED_JOB","").strip()
-    if not allowed or room_state.get("status")!="rejected":
-        return room_state
-    if room_state.get("error_code")!="ROOM_OR_REQUEST_CONFLICT":
-        return room_state
-    if (room_state.get("room_name")!=ROOM
-        or not room_state.get("room_id")
-        or not room_state.get("request_id")
-        or not isinstance(room_state.get("seq"),int)):
-        raise ValueError("REJECTED_ROOM_ROTATION_CHECKPOINT_INVALID")
-    audit=out/"ws"/"stalled_history"/(key+"-"+allowed+".json")
-    if not audit.exists():
-        raise ValueError("REJECTED_ROOM_ROTATION_ORIGINAL_AUDIT_MISSING")
-    prior=json.loads(audit.read_text(encoding="utf-8"))
-    if (prior.get("original_state",{}).get("job_id")!=allowed
-        or prior.get("original_state",{}).get("room_id")!=room_state["room_id"]
-        or prior.get("original_counted_verified") is not False):
-        raise ValueError("REJECTED_ROOM_ROTATION_AUDIT_SCOPE_MISMATCH")
-    rejected_audit=out/"ws"/"rejected_history"/(key+"-"+room_state["request_id"]+".json")
-    if rejected_audit.exists():
-        saved=json.loads(rejected_audit.read_text(encoding="utf-8"))
-        if saved.get("rejected_state")!=room_state:
-            raise ValueError("REJECTED_ROOM_ROTATION_AUDIT_CONFLICT")
-    else:
-        save(rejected_audit,{"batch_key":key,"rejected_state":room_state,
-                             "prior_stalled_job":allowed,
-                             "rejection_confirmed":True,
-                             "counted_verified":False})
-    clean={"room_name":RECOVERY_ROOM,"seq":0}
-    save(statefile,clean)
-    print("ROTATE_CONFIRMED_CONFLICT_TO_NEW_ROOM",key,
-          "PRIOR_STALLED_JOB",allowed,
-          "REJECTED_ATTEMPT_ARCHIVED",flush=True)
-    return clean
-
 def run_one(rows,out,client):
     verified=load_verified(rows,out)
     batch=next_batch(rows,verified)
@@ -254,9 +105,6 @@ def run_one(rows,out,client):
     digest=hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     if len(prompt)>24000:raise ValueError("PROMPT_EXCEEDS_SAFE_LENGTH")
     wsdir=out/"ws";wsdir.mkdir(parents=True,exist_ok=True)
-    # The previous shared scribd_room.json was reused across several windows.
-    # Remove its stale 361-380 state only once, without touching completed rows.
-    retire_legacy_state_once(out,key)
     active=wsdir/"active_batch.json"
     statefile=wsdir/(key+".json")
     chosen_room=fresh_room_name(key)
@@ -274,8 +122,6 @@ def run_one(rows,out,client):
     room_state=json.loads(statefile.read_text(encoding="utf-8")) if statefile.exists() else {}
     if room_state.get("room_name") not in (None,chosen_room):
         raise ValueError("SAVED_WS_ROOM_NAME_CHANGED")
-    # Legacy stuck jobs are never silently replayed in the new batch-scoped client.
-    # A resumed request is allowed only within this exact new batch checkpoint.
     if room_state.get("status")=="completed" and active.exists() and room_state.get("text_sha256")==digest:
         # A previous job returned successfully but the GitHub runner exited
         # before the completed row JSON could be written.
@@ -296,18 +142,14 @@ def run_one(rows,out,client):
             command += ["--room",chosen_room,"--text",prompt]
             print("NEW_SINGLE_WS_REQUEST",key,"SOURCE_IDS",len(batch),
                   "ROOM",chosen_room,flush=True)
-        try:
-            run=subprocess.run(command,text=True,capture_output=True,timeout=600,check=False)
-        except subprocess.TimeoutExpired:
-            print("WS_PENDING_TIMEOUT_NOT_REPOSTED",key,flush=True)
-            report_remote_after_timeout(statefile)
-            return 2
+        # The documented client waits for API reply.done or reply.unverified.
+        # There is NO locally imposed wait duration. Client stderr streams
+        # job.progress live to Actions; stdout may contain private AI text.
+        run=subprocess.run(command,stdout=subprocess.DEVNULL,check=False)
         if run.returncode:
-            # No batch advances after any uncertain transport or JSON error.
-            # The documented client emits only safe transport diagnostics to stderr.
-            # Do not print its stdout: it may contain a full AI reply.
-            print("WS_CLIENT_FAILED_CHECK_SAVED_STATE",key,"returncode",run.returncode,
-                  "stderr_tail",run.stderr[-1200:],flush=True)
+            print("API_CLIENT_EXIT_WITHOUT_VERIFIED_REPLY",key,
+                  "returncode",run.returncode,flush=True)
+            report_failed_api_job(statefile)
             return 2
         room_state=json.loads(statefile.read_text(encoding="utf-8"))
         answer=room_state.get("answer")
