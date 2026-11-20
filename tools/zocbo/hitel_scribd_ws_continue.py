@@ -12,6 +12,7 @@ from urllib.request import urlopen
 from hitel_public_named_rooms_corpus import title_prompt,validated_rows,output_file,save
 
 ROOM="HITEL-SCRIBD-18109-RECOVERY-WS-20261120"
+RECOVERY_ROOM=ROOM+"-R301-20261121"
 SOURCE_SHA="c9ac45f833dd30a002cffac64cb3ced763ed4eb18b0e121c4ab00b935a9b82e3"
 REQUIRED_INITIAL=340
 
@@ -85,14 +86,55 @@ def manually_retry_one_confirmed_stalled_job(out,key,statefile,room_state):
             raise ValueError("EXPLICIT_STALLED_RETRY_AUDIT_CONFLICT")
     else:
         save(audit,prior)
-    # Retain room binding and increasing sequence. The HITEL client itself
-    # generates a fresh request_id; never overwrite original audit.
-    clean={"room_name":ROOM,"room_id":room_state["room_id"],
-           "seq":room_state["seq"]}
+    # Terminal work may still reserve its old room. Open a new public room
+    # rather than ever attempting another chat.send against the stalled room.
+    clean={"room_name":RECOVERY_ROOM,"seq":0}
     save(statefile,clean)
-    print("MANUAL_RETRY_TERMINAL_STALLED_ONLY",key,
+    print("MANUAL_RETRY_TERMINAL_STALLED_NEW_ROOM",key,
           "PRIOR_JOB",allowed,
           "UNCERTAIN_PRIOR_DELIVERY_PRESERVED",flush=True)
+    return clean
+
+
+def rotate_rejected_conflict_to_new_room(out,key,statefile,room_state):
+    """Repair the failed same-room recovery attempt without retrying its send.
+
+    The API explicitly rejected that send with ROOM_OR_REQUEST_CONFLICT.
+    Require the archived terminal-stalled original job before changing rooms.
+    """
+    allowed=os.environ.get("HITEL_EXPLICIT_RETRY_STALLED_JOB","").strip()
+    if not allowed or room_state.get("status")!="rejected":
+        return room_state
+    if room_state.get("error_code")!="ROOM_OR_REQUEST_CONFLICT":
+        return room_state
+    if (room_state.get("room_name")!=ROOM
+        or not room_state.get("room_id")
+        or not room_state.get("request_id")
+        or not isinstance(room_state.get("seq"),int)):
+        raise ValueError("REJECTED_ROOM_ROTATION_CHECKPOINT_INVALID")
+    audit=out/"ws"/"stalled_history"/(key+"-"+allowed+".json")
+    if not audit.exists():
+        raise ValueError("REJECTED_ROOM_ROTATION_ORIGINAL_AUDIT_MISSING")
+    prior=json.loads(audit.read_text(encoding="utf-8"))
+    if (prior.get("original_state",{}).get("job_id")!=allowed
+        or prior.get("original_state",{}).get("room_id")!=room_state["room_id"]
+        or prior.get("original_counted_verified") is not False):
+        raise ValueError("REJECTED_ROOM_ROTATION_AUDIT_SCOPE_MISMATCH")
+    rejected_audit=out/"ws"/"rejected_history"/(key+"-"+room_state["request_id"]+".json")
+    if rejected_audit.exists():
+        saved=json.loads(rejected_audit.read_text(encoding="utf-8"))
+        if saved.get("rejected_state")!=room_state:
+            raise ValueError("REJECTED_ROOM_ROTATION_AUDIT_CONFLICT")
+    else:
+        save(rejected_audit,{"batch_key":key,"rejected_state":room_state,
+                             "prior_stalled_job":allowed,
+                             "rejection_confirmed":True,
+                             "counted_verified":False})
+    clean={"room_name":RECOVERY_ROOM,"seq":0}
+    save(statefile,clean)
+    print("ROTATE_CONFIRMED_CONFLICT_TO_NEW_ROOM",key,
+          "PRIOR_STALLED_JOB",allowed,
+          "REJECTED_ATTEMPT_ARCHIVED",flush=True)
     return clean
 
 def run_one(rows,out,client):
@@ -122,9 +164,10 @@ def run_one(rows,out,client):
         save(active,{"key":key,"source_ids":expected_ids,"prompt_sha256":digest,
                      "transport":"HITEL_PUBLIC_PERSISTENT_WEBSOCKET","room_name":ROOM})
     room_state=json.loads(statefile.read_text(encoding="utf-8")) if statefile.exists() else {}
-    if room_state.get("room_name") not in (None,ROOM):
+    if room_state.get("room_name") not in (None,ROOM,RECOVERY_ROOM):
         raise ValueError("SAVED_WS_ROOM_NAME_CHANGED")
     room_state=manually_retry_one_confirmed_stalled_job(out,key,statefile,room_state)
+    room_state=rotate_rejected_conflict_to_new_room(out,key,statefile,room_state)
     if room_state.get("status")=="completed" and active.exists() and room_state.get("text_sha256")==digest:
         # A previous job returned successfully but the GitHub runner exited
         # before the completed row JSON could be written.
@@ -141,7 +184,7 @@ def run_one(rows,out,client):
             command.append("--resume")
             print("RESUME_ORIGINAL_WS_REQUEST_NO_RESEND",key,flush=True)
         else:
-            command += ["--room",ROOM,"--text",prompt]
+            command += ["--room",room_state.get("room_name",ROOM),"--text",prompt]
             print("NEW_SINGLE_WS_REQUEST",key,"SOURCE_IDS",len(batch),flush=True)
         try:
             run=subprocess.run(command,text=True,capture_output=True,timeout=600,check=False)
