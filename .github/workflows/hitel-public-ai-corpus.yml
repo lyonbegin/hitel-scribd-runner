@@ -1,5 +1,5 @@
 name: HITEL 18109 AI classification - always advance; preserve unverified
-# User policy 2026-11-19: after each attempted 20 source rows, continue even if AI reply invalid. Preserve skipped rows separately; NEVER count them as verified. No cron.
+# User policy: 300-second AI response budget per 20-row batch; preserve skipped results and continue. Preserve skipped rows separately; NEVER count them as verified. No cron.
 on:
   push:
     branches: [main]
@@ -136,12 +136,12 @@ jobs:
             python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
               --input Raw_Documents_18109.csv --out hitel-ai-batches \
               --batch-size 20 --max-batches 1 \
-              --workers 1 --poll-seconds 14400 --recover-terminal-failed
+              --workers 1 --poll-seconds 300 --recover-terminal-failed
           else
             python3 tools/zocbo/hitel_public_named_rooms_corpus.py \
               --input Raw_Documents_18109.csv --out hitel-ai-batches \
               --batch-size 20 --max-batches 1 \
-              --workers 1 --poll-seconds 14400 --recover-terminal-failed
+              --workers 1 --poll-seconds 300 --recover-terminal-failed
           fi
 
       - name: Verify original source and independently count verified, failed and processed rows
