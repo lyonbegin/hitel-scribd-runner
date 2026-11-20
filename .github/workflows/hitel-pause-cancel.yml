@@ -1,4 +1,4 @@
-name: Stop HITEL AI runs while API is being rebuilt
+name: Emergency stop all HITEL Scribd AI classifier runs
 on:
   push:
     branches: [main]
@@ -8,21 +8,35 @@ permissions:
   contents: read
   actions: write
 jobs:
-  cancel-old-hitel-ai:
+  cancel-running-classifier:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 7
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Cancel only the two HITEL AI jobs started before API repair
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Cancel active classifier jobs and check zero remaining
+        shell: bash
         run: |
-          for run_id in 44431018950 44430801011; do
-            echo "CHECKING_HITEL_AI_RUN=$run_id"
-            state=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq .status)
-            if [ "$state" = "queued" ] || [ "$state" = "in_progress" ] || [ "$state" = "waiting" ]; then
-              gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/cancel" || true
-              echo "CANCEL_REQUEST_SENT=$run_id"
-            else
-              echo "ALREADY_TERMINAL=$run_id $state"
+          set -euo pipefail
+          API="repos/$GITHUB_REPOSITORY"
+          for pass in 1 2 3 4 5 6 7 8 9 10; do
+            mapfile -t RUNS < <(gh api "$API/actions/runs?per_page=100" \
+              --jq '.workflow_runs[] | select(.path==".github/workflows/hitel-public-ai-corpus.yml" and (.status=="queued" or .status=="in_progress" or .status=="waiting" or .status=="requested" or .status=="pending")) | .id')
+            echo "CANCEL_PASS=$pass ACTIVE_CLASSIFIER_COUNT=${#RUNS[@]}"
+            if (( ${#RUNS[@]} == 0 )); then
+              echo "PASS_ZERO_ACTIVE_CLASSIFIER_RUNS"
+              exit 0
             fi
+            for id in "${RUNS[@]}"; do
+              if (( pass >= 5 )); then
+                gh api --method POST "$API/actions/runs/$id/force-cancel" >/dev/null || true
+                echo "FORCE_CANCEL_REQUESTED=$id"
+              else
+                gh api --method POST "$API/actions/runs/$id/cancel" >/dev/null || true
+                echo "CANCEL_REQUESTED=$id"
+              fi
+            done
+            sleep 5
           done
+          echo "FAIL_CLASSIFIER_STILL_ACTIVE"
+          exit 1
