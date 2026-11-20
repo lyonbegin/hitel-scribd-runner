@@ -18,6 +18,20 @@ class Stage2EmptyResponseTests(unittest.TestCase):
         self.assertFalse(result["verified_zero_bidders"])
         self.assertEqual(result["response_bytes"], len(raw))
         self.assertEqual(len(result["response_sha256"]), 64)
+        self.assertEqual(result["bidInfo_type"], "dict")
+        self.assertEqual(result["etcData_type"], "dict")
+        self.assertIsNone(result["application_success_root"])
+        self.assertIsNone(result["application_success_result"])
+
+    def test_empty_response_preserves_application_context_without_claiming_zero(self):
+        raw = json.dumps({"success": True, "result": {"success": True, "successBidInfo": [], "bidInfo": [], "etcData": None}}).encode()
+        result = module.classify(200, raw)
+        self.assertEqual(result["status"], "no_bidder_rows_unverified")
+        self.assertEqual(result["bidInfo_type"], "list")
+        self.assertEqual(result["etcData_type"], "NoneType")
+        self.assertTrue(result["application_success_root"])
+        self.assertTrue(result["application_success_result"])
+        self.assertFalse(result["verified_zero_bidders"])
 
     def test_http_200_explicit_application_failure_is_not_empty_bidder_result(self):
         for doc in (
