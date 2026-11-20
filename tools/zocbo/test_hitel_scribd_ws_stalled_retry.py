@@ -22,6 +22,39 @@ class CurrentAPIContractTests(unittest.TestCase):
         self.sha=hashlib.sha256(self.answer.encode("utf-8")).hexdigest()
         self.key="00001-00020"
 
+
+    def test_repaired_1101_missing_checkpoint_refuses_existing_remote_room(self):
+        with tempfile.TemporaryDirectory() as d:
+            state=Path(d)/"01101-01120.json"
+            payload={"rooms":[{"room_name":runner.RETRY_1101_NEW_ROOM,
+                                "room_id":"room_"+"c"*32,
+                                "conversation_linked":False}]}
+            with patch.object(runner,"urlopen",
+                              return_value=io.BytesIO(json.dumps(payload).encode())) as fetch:
+                with self.assertRaisesRegex(RuntimeError,
+                        "REMOTE_REPAIRED_ROOM_EXISTS_WITHOUT_CHECKPOINT_REFUSE_REPLAY"):
+                    runner.refuse_repaired_1101_replay_without_checkpoint(
+                        runner.RETRY_1101_KEY,runner.RETRY_1101_NEW_ROOM,state)
+            fetch.assert_called_once()
+
+    def test_repaired_1101_proceeds_only_if_no_prior_remote_room(self):
+        with tempfile.TemporaryDirectory() as d:
+            state=Path(d)/"01101-01120.json"
+            payload={"rooms":[{"room_name":"unrelated"}]}
+            with patch.object(runner,"urlopen",
+                              return_value=io.BytesIO(json.dumps(payload).encode())):
+                runner.refuse_repaired_1101_replay_without_checkpoint(
+                    runner.RETRY_1101_KEY,runner.RETRY_1101_NEW_ROOM,state)
+
+    def test_saved_repaired_1101_checkpoint_resumes_without_room_inventory(self):
+        with tempfile.TemporaryDirectory() as d:
+            state=Path(d)/"01101-01120.json"
+            state.write_text('{"status":"running"}',encoding="utf-8")
+            with patch.object(runner,"urlopen") as fetch:
+                runner.refuse_repaired_1101_replay_without_checkpoint(
+                    runner.RETRY_1101_KEY,runner.RETRY_1101_NEW_ROOM,state)
+            fetch.assert_not_called()
+
     def test_fresh_room_isolation_per_batch(self):
         self.assertNotEqual(runner.fresh_room_name("00001-00020"),
                             runner.fresh_room_name("00021-00040"))
