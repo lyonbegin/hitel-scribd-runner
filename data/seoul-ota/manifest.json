@@ -1,9 +1,10 @@
 {
-  "run_time": "2026-11-21T07:28:36+00:00",
-  "official_rows": 5313,
-  "active": 4702,
+  "run_time": "2026-11-21T07:31:56+00:00",
+  "official_rows": 5317,
+  "active": 4706,
   "closed": 611,
   "missing_public_address": 0,
+  "historical_not_in_latest": 5,
   "platform_count": 48,
   "platforms": [
     {
@@ -410,22 +411,22 @@
     "new_evidence": 0,
     "new_public_contacts": 0,
     "counts": {
-      "search_bing_rss_ok": 81,
-      "search_bing_rss_empty": 58,
-      "search_duckduckgo_lite_ok": 50,
-      "search_duckduckgo_lite_empty": 50,
+      "search_bing_rss_ok": 84,
       "properties_stages_completed": 80,
+      "search_bing_rss_empty": 55,
+      "search_duckduckgo_lite_ok": 51,
+      "search_duckduckgo_lite_empty": 51,
       "irrelevant_result_rejected": 2,
-      "search_duckduckgo_lite_fail": 8
+      "search_duckduckgo_lite_fail": 4
     }
   },
   "consolidated_index": {
-    "records": 5313,
+    "records": 5317,
     "prior_source_records": 20,
     "public_contact_source_rows": 46,
     "unique_properties_with_public_phone": 41,
-    "listing_link_rows": 20,
-    "unique_properties_with_listing_link": 15
+    "listing_link_rows": 15,
+    "unique_properties_with_listing_link": 10
   },
   "critical": "Search hits are NOT verified accommodation listings. Only 'name_and_road' evidence supports an address match; contacts are NOT call-verified. The permit area is NOT exclusive area.",
   "scraping_policy": "public search/robots permitted pages only; no authentication, messages, CAPTCHAs or bypass."

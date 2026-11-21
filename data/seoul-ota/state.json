@@ -2,324 +2,324 @@
   "version": 1,
   "progress": {
     "3000000__CDFI2262212012000005": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:06+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:04+00:00"
     },
     "3000000__CDFI2262212013000006": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:08+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:06+00:00"
     },
     "3000000__CDFI2262212013000007": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:09+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:08+00:00"
     },
     "3000000__CDFI2262212013000011": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:10+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:09+00:00"
     },
     "3000000__CDFI2262212013000012": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:12+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:10+00:00"
     },
     "3000000__CDFI2262212014000003": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:13+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:12+00:00"
     },
     "3000000__CDFI2262212014000010": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:14+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:13+00:00"
     },
     "3000000__CDFI2262212014000014": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:15+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:14+00:00"
     },
     "3000000__CDFI2262212014000015": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:17+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:16+00:00"
     },
     "3000000__CDFI2262212014000019": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:18+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:17+00:00"
     },
     "3000000__CDFI2262212015000008": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:19+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:18+00:00"
     },
     "3000000__CDFI2262212015000012": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:21+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:20+00:00"
     },
     "3000000__CDFI2262212015000013": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:22+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:21+00:00"
     },
     "3000000__CDFI2262212016000003": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:23+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:22+00:00"
     },
     "3000000__CDFI2262212016000006": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:24+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:24+00:00"
     },
     "3000000__CDFI2262212016000007": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:26+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:25+00:00"
     },
     "3000000__CDFI2262212016000008": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:27+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:26+00:00"
     },
     "3000000__CDFI2262212016000009": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:28+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:28+00:00"
     },
     "3000000__CDFI2262212016000011": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:30+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:29+00:00"
     },
     "3000000__CDFI2262212016000012": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:31+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:30+00:00"
     },
     "3000000__CDFI2262212017000002": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:32+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:32+00:00"
     },
     "3000000__CDFI2262212017000004": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:34+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:33+00:00"
     },
     "3000000__CDFI2262212017000012": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:35+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:34+00:00"
     },
     "3000000__CDFI2262212017000013": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:36+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:36+00:00"
     },
     "3000000__CDFI2262212017000014": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:37+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:37+00:00"
     },
     "3000000__CDFI2262212017000015": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:39+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:39+00:00"
     },
     "3000000__CDFI2262212017000017": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:40+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:40+00:00"
     },
     "3000000__CDFI2262212017000018": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:41+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:41+00:00"
     },
     "3000000__CDFI2262212017000024": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:44+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:43+00:00"
     },
     "3000000__CDFI2262212018000009": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:45+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:44+00:00"
     },
     "3000000__CDFI2262212019000001": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:47+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:46+00:00"
     },
     "3000000__CDFI2262212019000010": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:48+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:47+00:00"
     },
     "3000000__CDFI2262212019000011": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:49+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:48+00:00"
     },
     "3000000__CDFI2262212019000012": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:50+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:50+00:00"
     },
     "3000000__CDFI2262212019000013": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:19:52+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:51+00:00"
     },
     "3000000__CDFI2262212019000015": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:21:43+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:52+00:00"
     },
     "3000000__CDFI2262212019000016": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:21:45+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:54+00:00"
     },
     "3000000__CDFI2262212019000018": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:21:46+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:55+00:00"
     },
     "3000000__CDFI2262212020000001": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:21:48+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:57+00:00"
     },
     "3000000__CDFI2262212020000002": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:21:49+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:58+00:00"
     },
     "3000000__CDFI2262212020000003": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:21:50+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:30:59+00:00"
     },
     "3000000__CDFI2262212020000004": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:21:52+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:00+00:00"
     },
     "3000000__CDFI2262212020000005": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:21:53+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:02+00:00"
     },
     "3000000__CDFI2262212021000002": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:21:54+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:03+00:00"
     },
     "3000000__CDFI2262212021000003": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:21:56+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:05+00:00"
     },
     "3000000__CDFI2262212021000004": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:21:57+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:06+00:00"
     },
     "3000000__CDFI2262212021000005": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:21:58+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:07+00:00"
     },
     "3000000__CDFI2262212021000006": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:21:59+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:09+00:00"
     },
     "3000000__CDFI2262212021000008": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:01+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:10+00:00"
     },
     "3000000__CDFI2262212021000009": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:02+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:11+00:00"
     },
     "3000000__CDFI2262212022000002": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:03+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:13+00:00"
     },
     "3000000__CDFI2262212022000003": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:05+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:15+00:00"
     },
     "3000000__CDFI2262212022000004": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:06+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:16+00:00"
     },
     "3000000__CDFI2262212022000005": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:07+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:17+00:00"
     },
     "3000000__CDFI2262212022000009": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:08+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:19+00:00"
     },
     "3000000__CDFI2262212023000002": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:10+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:20+00:00"
     },
     "3000000__CDFI2262212023000008": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:11+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:21+00:00"
     },
     "3000000__CDFI2262212023000009": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:12+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:23+00:00"
     },
     "3000000__CDFI2262212023000011": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:14+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:24+00:00"
     },
     "3000000__CDFI2262212023000012": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:15+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:25+00:00"
     },
     "3000000__CDFI2262212023000016": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:16+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:27+00:00"
     },
     "3000000__CDFI2262212023000017": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:17+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:28+00:00"
     },
     "3000000__CDFI2262212023000018": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:19+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:29+00:00"
     },
     "3000000__CDFI2262212023000021": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:20+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:31+00:00"
     },
     "3000000__CDFI2262212024000003": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:21+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:32+00:00"
     },
     "3000000__CDFI2262212024000004": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:23+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:33+00:00"
     },
     "3000000__CDFI2262212024000005": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:24+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:35+00:00"
     },
     "3000000__CDFI2262212024000007": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:25+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:36+00:00"
     },
     "3000000__CDFI2262212024000009": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:26+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:38+00:00"
     },
     "3000000__CDFI2262212024000011": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:28+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:39+00:00"
     },
     "3000000__CDFI2262212024000012": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:29+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:40+00:00"
     },
     "3000000__CDFI2262212024000013": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:30+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:42+00:00"
     },
     "3000000__CDFI2262212024000014": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:32+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:43+00:00"
     },
     "3000000__CDFI2262212024000016": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:33+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:44+00:00"
     },
     "3000000__CDFI2262212024000017": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:34+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:46+00:00"
     },
     "3000000__CDFI2262212024000018": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:35+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:47+00:00"
     },
     "3000000__CDFI2262212024000020": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:37+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:49+00:00"
     },
     "3000000__CDFI2262212024000022": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:38+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:50+00:00"
     },
     "3000000__CDFI2262212024000023": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:39+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:53+00:00"
     },
     "3000000__CDFI2262212024000024": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:41+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:31:54+00:00"
     },
     "3000000__CDFI2262212024000025": {
       "stage_idx": 1,
@@ -783,33 +783,33 @@
     }
   },
   "first_started_at": "2026-11-21T07:19:06+00:00",
-  "latest_run_at": "2026-11-21T07:28:36+00:00",
+  "latest_run_at": "2026-11-21T07:31:56+00:00",
   "platforms": 48,
   "stages": 6,
-  "input_records": 5313,
+  "input_records": 5317,
   "done_full_pass": 0,
-  "total_stages_completed": 195,
+  "total_stages_completed": 275,
   "last_run": {
     "selected": 80,
     "advanced": 80,
     "new_evidence": 0,
     "new_public_contacts": 0,
     "counts": {
-      "search_bing_rss_ok": 81,
-      "search_bing_rss_empty": 58,
-      "search_duckduckgo_lite_ok": 50,
-      "search_duckduckgo_lite_empty": 50,
+      "search_bing_rss_ok": 84,
       "properties_stages_completed": 80,
+      "search_bing_rss_empty": 55,
+      "search_duckduckgo_lite_ok": 51,
+      "search_duckduckgo_lite_empty": 51,
       "irrelevant_result_rejected": 2,
-      "search_duckduckgo_lite_fail": 8
+      "search_duckduckgo_lite_fail": 4
     }
   },
   "consolidated_index": {
-    "records": 5313,
+    "records": 5317,
     "prior_source_records": 20,
     "public_contact_source_rows": 46,
     "unique_properties_with_public_phone": 41,
-    "listing_link_rows": 20,
-    "unique_properties_with_listing_link": 15
+    "listing_link_rows": 15,
+    "unique_properties_with_listing_link": 10
   }
 }
