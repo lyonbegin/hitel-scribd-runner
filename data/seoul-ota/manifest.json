@@ -1,0 +1,378 @@
+{
+  "run_time": "2026-11-21T07:19:53+00:00",
+  "official_rows": 5314,
+  "active": 4703,
+  "closed": 611,
+  "platform_count": 43,
+  "platforms": [
+    {
+      "id": "airbnb",
+      "label": "Airbnb",
+      "category": "global_ota",
+      "domains": [
+        "airbnb.com",
+        "airbnb.co.kr"
+      ]
+    },
+    {
+      "id": "booking",
+      "label": "Booking.com",
+      "category": "global_ota",
+      "domains": [
+        "booking.com"
+      ]
+    },
+    {
+      "id": "agoda",
+      "label": "Agoda",
+      "category": "global_ota",
+      "domains": [
+        "agoda.com"
+      ]
+    },
+    {
+      "id": "hotels",
+      "label": "Hotels.com",
+      "category": "global_ota",
+      "domains": [
+        "hotels.com"
+      ]
+    },
+    {
+      "id": "expedia",
+      "label": "Expedia",
+      "category": "global_ota",
+      "domains": [
+        "expedia.com"
+      ]
+    },
+    {
+      "id": "trip",
+      "label": "Trip.com / Ctrip",
+      "category": "global_ota",
+      "domains": [
+        "trip.com",
+        "ctrip.com"
+      ]
+    },
+    {
+      "id": "hostelworld",
+      "label": "Hostelworld",
+      "category": "global_ota",
+      "domains": [
+        "hostelworld.com"
+      ]
+    },
+    {
+      "id": "vrbo",
+      "label": "Vrbo",
+      "category": "global_ota",
+      "domains": [
+        "vrbo.com"
+      ]
+    },
+    {
+      "id": "traveloka",
+      "label": "Traveloka",
+      "category": "global_ota",
+      "domains": [
+        "traveloka.com"
+      ]
+    },
+    {
+      "id": "priceline",
+      "label": "Priceline",
+      "category": "global_ota",
+      "domains": [
+        "priceline.com"
+      ]
+    },
+    {
+      "id": "rakuten",
+      "label": "Rakuten Travel",
+      "category": "global_ota",
+      "domains": [
+        "travel.rakuten.com"
+      ]
+    },
+    {
+      "id": "jalan",
+      "label": "Jalan",
+      "category": "global_ota",
+      "domains": [
+        "jalan.net"
+      ]
+    },
+    {
+      "id": "klook",
+      "label": "Klook",
+      "category": "global_ota",
+      "domains": [
+        "klook.com"
+      ]
+    },
+    {
+      "id": "tripadvisor",
+      "label": "Tripadvisor",
+      "category": "metasearch",
+      "domains": [
+        "tripadvisor.com",
+        "tripadvisor.co.kr"
+      ]
+    },
+    {
+      "id": "kayak",
+      "label": "KAYAK",
+      "category": "metasearch",
+      "domains": [
+        "kayak.com",
+        "kayak.co.kr"
+      ]
+    },
+    {
+      "id": "hotelscombined",
+      "label": "HotelsCombined",
+      "category": "metasearch",
+      "domains": [
+        "hotelscombined.com",
+        "hotelscombined.co.kr"
+      ]
+    },
+    {
+      "id": "trivago",
+      "label": "Trivago",
+      "category": "metasearch",
+      "domains": [
+        "trivago.com",
+        "trivago.co.kr"
+      ]
+    },
+    {
+      "id": "skyscanner",
+      "label": "Skyscanner",
+      "category": "metasearch",
+      "domains": [
+        "skyscanner.net",
+        "skyscanner.co.kr"
+      ]
+    },
+    {
+      "id": "google_hotels",
+      "label": "Google Hotels / Travel",
+      "category": "map_directory",
+      "domains": [
+        "google.com",
+        "google.co.kr"
+      ]
+    },
+    {
+      "id": "naver",
+      "label": "Naver Place / Booking",
+      "category": "map_directory",
+      "domains": [
+        "naver.com",
+        "naver.me"
+      ]
+    },
+    {
+      "id": "kakao",
+      "label": "Kakao Map",
+      "category": "map_directory",
+      "domains": [
+        "kakao.com"
+      ]
+    },
+    {
+      "id": "seoulstay",
+      "label": "SeoulStay",
+      "category": "official_directory",
+      "domains": [
+        "stay.visitseoul.net"
+      ]
+    },
+    {
+      "id": "wehome",
+      "label": "Wehome 위홈",
+      "category": "korean_ota",
+      "domains": [
+        "wehome.me"
+      ]
+    },
+    {
+      "id": "nol",
+      "label": "NOL / Yanolja 야놀자",
+      "category": "korean_ota",
+      "domains": [
+        "yanolja.com",
+        "nol.yanolja.com"
+      ]
+    },
+    {
+      "id": "yeogi",
+      "label": "여기어때",
+      "category": "korean_ota",
+      "domains": [
+        "yeogi.com"
+      ]
+    },
+    {
+      "id": "stayfolio",
+      "label": "스테이폴리오",
+      "category": "korean_ota",
+      "domains": [
+        "stayfolio.com"
+      ]
+    },
+    {
+      "id": "myrealtrip",
+      "label": "마이리얼트립",
+      "category": "korean_ota",
+      "domains": [
+        "myrealtrip.com"
+      ]
+    },
+    {
+      "id": "tripbtoz",
+      "label": "트립비토즈",
+      "category": "korean_ota",
+      "domains": [
+        "tripbtoz.com"
+      ]
+    },
+    {
+      "id": "hoteljoy",
+      "label": "호텔엔조이",
+      "category": "korean_ota",
+      "domains": [
+        "hotelnjoy.com"
+      ]
+    },
+    {
+      "id": "tourvis",
+      "label": "투어비스",
+      "category": "korean_ota",
+      "domains": [
+        "tourvis.com"
+      ]
+    },
+    {
+      "id": "privia",
+      "label": "프리비아",
+      "category": "korean_ota",
+      "domains": [
+        "priviatravel.com"
+      ]
+    },
+    {
+      "id": "hotels_pass",
+      "label": "호텔패스",
+      "category": "korean_ota",
+      "domains": [
+        "hotelpass.com"
+      ]
+    },
+    {
+      "id": "allmytour",
+      "label": "올마이투어",
+      "category": "korean_ota",
+      "domains": [
+        "allmytour.com"
+      ]
+    },
+    {
+      "id": "stayandmore",
+      "label": "스테이앤모어",
+      "category": "korean_ota",
+      "domains": [
+        "stayandmore.com"
+      ]
+    },
+    {
+      "id": "webtour",
+      "label": "웹투어",
+      "category": "korean_ota",
+      "domains": [
+        "webtour.com"
+      ]
+    },
+    {
+      "id": "ttn",
+      "label": "떠나요닷컴",
+      "category": "korean_ota",
+      "domains": [
+        "ddnayo.com"
+      ]
+    },
+    {
+      "id": "33m2",
+      "label": "삼삼엠투",
+      "category": "short_let",
+      "domains": [
+        "33m2.co.kr"
+      ]
+    },
+    {
+      "id": "liveanywhere",
+      "label": "리브애니웨어",
+      "category": "short_let",
+      "domains": [
+        "liveanywhere.me"
+      ]
+    },
+    {
+      "id": "mrmention",
+      "label": "미스터멘션",
+      "category": "short_let",
+      "domains": [
+        "mrmention.co.kr"
+      ]
+    },
+    {
+      "id": "dandan",
+      "label": "단단홈즈",
+      "category": "short_let",
+      "domains": [
+        "dandan.homes",
+        "dandanhomes.com"
+      ]
+    },
+    {
+      "id": "homestay",
+      "label": "홈즈스테이 / 홈즈",
+      "category": "short_let",
+      "domains": [
+        "homestay.com",
+        "homescompany.kr"
+      ]
+    },
+    {
+      "id": "zipbang",
+      "label": "직방",
+      "category": "short_let",
+      "domains": [
+        "zigbang.com"
+      ]
+    },
+    {
+      "id": "spacecloud",
+      "label": "스페이스클라우드",
+      "category": "space_rental",
+      "domains": [
+        "spacecloud.kr"
+      ]
+    }
+  ],
+  "stages": 6,
+  "last_run": {
+    "selected": 35,
+    "advanced": 35,
+    "new_evidence": 2,
+    "new_public_contacts": 0,
+    "counts": {
+      "search_bing_rss_ok": 35,
+      "properties_stages_completed": 35
+    }
+  },
+  "critical": "Search hits are NOT verified accommodation listings. Only 'name_and_road' evidence supports an address match; contacts are NOT call-verified. The permit area is NOT exclusive area.",
+  "scraping_policy": "public search/robots permitted pages only; no authentication, messages, CAPTCHAs or bypass."
+}
