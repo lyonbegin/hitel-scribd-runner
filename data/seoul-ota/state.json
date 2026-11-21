@@ -1410,24 +1410,24 @@
       "last_attempt": "2026-11-21T13:05:41+00:00"
     },
     "3000000__CDFI2262212026000128": {
-      "stage_idx": 3,
-      "last_attempt": "2026-11-21T12:45:16+00:00"
+      "stage_idx": 4,
+      "last_attempt": "2026-11-21T13:05:51+00:00"
     },
     "3000000__CDFI2262212026000130": {
-      "stage_idx": 3,
-      "last_attempt": "2026-11-21T12:45:17+00:00"
+      "stage_idx": 4,
+      "last_attempt": "2026-11-21T13:05:59+00:00"
     },
     "3000000__CDFI2262212026000131": {
-      "stage_idx": 3,
-      "last_attempt": "2026-11-21T12:45:26+00:00"
+      "stage_idx": 4,
+      "last_attempt": "2026-11-21T13:06:07+00:00"
     },
     "3000000__CDFI2262212026000132": {
-      "stage_idx": 3,
-      "last_attempt": "2026-11-21T12:45:34+00:00"
+      "stage_idx": 4,
+      "last_attempt": "2026-11-21T13:06:16+00:00"
     },
     "3000000__CDFI2262212026000133": {
-      "stage_idx": 3,
-      "last_attempt": "2026-11-21T12:45:42+00:00"
+      "stage_idx": 4,
+      "last_attempt": "2026-11-21T13:06:17+00:00"
     },
     "3000000__CDFI2262212026000134": {
       "stage_idx": 3,
@@ -2003,12 +2003,12 @@
     }
   },
   "first_started_at": "2026-11-21T07:19:06+00:00",
-  "latest_run_at": "2026-11-21T13:05:41+00:00",
+  "latest_run_at": "2026-11-21T13:06:17+00:00",
   "platforms": 48,
   "stages": 7,
   "input_records": 5321,
   "done_full_pass": 250,
-  "total_stages_completed": 2602,
+  "total_stages_completed": 2607,
   "last_run": {
     "selected": 250,
     "advanced": 250,
