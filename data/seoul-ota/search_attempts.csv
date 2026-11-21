@@ -7161,3 +7161,8 @@
 3020000__CDFI2262212026000250,별빛 스테이 이태원,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:37:53+00:00
 3020000__CDFI2262212026000251,타임투스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:38:01+00:00
 3020000__CDFI2262212026000252,타임투스테이2,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:38:09+00:00
+3030000__CDFI2262212015000003,세렌디피티,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:38:20+00:00
+3030000__CDFI2262212019000001,세렌디피티,general,bing_rss,10,0,0,,2026-11-21T18:38:21+00:00
+3030000__CDFI2262212021000001,LTE Room,general,bing_rss,10,0,0,,2026-11-21T18:38:22+00:00
+3030000__CDFI2262212023000002,차니하우스,general,bing_rss,10,0,0,,2026-11-21T18:38:24+00:00
+3030000__CDFI2262212023000003,트리앤브리즈,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:38:32+00:00
