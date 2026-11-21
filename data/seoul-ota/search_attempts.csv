@@ -7906,3 +7906,8 @@
 3030000__CDFI2262212024000004,SYOM,platforms_03,bing_rss,10,0,0,,2026-11-21T19:38:46+00:00
 3030000__CDFI2262212024000005,로망((Rom an),platforms_03,bing_rss,7,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:38:54+00:00
 3030000__CDFI2262212024000007,달래하우스,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:39:03+00:00
+3030000__CDFI2262212024000008,Cozy Stay,platforms_03,bing_rss,7,0,0,,2026-11-21T19:39:05+00:00
+3030000__CDFI2262212024000011,디에이치 성수포레,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:39:14+00:00
+3030000__CDFI2262212024000012,메종드양(Maison de Yong),platforms_03,bing_rss,10,0,0,,2026-11-21T19:39:15+00:00
+3030000__CDFI2262212024000013,Kozy Stay,platforms_03,bing_rss,10,0,0,,2026-11-21T19:39:16+00:00
+3030000__CDFI2262212024000014,유토리홈즈,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:39:25+00:00
