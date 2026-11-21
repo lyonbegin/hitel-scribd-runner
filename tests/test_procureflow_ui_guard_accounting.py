@@ -15,5 +15,12 @@ class PublicUIGuardAccountingTests(unittest.TestCase):
         self.assertIn('"blocked_request_sample_truncated": report["blocked_request_count_total"] > len(report["blocked_non_read_only_requests"])', source)
         self.assertNotIn('"block_count": len(report["blocked_non_read_only_requests"])', source)
 
+    def test_all_post_response_paths_are_counted(self):
+        source = SOURCE.read_text(encoding="utf-8")
+        ast.parse(source)
+        self.assertIn('"post_response_path_counts": {}', source)
+        self.assertIn('counts[key] = counts.get(key, 0) + 1', source)
+        self.assertIn('"post_response_path_counts": report["post_response_path_counts"]', source)
+
 if __name__ == "__main__":
     unittest.main()
