@@ -7961,3 +7961,8 @@
 3020000__CDFI2262212026000075,스타온하우스,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:44:41+00:00
 3020000__CDFI2262212026000078,담연,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:44:49+00:00
 3020000__CDFI2262212026000079,서울스테이,platforms_04,bing_rss,7,0,0,,2026-11-21T19:44:51+00:00
+3030000__CDFI2262212024000055,성수 삼삼오오 271,platforms_03,no_results,0,0,0,,2026-11-21T19:46:51+00:00
+3030000__CDFI2262212024000056,성수삼삼오오,platforms_03,no_results,0,0,0,,2026-11-21T19:46:52+00:00
+3030000__CDFI2262212024000057,서울숲 휴,platforms_03,no_results,0,0,0,,2026-11-21T19:46:53+00:00
+3030000__CDFI2262212024000058,모나크,platforms_03,no_results,0,0,0,,2026-11-21T19:46:55+00:00
+3030000__CDFI2262212024000059,Laszlo & Co.,platforms_03,no_results,0,0,0,,2026-11-21T19:46:56+00:00
