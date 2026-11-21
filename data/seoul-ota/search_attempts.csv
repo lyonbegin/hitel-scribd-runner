@@ -9096,3 +9096,8 @@
 3040000__CDFI2262212026000031,신디하우스,platforms_01,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T21:04:31+00:00
 3040000__CDFI2262212026000032,이지스테이 세종대점,platforms_01,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T21:04:33+00:00
 3040000__CDFI2262212026000033,오구스테이 건대,platforms_01,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T21:04:35+00:00
+3040000__CDFI2262212026000034,루멘 스테이,platforms_01,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T21:04:39+00:00
+3040000__CDFI2262212026000035,자양빈관,platforms_01,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T21:04:41+00:00
+3040000__CDFI2262212026000036,nesty home,platforms_01,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T21:04:43+00:00
+3040000__CDFI2262212026000037,곳모닝서울,platforms_01,no_results,0,0,0,"duckduckgo_lite:ConnectionError:('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",2026-11-21T21:04:44+00:00
+3040000__CDFI2262212026000038,구의당,platforms_01,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T21:04:53+00:00
