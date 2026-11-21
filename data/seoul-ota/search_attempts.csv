@@ -5411,3 +5411,8 @@
 3020000__CDFI2262212024000058,이태원 코지스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:47:38+00:00
 3020000__CDFI2262212025000001,더 팔레트 후암,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:47:47+00:00
 3020000__CDFI2262212025000002,용산 제니하우스,general,bing_rss,10,0,0,,2026-11-21T16:47:48+00:00
+3020000__CDFI2262212025000006,로제하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:47:58+00:00
+3020000__CDFI2262212025000008,C Travel,general,bing_rss,10,0,0,,2026-11-21T16:47:59+00:00
+3020000__CDFI2262212025000009,소월하우스,general,bing_rss,10,0,0,,2026-11-21T16:48:01+00:00
+3020000__CDFI2262212025000010,라온하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:48:10+00:00
+3020000__CDFI2262212025000013,블루릭(Blue Leek),general,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:48:18+00:00
