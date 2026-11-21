@@ -1,0 +1,81 @@
+name: Seoul historical Airbnb listings 2016-2017 archive
+on:
+  push:
+    branches: [research/seoul-airbnb-registry-20261121]
+    paths: [.github/workflows/seoul-airbnb-historical-2016-2017.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  historical:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Retrieve archived public Airbnb listing snapshots and verify all dates
+        shell: bash
+        run: |
+          mkdir -p historical
+          python - <<'PY'
+          import requests,io,zipfile,os,re,csv,json,hashlib,collections,time
+          from pathlib import Path
+          out=Path('historical')
+          sources=[
+            'https://web.archive.org/web/20210116080240id_/https://s3.amazonaws.com/tomslee-airbnb-data-2/seoul.zip',
+            'https://web.archive.org/web/20210116080240/https://s3.amazonaws.com/tomslee-airbnb-data-2/seoul.zip']
+          s=requests.Session();s.headers.update({'User-Agent':'Mozilla/5.0','Accept':'*/*'})
+          good=None;attempts=[]
+          for url in sources:
+            try:
+              r=s.get(url,timeout=110,allow_redirects=True)
+              obs={'url':url,'status':r.status_code,'mime':r.headers.get('content-type'),
+                   'size':len(r.content),'final':r.url,'zip':zipfile.is_zipfile(io.BytesIO(r.content))}
+              attempts.append(obs);print('DOWNLOAD_CHECK',obs,flush=True)
+              if obs['zip'] and len(r.content)>1000000:
+                good=r.content;break
+            except Exception as e:
+              attempts.append({'url':url,'error':str(e)[:250]});print('DOWNLOAD_ERROR',str(e)[:250],flush=True)
+          if good is None:
+            (out/'fetch_failures.json').write_text(json.dumps(attempts,ensure_ascii=False,indent=2))
+            raise SystemExit('NO_VALID_HISTORICAL_ZIP')
+          (out/'tomslee_seoul_2016_2017_original.zip').write_bytes(good)
+          rows=[];files=[]
+          with zipfile.ZipFile(io.BytesIO(good)) as z:
+            for file in z.namelist():
+              if not file.lower().endswith('.csv'):continue
+              m=re.search(r'(20\d\d-\d\d-\d\d)',file)
+              dt=m.group(1) if m else ''
+              raw=z.read(file)
+              try:text=raw.decode('utf-8-sig')
+              except UnicodeDecodeError:text=raw.decode('cp1252')
+              rd=list(csv.DictReader(io.StringIO(text)))
+              valid=[x for x in rd if str(x.get('room_id') or '').isdigit()]
+              files.append({'path':file,'date':dt,'count':len(valid)})
+              for x in valid:
+                x['survey_date']=dt;x['source_file']=file;rows.append(x)
+          snapshots=collections.defaultdict(set);combined={}
+          for x in rows:
+            k=x['room_id'];snapshots[k].add(x['survey_date'])
+            info=combined.setdefault(k,{'first_seen':x['survey_date'],'last_seen':x['survey_date'],'survey_count':0,'neighborhood':x.get('neighborhood'),'lat':x.get('latitude'),'lon':x.get('longitude'),'room_type':x.get('room_type'),'host_id':x.get('host_id'),'bedrooms':x.get('bedrooms'),'reviews':x.get('reviews'),'price_usd':x.get('price')})
+            info['first_seen']=min(info['first_seen'],x['survey_date'])
+            info['last_seen']=max(info['last_seen'],x['survey_date'])
+          with (out/'historical_unique_airbnb_seoul_2016_2017.csv').open('w',newline='',encoding='utf-8-sig') as f:
+            w=csv.writer(f)
+            w.writerow(['listing_id','airbnb_url','first_seen','last_seen','survey_count','neighborhood','latitude','longitude','room_type','host_id','bedrooms','historical_reviews','historical_price_usd'])
+            for k,v in sorted(combined.items()):
+              w.writerow([k,'https://www.airbnb.com/rooms/'+k,v['first_seen'],v['last_seen'],len(snapshots[k]),v['neighborhood'],v['lat'],v['lon'],v['room_type'],v['host_id'],v['bedrooms'],v['reviews'],v['price_usd']])
+          with (out/'historical_surveys_all_rows.csv').open('w',newline='',encoding='utf-8-sig') as f:
+            cols=['survey_date','room_id','host_id','room_type','borough','neighborhood','reviews','overall_satisfaction','accommodates','bedrooms','price','minstay','latitude','longitude','last_modified','source_file']
+            w=csv.DictWriter(f,fieldnames=cols,extrasaction='ignore');w.writeheader();w.writerows(rows)
+          audit={'archive_sha256':hashlib.sha256(good).hexdigest(),'bytes':len(good),'files':files,'snapshot_rows':len(rows),'unique_listing_ids':len(combined),'earliest':min(x['date'] for x in files),'latest':max(x['date'] for x in files),'downloads':attempts}
+          (out/'audit.json').write_text(json.dumps(audit,indent=2,ensure_ascii=False))
+          print('HISTORICAL_VERIFIED',json.dumps({k:audit[k] for k in ('snapshot_rows','unique_listing_ids','earliest','latest','bytes','files')},ensure_ascii=False),flush=True)
+          if len(files)<10 or len(combined)<8000:raise SystemExit('INVALID_DATA')
+          PY
+      - name: Upload archived Airbnb original and deduplicated listings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoul-airbnb-historical-2016-2017-original-and-ids
+          path: historical/
+          if-no-files-found: warn
+          retention-days: 14
