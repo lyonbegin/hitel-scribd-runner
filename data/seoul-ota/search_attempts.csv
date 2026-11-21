@@ -3086,3 +3086,8 @@
 3000000__CDFI2262212026000108,동묘 헤리티지,platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T13:46:38+00:00
 3000000__CDFI2262212026000109,리듬하우스,platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T13:46:40+00:00
 3000000__CDFI2262212026000110,창신재,platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T13:46:42+00:00
+3000000__CDFI2262212026000111,스테이 순,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectionError:('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",2026-11-21T13:46:45+00:00
+3000000__CDFI2262212026000112,아트래블한양,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:46:53+00:00
+3000000__CDFI2262212026000113,더 스탠다드 하우스,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:47:01+00:00
+3000000__CDFI2262212026000114,Cozy Coza,platforms_05,bing_rss,10,0,0,,2026-11-21T13:47:03+00:00
+3000000__CDFI2262212026000115,원남 피스,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:47:11+00:00
