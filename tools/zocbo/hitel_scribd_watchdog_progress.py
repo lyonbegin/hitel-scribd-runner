@@ -46,16 +46,9 @@ def prior_observation(client: GithubClient):
         return None
     latest = max(items, key=lambda a: a["created_at"])
     with tempfile.TemporaryDirectory() as tmp:
-        result = subprocess.run(
-            ["gh", "run", "download",
-             str(latest["workflow_run"]["id"]),
-             "--repo", client.repository, "-n", SAMPLE_ARTIFACT,
-             "-D", tmp],
-            env=dict(os.environ, GH_TOKEN=client.token),
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            timeout=120, check=False)
-        if result.returncode:
-            raise RuntimeError("PREVIOUS_WATCHDOG_OBSERVATION_DOWNLOAD_FAILED")
+        # A re-run can publish another artifact of the same name in the
+        # very same workflow run. Read the exact newest ID, not a run name.
+        base.download_exact_artifact(client,int(latest["id"]),Path(tmp))
         path = Path(tmp) / SAMPLE_FILE
         if not path.is_file():
             raise RuntimeError("PREVIOUS_WATCHDOG_OBSERVATION_MISSING")
@@ -68,10 +61,11 @@ def prior_observation(client: GithubClient):
 
 
 def worker_status():
-    with urllib.request.urlopen(base.API_PUBLIC+"/status",timeout=20) as res:
+    with urllib.request.urlopen(
+            base.API_PUBLIC+"/isolated/tasks/scribd-18109/status",timeout=20) as res:
         status = json.load(res)
-    if not isinstance(status, dict):
-        raise ValueError("WORKER_STATUS_BAD_RESPONSE")
+    if not isinstance(status,dict) or status.get("task_id")!="scribd-18109":
+        raise ValueError("SCRIBD_ISOLATED_WORKER_STATUS_BAD_RESPONSE")
     return status
 
 
@@ -242,6 +236,11 @@ def respond_safely(client,sample,active,artifact):
         # two spaced check records and immutable source identity validation.
         return base.maybe_cancel_definitely_stuck(
             client,active,artifact,threshold_seconds=STAGNATION_SECONDS)
+    if (sample.get("worker",{}).get("connected") is True
+            and sample.get("worker",{}).get("jobs",0)>0):
+        # The legacy /public/jobs observer checks only the shared Chrome's
+        # active set. An isolated task can be healthy despite a false stall.
+        return "signed_scribd_worker_active_do_not_duplicate"
     if remote.get("status") in ("running","queued"):
         return "remote_model_or_worker_active_do_not_duplicate"
     if remote.get("status") in ("stalled","unknown","failed") and (
