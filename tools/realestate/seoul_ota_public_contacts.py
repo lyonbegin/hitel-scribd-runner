@@ -128,6 +128,9 @@ def clean_url(href):
     if href.startswith("//"):href="https:"+href
     if href.startswith("/url?"):
         href=urllib.parse.parse_qs(urllib.parse.urlparse(href).query).get("q",[""])[0]
+    ddg=urllib.parse.urlparse(href)
+    if (ddg.hostname or "").endswith("duckduckgo.com") and ddg.path.startswith("/l/"):
+        href=urllib.parse.parse_qs(ddg.query).get("uddg",[""])[0]
     p=urllib.parse.urlparse(href)
     if p.scheme not in {"http","https"} or not p.netloc:return ""
     if len(href)>1500:return ""
@@ -196,6 +199,7 @@ def get_search_results(query,max_results):
     providers=[("bing_rss","https://www.bing.com/search?format=rss&q="+urllib.parse.quote(query)),
                ("duckduckgo_lite","https://lite.duckduckgo.com/lite/?q="+urllib.parse.quote(query))]
     errors=[]
+    any_success=False
     for provider,url in providers:
         try:
             resp=SESSION.get(url,timeout=TIMEOUT)
@@ -216,33 +220,34 @@ def get_search_results(query,max_results):
                     link=clean_url(a.get("href",""))
                     if link:out.append((link,a.get_text(" ",strip=True),""))
             COUNTS["search_"+provider+"_ok"]+=1
-            return out[:max_results],provider,errors
+            any_success=True
+            if out:return out[:max_results],provider,errors
+            COUNTS["search_"+provider+"_empty"]+=1
         except Exception as e:
             errors.append(provider+":"+type(e).__name__+":"+str(e)[:100])
             COUNTS["search_"+provider+"_fail"]+=1
-    return [],"unavailable",errors
+    return [],("no_results" if any_success else "unavailable"),errors
 
 @lru_cache(maxsize=128)
 def can_fetch(url):
+    # Robots rules differ by PATH on the same host: cache parser, not a host-wide boolean.
     p=urllib.parse.urlparse(url)
     host=p.scheme+"://"+p.netloc
-    if host in ROBOTS:return ROBOTS[host]
-    try:
-        r=SESSION.get(host+"/robots.txt",timeout=(4,7))
-        if r.status_code in (401,403):
-            allowed=False
-        elif r.status_code>=500 or r.status_code==429:
-            allowed=False
-        elif r.status_code==404:
-            allowed=True
-        else:
-            rp=urllib.robotparser.RobotFileParser()
-            rp.parse(r.text.splitlines())
-            allowed=rp.can_fetch(HEADERS["User-Agent"],url)
-    except Exception:
-        allowed=False
-    ROBOTS[host]=allowed
-    return allowed
+    if host not in ROBOTS:
+        try:
+            r=SESSION.get(host+"/robots.txt",timeout=(4,7))
+            if r.status_code==404:
+                ROBOTS[host]=True
+            elif r.status_code in (401,403,429) or r.status_code>=500:
+                ROBOTS[host]=False
+            else:
+                rp=urllib.robotparser.RobotFileParser()
+                rp.parse(r.text.splitlines())
+                ROBOTS[host]=rp
+        except Exception:
+            ROBOTS[host]=False
+    rule=ROBOTS[host]
+    return rule if isinstance(rule,bool) else rule.can_fetch(HEADERS["User-Agent"],url)
 
 def page_content(url):
     if not can_fetch(url):return "", "robots_denied_or_unavailable"
@@ -396,6 +401,7 @@ def selftest():
     assert published_contacts("전화번호 010-3249-0106 문의처", "", "", "name_only_unverified")==("","")
     assert domain_info("https://homes.global/ko/brands/stay")[0]=="homes"
     assert PHONE.search("전화 070-8809-0955")
+    assert clean_url("https://duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.booking.com%2Fhotel%2Fkr%2Fsample.html")=="https://www.booking.com/hotel/kr/sample.html"
     assert len(PLATFORMS)>=40
     print("SELFTEST_OK platforms="+str(len(PLATFORMS))+" stages="+str(len(FAMILIES)))
 
