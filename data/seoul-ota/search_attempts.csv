@@ -3671,3 +3671,8 @@
 3020000__CDFI2262212016000001,타이디하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T14:41:11+00:00
 3020000__CDFI2262212016000002,체크인 플리즈,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T14:41:20+00:00
 3020000__CDFI2262212016000009,G. HAUS,general,bing_rss,10,0,0,,2026-11-21T14:41:21+00:00
+3020000__CDFI2262212016000013,N,general,bing_rss,10,0,0,,2026-11-21T14:41:24+00:00
+3020000__CDFI2262212016000014,ANDO STAY,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T14:41:33+00:00
+3020000__CDFI2262212016000018,이름재단,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T14:41:41+00:00
+3020000__CDFI2262212016000019,카메 게스트하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T14:41:49+00:00
+3020000__CDFI2262212016000021,Johnny's House,general,bing_rss,7,0,0,,2026-11-21T14:41:51+00:00
