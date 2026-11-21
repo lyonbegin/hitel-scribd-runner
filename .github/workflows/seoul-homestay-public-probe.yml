@@ -1,0 +1,26 @@
+name: Seoul homestay public permit CSV probe
+on:
+  push:
+    branches:
+      - research/seoul-homestay-public-20261121
+    paths:
+      - .github/workflows/seoul-homestay-public-probe.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe official public localdata CSV endpoints
+        run: python3 tools/realestate/seoul_homestay_public_source_probe.py
+      - name: Preserve original source CSV and manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoul-homestay-public-permit-probe
+          path: artifacts/seoul-homestay/
+          if-no-files-found: warn
+          retention-days: 7
