@@ -38,7 +38,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  kickoff_after_config_change:
+    # A push run has no isolated producer authority by design. It may only
+    # enqueue a workflow_dispatch, whose signed OIDC claims are authorized
+    # by Railway for task scribd-18109. Never send a chat on a push event.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Start authorized manual-event Scribd classification
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run hitel-public-ai-corpus.yml --ref main -f mode=full
+          echo PASS_SCRIBD_SIGNED_WORKFLOW_DISPATCH_FROM_CONFIG_PUSH >> "$GITHUB_STEP_SUMMARY"
+
   worker_ready:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     outputs:
       skip_handoff: ${{ steps.claim_handoff.outputs.skip }}
@@ -106,7 +124,7 @@ jobs:
 
   ai:
     needs: worker_ready
-    if: needs.worker_ready.outputs.skip_handoff != 'true'
+    if: github.event_name == 'workflow_dispatch' && needs.worker_ready.outputs.skip_handoff != 'true'
     runs-on: ubuntu-24.04
     # GitHub host safety bound above the API server's own 15000s observer
     # and the 240-minute Chrome worker session, not a 10-minute model timeout.
