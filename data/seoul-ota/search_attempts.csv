@@ -4391,3 +4391,8 @@
 3020000__CDFI2262212014000009,Noel's Guest House,platforms_03,bing_rss,10,0,0,,2026-11-21T15:31:59+00:00
 3020000__CDFI2262212015000004,KIM's house,platforms_03,bing_rss,10,0,0,,2026-11-21T15:32:01+00:00
 3020000__CDFI2262212015000005,9 Road,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:32:09+00:00
+3020000__CDFI2262212015000007,트리플,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:32:19+00:00
+3020000__CDFI2262212015000010,트래블홀릭 게스트하우스,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:32:28+00:00
+3020000__CDFI2262212015000012,정 story,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:32:36+00:00
+3020000__CDFI2262212015000013,Cozy House,platforms_03,bing_rss,10,0,0,,2026-11-21T15:32:37+00:00
+3020000__CDFI2262212015000015,용하우스(Yong House),platforms_03,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:32:46+00:00
