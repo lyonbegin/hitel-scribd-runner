@@ -8141,3 +8141,8 @@
 3020000__CDFI2262212026000245,늘하우스,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:55:11+00:00
 3020000__CDFI2262212026000246,별하우스,platforms_04,bing_rss,10,0,0,,2026-11-21T19:55:12+00:00
 3020000__CDFI2262212026000247,마노아A,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:55:21+00:00
+3020000__CDFI2262212026000250,별빛 스테이 이태원,platforms_04,bing_rss,10,0,0,,2026-11-21T19:55:24+00:00
+3020000__CDFI2262212026000251,타임투스테이,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:55:32+00:00
+3020000__CDFI2262212026000252,타임투스테이2,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:55:40+00:00
+3030000__CDFI2262212015000003,세렌디피티,platforms_04,bing_rss,10,0,0,,2026-11-21T19:55:42+00:00
+3030000__CDFI2262212019000001,세렌디피티,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:55:50+00:00
