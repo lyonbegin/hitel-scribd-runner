@@ -1,0 +1,45 @@
+name: Seoul OTA watchdog - independent monitoring and safe restart
+on:
+  schedule:
+    # GitHub hosted cron has a five-minute minimum. Poll again inside each job.
+    - cron: "*/5 * * * *"
+  workflow_run:
+    workflows:
+      - Seoul public OTA + short-let contact evidence (rolling)
+    types: [completed]
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/seoul-ota-watchdog.yml
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: seoul-ota-watchdog-one-controller
+  cancel-in-progress: false
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Verify independent watchdog logic
+        run: python3 tools/realestate/seoul_ota_watchdog.py --selftest
+      - name: Check worker and durable heartbeat at 0, 2 and 4 minutes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OTA_STALE_SECONDS: "480"
+        run: |
+          python3 tools/realestate/seoul_ota_watchdog.py --checks 3 --interval 120
+      - name: Publish observation, cancellation and resume record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoul-ota-watchdog-diagnostics
+          path: artifacts/seoul-ota-watchdog/report.json
+          if-no-files-found: warn
+          retention-days: 30
