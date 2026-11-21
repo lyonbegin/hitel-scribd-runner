@@ -1,10 +1,10 @@
 {
-  "run_time": "2026-11-21T20:57:51+00:00",
+  "run_time": "2026-11-21T21:15:50+00:00",
   "official_rows": 5321,
   "active": 4710,
   "closed": 611,
   "missing_public_address": 0,
-  "historical_not_in_latest": 5,
+  "historical_not_in_latest": 6,
   "platform_count": 48,
   "platforms": [
     {
@@ -412,13 +412,13 @@
     "new_public_contacts": 0,
     "automated_new_contacts_this_run": 0,
     "counts": {
-      "search_bing_rss_ok": 266,
+      "search_bing_rss_ok": 258,
       "properties_stages_completed": 250,
-      "search_bing_rss_empty": 144,
+      "search_bing_rss_empty": 148,
       "search_duckduckgo_lite_ok": 51,
       "search_duckduckgo_lite_empty": 51,
-      "irrelevant_result_rejected": 12,
-      "search_duckduckgo_lite_fail": 93
+      "irrelevant_result_rejected": 4,
+      "search_duckduckgo_lite_fail": 97
     }
   },
   "consolidated_index": {
