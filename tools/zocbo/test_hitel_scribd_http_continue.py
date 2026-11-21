@@ -87,6 +87,43 @@ class HttpOnceOnlyTests(unittest.TestCase):
         self.assertEqual(len(parsed),20)
         self.assertEqual(audit,[])
 
+    def test_2195_one_digit_source_id_transcription_is_audited(self):
+        batch=[{"번호":n,"문서 ID":str(750000000+n)} for n in range(2181,2201)]
+        batch[2195-2181]["문서 ID"]="758882344"
+        reply={"rows":[{
+            "no":b["번호"],"id":b["문서 ID"],"school":"고등",
+            "grade":"해당없음","semester":"해당없음",
+            "subject":"영어","edition":"2015전용",
+            "download":"제외","reason":"2024 수능 영어 어법 어휘 답지"
+        } for b in batch]}
+        reply["rows"][2195-2181]["id"]="758882304"
+        immutable=json.dumps(reply,ensure_ascii=False)
+        audit=[]
+        result=runner.validated_rows(immutable,batch,audit)
+        self.assertEqual(len(result),20)
+        self.assertEqual(result[2195-2181]["id"],"758882344")
+        self.assertEqual(len(audit),1)
+        self.assertEqual(audit[0]["model_id"],"758882304")
+        self.assertEqual(audit[0]["verified_source_id"],"758882344")
+        self.assertEqual(json.loads(immutable)["rows"][2195-2181]["id"],
+                         "758882304")
+
+    def test_two_digit_foreign_id_not_repaired_by_generic_rule(self):
+        batch=[{"번호":n,"문서 ID":str(760000000+n)} for n in range(2201,2221)]
+        reply={"rows":[{
+            "no":b["번호"],"id":b["문서 ID"],"school":"대상외",
+            "grade":"해당없음","semester":"해당없음",
+            "subject":"해당없음","edition":"해당없음",
+            "download":"제외","reason":"교육과정 교재가 아님"
+        } for b in batch]}
+        original=batch[0]["문서 ID"]
+        corrupted=list(original)
+        corrupted[0]="9"
+        corrupted[1]="9"
+        reply["rows"][0]["id"]="".join(corrupted)
+        with self.assertRaisesRegex(ValueError,"future document IDs"):
+            runner.validated_rows(json.dumps(reply),batch,[])
+
     def test_exact_audited_2134_transcription_restored_without_requery(self):
         batch=[{"번호":n,"문서 ID":str(900000000+n)} for n in range(2121,2141)]
         batch[2134-2121]["문서 ID"]="748137062"
