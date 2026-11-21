@@ -1816,3 +1816,8 @@
 3000000__CDFI2262212026000058,스테이 서울로그,general,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T11:58:43+00:00
 3000000__CDFI2262212026000059,루트스테이001(RouteStay001),general,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403;duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T11:58:46+00:00
 3000000__CDFI2262212026000061,니드스테이(NEED STAY),general,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T11:58:48+00:00
+3000000__CDFI2262212026000064,낙원스테이,general,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T11:58:51+00:00
+3000000__CDFI2262212026000065,이레스테이,general,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T11:58:53+00:00
+3000000__CDFI2262212026000066,스테이 반촌,general,bing_rss,10,0,0,,2026-11-21T11:58:54+00:00
+3000000__CDFI2262212026000067,SunHaus,general,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T11:58:56+00:00
+3000000__CDFI2262212026000070,마이리틀 서울 인 종로,general,no_results,0,0,0,"duckduckgo_lite:ConnectionError:('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",2026-11-21T11:58:57+00:00
