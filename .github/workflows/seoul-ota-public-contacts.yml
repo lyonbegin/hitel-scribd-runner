@@ -40,6 +40,23 @@ jobs:
           PY
       - name: Discover public OTA and short-let listing evidence
         run: python tools/realestate/seoul_ota_public_contacts.py --batch-size 80 --max-results 10 --delay 1.2
+      - name: Validate complete 5k-property contact index
+        run: |
+          python - <<'PY'
+          import csv,json
+          from pathlib import Path
+          d=Path('data/seoul-ota')
+          m=json.loads((d/'manifest.json').read_text())
+          n=m['consolidated_index']
+          print('SOURCED_INDEX',json.dumps(n,ensure_ascii=False))
+          assert m['official_rows']>=5317
+          assert n['records']==m['official_rows']
+          assert n['prior_source_records']>=20
+          assert n['public_contact_source_rows']>=13
+          assert n['listing_link_rows']>=20
+          with (d/'listing_evidence.csv').open(encoding='utf-8-sig',newline='') as f:
+              assert all(x['match_grade']!='unverified' for x in csv.DictReader(f))
+          PY
       - name: Commit cumulative progress and verified-source references
         if: always()
         run: |
