@@ -52,7 +52,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh workflow run hitel-public-ai-corpus.yml --ref main -f mode=full
+          gh workflow run hitel-public-ai-corpus.yml --repo "$GITHUB_REPOSITORY" --ref main -f mode=full
           echo PASS_SCRIBD_SIGNED_WORKFLOW_DISPATCH_FROM_CONFIG_PUSH >> "$GITHUB_STEP_SUMMARY"
 
   worker_ready:
