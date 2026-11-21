@@ -7181,3 +7181,8 @@
 3030000__CDFI2262212024000015,성수스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:40:12+00:00
 3030000__CDFI2262212024000017,예그리나,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:40:20+00:00
 3030000__CDFI2262212024000018,빌라드 성수,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:40:29+00:00
+3030000__CDFI2262212024000019,디엠큐케,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:40:39+00:00
+3030000__CDFI2262212024000020,유얼스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:40:47+00:00
+3030000__CDFI2262212024000021,스테이성수,general,bing_rss,10,0,0,,2026-11-21T18:40:49+00:00
+3030000__CDFI2262212024000022,Hailey's House,general,bing_rss,10,0,0,,2026-11-21T18:40:50+00:00
+3030000__CDFI2262212024000023,서울포레스트하우스(SEOULFOREST HOUSE),general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:41:05+00:00
