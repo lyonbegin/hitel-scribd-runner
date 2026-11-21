@@ -56,12 +56,15 @@ jobs:
             except Exception as e:
               logs.append({'source':name,'error':str(e)[:250]})
           found=set();pages=[];empty=0
-          for offset in range(0,600,20):
+          for offset in range(0,1200,20):
             url='https://www.airbnb.com/s/Seoul--South-Korea/homes?items_offset='+str(offset)
             try:
               r=s.get(url,timeout=20)
               ids=set(re.findall(r'/rooms/(\d{7,20})',r.text)) if r.ok else set()
-              ids |= set(re.findall(r'\\"listingId\\"\\s*:\\s*\\"?(\\d{7,20})',r.text))
+              ids |= set(re.findall(r'listingId.{0,90}?(\d{7,20})',r.text))
+              if offset==0:
+                k=r.text.find('listingId')
+                print('AIRBNB_HTML_DIAGNOSTIC',repr(r.text[max(0,k-100):k+350]),flush=True)
               new=ids-found;found|=ids
               pages.append({'offset':offset,'status':r.status_code,'new':len(new),'html_bytes':len(r.content),'rooms_mentions':r.text.count('rooms/'),'listingId_mentions':r.text.count('listingId')})
               if r.status_code in (403,429):break
