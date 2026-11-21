@@ -6811,3 +6811,8 @@
 3020000__CDFI2262212023000036,오렌지 하우스,platforms_06,bing_rss,10,0,0,,2026-11-21T18:17:00+00:00
 3020000__CDFI2262212023000037,S&J House,platforms_06,bing_rss,10,0,0,,2026-11-21T18:17:01+00:00
 3020000__CDFI2262212023000038,Stay Haap(스테이 합),platforms_06,bing_rss,10,0,0,,2026-11-21T18:17:03+00:00
+3020000__CDFI2262212023000039,까사 서울,platforms_06,bing_rss,10,0,0,,2026-11-21T18:17:05+00:00
+3020000__CDFI2262212023000040,Stellaish Home,platforms_06,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T18:17:07+00:00
+3020000__CDFI2262212023000041,Modern House,platforms_06,bing_rss,10,0,0,,2026-11-21T18:17:09+00:00
+3020000__CDFI2262212023000044,도보이하우스(DOBOY_House),platforms_06,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403;duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T18:17:11+00:00
+3020000__CDFI2262212023000045,다올(DAOL),platforms_06,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T18:17:13+00:00
