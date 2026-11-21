@@ -7606,3 +7606,8 @@
 3020000__CDFI2262212026000197,디어 서울 스테이,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:12:50+00:00
 3020000__CDFI2262212026000198,별세계,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:12:59+00:00
 3020000__CDFI2262212026000199,시선 남산,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:13:07+00:00
+3020000__CDFI2262212026000201,kang_home,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:13:17+00:00
+3020000__CDFI2262212026000204,NAMSAN K-STAY,platforms_02,bing_rss,10,0,0,,2026-11-21T19:13:19+00:00
+3020000__CDFI2262212026000207,하루 인 용산,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:13:27+00:00
+3020000__CDFI2262212026000208,Limi stay,platforms_02,bing_rss,10,0,0,,2026-11-21T19:13:28+00:00
+3020000__CDFI2262212026000213,남산명가,platforms_02,bing_rss,10,0,0,,2026-11-21T19:13:30+00:00
