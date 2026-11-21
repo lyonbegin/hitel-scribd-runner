@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import io
 import json
 import time
 import urllib.error
@@ -102,10 +103,18 @@ def ensure_one_http_job(statefile: Path, state: dict, text: str) -> dict:
             raise ValueError("HTTP_CHAT_NOT_ACCEPTED")
         print("PUBLIC_HTTP_CHAT_ACCEPTED_ONCE",job.get("job_id"),flush=True)
     if (job.get("request_id")!=request_id or
-        job.get("room_name")!=state["room_name"] or
+        (job.get("room_name") is not None and
+         job.get("room_name")!=state["room_name"]) or
         not str(job.get("job_id","")).startswith("job_") or
         not str(job.get("room_id","")).startswith("room_")):
         raise ValueError("HTTP_ACCEPTED_JOB_IDENTITY_MISMATCH")
+    # GET /requests returns no room name. Match the job's persisted room name
+    # on GET /jobs before accepting an existing request for a future poll.
+    if previous is not None:
+        status_code,status=call(API+"/jobs/"+job["job_id"])
+        if (status_code!=200 or status.get("room_name")!=state["room_name"]
+            or status.get("room_id")!=job["room_id"]):
+            raise ValueError("HTTP_EXISTING_REQUEST_ROOM_MISMATCH")
     state.update({"job_id":job["job_id"],"room_id":job["room_id"],
                   "status":"accepted"})
     save(statefile,state)
@@ -198,7 +207,7 @@ def main():
     data=Path(o.input).read_bytes()
     if hashlib.sha256(data).hexdigest()!=SOURCE_SHA:
         raise ValueError("ORIGINAL_18109_CORPUS_SHA256_CHANGED")
-    rows=list(csv.DictReader(data.decode("utf-8-sig").splitlines()))
+    rows=list(csv.DictReader(io.StringIO(data.decode("utf-8-sig"),newline="")))
     if len(rows)!=18109 or len(set(x["문서 ID"] for x in rows))!=18109:
         raise ValueError("ORIGINAL_18109_CORPUS_IDS_CHANGED")
     for no,r in enumerate(rows,1):
