@@ -1,0 +1,84 @@
+name: Seoul lodging registry and Airbnb open-data fetch
+on:
+  push:
+    branches:
+      - research/seoul-airbnb-registry-20261121
+    paths:
+      - .github/workflows/seoul-airbnb-collect-20261121.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Download public source data, check each source and paginate Airbnb
+        shell: bash
+        run: |
+          mkdir -p out
+          python - <<'PY'
+          import requests, re, io, csv, zipfile, json, time
+          from pathlib import Path
+          out=Path('out');s=requests.Session();s.headers.update({'User-Agent':'Mozilla/5.0'})
+          logs=[]
+          urls=[
+          ('localdata','https://www.localdata.go.kr/datafile/each/03_11_04_P_CSV.zip'),
+          ('localdata_alt','https://localdata.go.kr/datafile/each/03_11_04_P_CSV.zip'),
+          ('data_go_kr','https://www.data.go.kr/data/15044966/fileData.do'),
+          ('seoul','https://data.seoul.go.kr/dataList/OA-16045/S/1/datasetView.do'),
+          ('airbtics','https://airbtics.com/top-airbnb-listings-in-seoul-south-korea/'),
+          ('doorstep','https://www.doorstepanalytics.com/reports/South_Korea/Seoul/data-access')]
+          for name,url in urls:
+            try:
+              r=s.get(url,timeout=40)
+              v={'source':name,'status':r.status_code,'final_url':r.url,'content_type':r.headers.get('content-type'),'bytes':len(r.content)}
+              logs.append(v);print('SOURCE',v,flush=True)
+              if name.startswith('localdata') and r.ok and zipfile.is_zipfile(io.BytesIO(r.content)):
+                (out/'localdata_original.zip').write_bytes(r.content)
+                with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+                  for info in z.infolist():
+                    if info.filename.lower().endswith('.csv'):
+                      raw=z.read(info.filename)
+                      for enc in ('utf-8-sig','cp949','euc-kr'):
+                        try:txt=raw.decode(enc);break
+                        except UnicodeDecodeError:continue
+                      reader=csv.reader(io.StringIO(txt));header=next(reader);rows=[row for row in reader if any('서울' in c for c in row[:20])]
+                      with (out/'seoul_urban_homestay_full.csv').open('w',newline='',encoding='utf-8-sig') as f:
+                        w=csv.writer(f);w.writerow(header);w.writerows(rows)
+                      v['seoul_rows']=len(rows);v['columns']=header;print('SEOUL ROWS',len(rows),flush=True)
+                continue
+              if name=='airbtics' and r.ok:
+                ids=list(dict.fromkeys(re.findall(r'app\\.airbtics\\.com/listing/(\\d{7,20})',r.text)))
+                with (out/'airbnb_top30_ids.csv').open('w',newline='',encoding='utf-8-sig') as f:
+                  w=csv.writer(f);w.writerow(['listing_id','airbnb_url','source']);w.writerows([[a,'https://www.airbnb.com/rooms/'+a,url] for a in ids])
+                v['airbnb_ids']=len(ids)
+            except Exception as e:
+              logs.append({'source':name,'error':str(e)[:250]})
+          found=set();pages=[];empty=0
+          for offset in range(0,600,20):
+            url='https://www.airbnb.com/s/Seoul--South-Korea/homes?items_offset='+str(offset)
+            try:
+              r=s.get(url,timeout=20)
+              ids=set(re.findall(r'/rooms/(\\d{7,20})',r.text)) if r.ok else set()
+              new=ids-found;found|=ids
+              pages.append({'offset':offset,'status':r.status_code,'new':len(new)})
+              if r.status_code in (403,429):break
+              empty=empty+1 if not new else 0
+              if empty>=3:break
+              time.sleep(1)
+            except Exception as e:
+              pages.append({'offset':offset,'error':str(e)[:120]});break
+          with (out/'airbnb_search_ids.csv').open('w',newline='',encoding='utf-8-sig') as f:
+            w=csv.writer(f);w.writerow(['listing_id','airbnb_url']);w.writerows([[a,'https://www.airbnb.com/rooms/'+a] for a in sorted(found)])
+          logs.append({'airbnb_search_pages':pages,'airbnb_search_unique':len(found)})
+          (out/'collection_audit.json').write_text(json.dumps(logs,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('FINAL',json.dumps(logs,ensure_ascii=False)[-3000:],flush=True)
+          PY
+      - name: Publish dataset artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoul-airbnb-data-20261121
+          path: out/
+          retention-days: 14
+          if-no-files-found: error
