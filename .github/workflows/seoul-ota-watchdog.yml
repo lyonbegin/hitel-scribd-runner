@@ -1,4 +1,5 @@
 name: Seoul OTA watchdog - independent monitoring and safe restart
+run-name: "OTA watchdog check / ${{ github.event_name }}"
 on:
   schedule:
     # GitHub hosted cron has a five-minute minimum. Poll again inside each job.
