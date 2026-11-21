@@ -3936,3 +3936,8 @@
 3020000__CDFI2262212019000038,서울하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:00:20+00:00
 3020000__CDFI2262212019000039,폴하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:00:28+00:00
 3020000__CDFI2262212019000040,AGIT(아지트),general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:00:36+00:00
+3020000__CDFI2262212019000041,영플래닝,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:00:46+00:00
+3020000__CDFI2262212019000043,코빈하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:00:54+00:00
+3020000__CDFI2262212019000045,바라,general,bing_rss,10,0,0,,2026-11-21T15:00:56+00:00
+3020000__CDFI2262212019000047,Itaewon luxe stay,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:01:04+00:00
+3020000__CDFI2262212019000048,five star stay,general,bing_rss,10,0,0,,2026-11-21T15:01:05+00:00
