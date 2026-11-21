@@ -59,7 +59,10 @@ def branch_json(path):
         return {}
 
 def recent_worker_runs():
-    obj=api(f"repos/{REPO}/actions/runs?per_page=60")
+    try:
+        obj=api(f"repos/{REPO}/actions/workflows/{WORKFLOW}/runs?per_page=60")
+    except Exception:
+        obj=api(f"repos/{REPO}/actions/runs?per_page=100")
     runs=[r for r in obj.get("workflow_runs",[]) if r.get("path")==WORKER_PATH]
     return sorted(runs,key=lambda x:x.get("created_at",""),reverse=True)
 
