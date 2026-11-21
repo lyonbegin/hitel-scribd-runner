@@ -10066,3 +10066,8 @@
 3040000__CDFI2262212025000024,라온하우스,platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T22:14:28+00:00
 3040000__CDFI2262212025000025,뉴메이커스,platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T22:14:30+00:00
 3040000__CDFI2262212025000026,코지인군자,platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T22:14:32+00:00
+3040000__CDFI2262212025000027,Young Stay,platforms_05,bing_rss,7,0,0,,2026-11-21T22:14:35+00:00
+3040000__CDFI2262212025000028,안녕하우스,platforms_05,bing_rss,7,0,0,,2026-11-21T22:14:36+00:00
+3040000__CDFI2262212025000029,유어에피소드,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectionError:('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",2026-11-21T22:14:37+00:00
+3040000__CDFI2262212025000031,Hangang Yani.B House,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T22:14:46+00:00
+3040000__CDFI2262212025000032,Maison242,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T22:14:54+00:00
