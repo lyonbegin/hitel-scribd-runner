@@ -46388,7 +46388,7 @@
     "closed_date": "",
     "area": "49.5",
     "permit_phone": "",
-    "source_current": "no",
+    "source_current": "yes",
     "baseline_preserved": "yes"
   },
   "3130000__CDFI2262212026000662": {
@@ -46436,7 +46436,7 @@
     "closed_date": "",
     "area": "48.79",
     "permit_phone": "",
-    "source_current": "no",
+    "source_current": "yes",
     "baseline_preserved": "yes"
   },
   "3130000__CDFI2262212026000666": {
@@ -46448,7 +46448,7 @@
     "closed_date": "",
     "area": "39",
     "permit_phone": "",
-    "source_current": "no",
+    "source_current": "yes",
     "baseline_preserved": "yes"
   },
   "3130000__CDFI3261142012000009": {
@@ -49388,7 +49388,7 @@
     "closed_date": "",
     "area": "28.85",
     "permit_phone": "",
-    "source_current": "yes",
+    "source_current": "no",
     "baseline_preserved": "yes"
   },
   "3160000__CDFI2262212017000002": {
@@ -55196,7 +55196,7 @@
     "closed_date": "",
     "area": "36.36",
     "permit_phone": "",
-    "source_current": "no",
+    "source_current": "yes",
     "baseline_preserved": "yes"
   },
   "3200000__CDFI3261142014000003": {
@@ -63811,6 +63811,30 @@
     "raw_status": "영업/정상",
     "closed_date": "",
     "area": "48.31",
+    "permit_phone": "",
+    "source_current": "yes",
+    "baseline_preserved": "no"
+  },
+  "3230000__CDFI2262212026000118": {
+    "license_id": "3230000__CDFI2262212026000118",
+    "name": "라온석촌",
+    "address": "서울특별시 송파구 가락로11길 23-8, 101호 (석촌동)",
+    "status": "active",
+    "raw_status": "영업/정상",
+    "closed_date": "",
+    "area": "60",
+    "permit_phone": "",
+    "source_current": "yes",
+    "baseline_preserved": "no"
+  },
+  "3230000__CDFI2262212026000119": {
+    "license_id": "3230000__CDFI2262212026000119",
+    "name": "시윤스테이",
+    "address": "서울특별시 송파구 백제고분로7길 40-17, 손예빌딩 301호 (잠실동)",
+    "status": "active",
+    "raw_status": "영업/정상",
+    "closed_date": "",
+    "area": "56.05",
     "permit_phone": "",
     "source_current": "yes",
     "baseline_preserved": "no"
