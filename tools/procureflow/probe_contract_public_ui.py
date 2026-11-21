@@ -96,7 +96,7 @@ def main():
         "blocked_non_read_only_requests": [], "blocked_request_count_total": 0,
         "errors": [], "console_errors": [], "page_errors": [], "browser_pages": [],
         "request_failures": [], "http_errors": [], "tracked_post_responses": [],
-        "response_count_total": 0, "post_response_count_total": 0, "late_script_paths": [], "xhr_paths": [],
+        "response_count_total": 0, "post_response_count_total": 0, "post_response_path_counts": {}, "late_script_paths": [], "xhr_paths": [],
         "read_only_response_proofs": [],
     }
     with sync_playwright() as playwright:
@@ -163,6 +163,10 @@ def main():
                 report["read_only_response_proofs"].append(proof)
             if response.request.method == "POST":
                 report["post_response_count_total"] += 1
+                # Count every observed response by public host/path/status, independent of 40-event samples.
+                key = f"{info['host']}|{info['path']}|{response.status}"
+                counts = report["post_response_path_counts"]
+                counts[key] = counts.get(key, 0) + 1
                 if len(report["tracked_post_responses"]) < 40:
                     report["tracked_post_responses"].append({**info, "status": response.status})
             if len(report["events"]) < MAX_EVENTS:
@@ -347,6 +351,7 @@ def main():
         "post_response_count_observed": report["post_response_count_total"],
         "post_response_sample_count": len(report["tracked_post_responses"]),
         "post_response_sample_truncated": report["post_response_count_total"] > len(report["tracked_post_responses"]),
+        "post_response_path_counts": report["post_response_path_counts"],
         "request_count": len(report["events"]),
         "response_count_total": report["response_count_total"],
         "http_errors": report["http_errors"], "request_failures": report["request_failures"],
