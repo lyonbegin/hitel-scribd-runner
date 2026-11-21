@@ -15,6 +15,7 @@ import pathlib
 import random
 import re
 import sys
+import subprocess
 import time
 import unicodedata
 import urllib.parse
@@ -463,6 +464,10 @@ def run(args):
         state["latest_run_at"]=STAMP()
         state["total_stages_completed"]=sum(int(v.get("stage_idx",0)) for v in progress.values())
         atomic_json(ROOT/"state.json",state)
+        # Push the checkpoint to the research branch while collection is still alive.
+        # A watchdog can now distinguish a live worker from a stuck one.
+        subprocess.run([sys.executable,"tools/realestate/seoul_ota_checkpoint.py",
+                        "--phase","running"],check=True,timeout=120)
     for i,key in enumerate(selected,1):
         rec=rows[key]
         old=progress.get(key,{})
@@ -516,7 +521,7 @@ def run(args):
         old["last_attempt"]=STAMP()
         progress[key]=old
         COUNTS["properties_stages_completed"]+=1
-        if i % 25 == 0:checkpoint()
+        if i % 5 == 0:checkpoint()
         time.sleep(args.delay)
     checkpoint()
     state["progress"]=progress
@@ -543,6 +548,8 @@ def run(args):
       "critical":"Search hits are NOT verified accommodation listings. Only 'name_and_road' evidence supports an address match; contacts are NOT call-verified. The permit area is NOT exclusive area.",
       "scraping_policy":"public search/robots permitted pages only; no authentication, messages, CAPTCHAs or bypass."}
     atomic_json(ROOT/"manifest.json",manifest)
+    subprocess.run([sys.executable,"tools/realestate/seoul_ota_checkpoint.py",
+                    "--phase","complete"],check=True,timeout=120)
     print(json.dumps({k:v for k,v in manifest.items() if k!="platforms"},ensure_ascii=False,indent=2))
     if COUNTS["search_unavailable"]:
         raise RuntimeError("All public search providers unavailable; progress not advanced for failed item")
