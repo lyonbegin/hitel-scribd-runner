@@ -6176,3 +6176,8 @@
 3020000__CDFI2262212025000049,이스트빙고,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:33:54+00:00
 3020000__CDFI2262212025000051,라벨르하우스,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:34:03+00:00
 3020000__CDFI2262212025000052,라이커서울러,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:34:11+00:00
+3020000__CDFI2262212025000053,serene seoul,platforms_03,bing_rss,10,0,0,,2026-11-21T17:34:14+00:00
+3020000__CDFI2262212025000054,서계스테이,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:34:22+00:00
+3020000__CDFI2262212025000056,서울역 콘도,platforms_03,bing_rss,10,0,0,,2026-11-21T17:34:23+00:00
+3020000__CDFI2262212025000057,이태원클래스,platforms_03,bing_rss,10,0,0,,2026-11-21T17:34:24+00:00
+3020000__CDFI2262212025000062,잘예니컨설팅,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:34:33+00:00
