@@ -11,12 +11,15 @@ import csv
 import hashlib
 import io
 import json
+import os
+import urllib.parse
+import urllib.request
 import time
 import urllib.error
 from pathlib import Path
 
 from hitel_public_named_rooms_corpus import (
-    call, output_file, read_completed_result, save, title_prompt, validated_rows)
+    BASE, HTTP, call, output_file, read_completed_result, save, title_prompt, validated_rows)
 from hitel_scribd_ws_continue import SOURCE_SHA, load_verified, next_batch
 
 API="/integrations/v1/public"
@@ -82,6 +85,48 @@ def fetch_existing(request_id: str):
     return obj
 
 
+def isolated_chat_once(state: dict, text: str):
+    """Task-bound POST via exact GitHub Actions producer OIDC, never shared /chat.
+
+    Tokens are short-lived and never persisted, printed or sent to GitHub
+    artifact files. No signed producer token means no submission.
+    """
+    if state.get("task_id")!="scribd-18109":
+        raise ValueError("INVALID_ISOLATED_TASK_SCOPE")
+    token_url=os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL")
+    token_secret=os.environ.get("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+    if not token_url or not token_secret:
+        raise RuntimeError("GITHUB_OIDC_PRODUCER_NOT_AVAILABLE")
+    audience="urn:lyonbegin:procureflow:hitel-isolated-task-submit"
+    separator="&" if "?" in token_url else "?"
+    url=token_url+separator+"audience="+urllib.parse.quote(audience,safe="")
+    signed=urllib.request.Request(url,headers={
+        "Authorization":"Bearer "+token_secret,"Accept":"application/json"})
+    with HTTP.open(signed,timeout=30) as response:
+        oidc=json.load(response).get("value")
+    if not isinstance(oidc,str) or len(oidc)<50:
+        raise RuntimeError("GITHUB_OIDC_PRODUCER_TOKEN_MISSING")
+    raw=json.dumps({"request_id":state["request_id"],
+                    "room_name":state["room_name"],"text":text},
+                   ensure_ascii=False).encode("utf-8")
+    endpoint=BASE+API+"/isolated/tasks/scribd-18109/chat"
+    req=urllib.request.Request(endpoint,data=raw,method="POST",
+           headers={"Content-Type":"application/json",
+                    "Accept":"application/json",
+                    "X-HITEL-PRODUCER-OIDC":oidc})
+    with HTTP.open(req,timeout=60) as response:
+        return response.status,json.load(response)
+
+
+def expected_server_room_name(state:dict):
+    task=state.get("task_id")
+    if task=="scribd-18109":
+        return "HITEL-ISOLATED-SCRIBD-18109-"+state["room_name"]
+    if task is None:
+        return state["room_name"]
+    raise ValueError("INVALID_TASK_IN_CHECKPOINT")
+
+
 def ensure_one_http_job(statefile: Path, state: dict, text: str) -> dict:
     """Persist attempt before network I/O. A lost POST reply is never resent."""
     if state.get("job_id"):
@@ -97,14 +142,17 @@ def ensure_one_http_job(statefile: Path, state: dict, text: str) -> dict:
         # This atomic write happens BEFORE any request can reach the API.
         state["submit_attempted"]=True
         save(statefile,state)
-        code,job=call(API+"/chat",{"request_id":request_id,
-                                 "room_name":state["room_name"],"text":text})
+        if state.get("task_id")=="scribd-18109":
+            code,job=isolated_chat_once(state,text)
+        else:
+            code,job=call(API+"/chat",{"request_id":request_id,
+                                     "room_name":state["room_name"],"text":text})
         if code!=202 or job.get("accepted") is not True:
             raise ValueError("HTTP_CHAT_NOT_ACCEPTED")
         print("PUBLIC_HTTP_CHAT_ACCEPTED_ONCE",job.get("job_id"),flush=True)
     if (job.get("request_id")!=request_id or
         (job.get("room_name") is not None and
-         job.get("room_name")!=state["room_name"]) or
+         job.get("room_name")!=expected_server_room_name(state)) or
         not str(job.get("job_id","")).startswith("job_") or
         not str(job.get("room_id","")).startswith("room_")):
         raise ValueError("HTTP_ACCEPTED_JOB_IDENTITY_MISMATCH")
@@ -112,7 +160,7 @@ def ensure_one_http_job(statefile: Path, state: dict, text: str) -> dict:
     # on GET /jobs before accepting an existing request for a future poll.
     if previous is not None:
         status_code,status=call(API+"/jobs/"+job["job_id"])
-        if (status_code!=200 or status.get("room_name")!=state["room_name"]
+        if (status_code!=200 or status.get("room_name")!=expected_server_room_name(state)
             or status.get("room_id")!=job["room_id"]):
             raise ValueError("HTTP_EXISTING_REQUEST_ROOM_MISMATCH")
     state.update({"job_id":job["job_id"],"room_id":job["room_id"],
@@ -238,11 +286,13 @@ def run_one(rows:list[dict],out:Path) -> int:
         if (state.get("key")!=key or state.get("digest")!=digest
             or state.get("source_ids")!=ids
             or state.get("request_id")!=request_id
-            or state.get("room_name")!=room_name):
+            or state.get("room_name")!=room_name
+            or state.get("task_id") not in (None,"scribd-18109")):
             raise ValueError("HTTP_CHECKPOINT_SCOPE_CHANGED")
     else:
         state={"key":key,"digest":digest,"source_ids":ids,
                "request_id":request_id,"room_name":room_name,
+               "task_id":os.environ.get("HITEL_ISOLATED_TASK_ID") or None,
                "status":"prepared","submit_attempted":False}
         save(statefile,state)
     statefile,state=recovery_after_verified_worker_disconnect(
@@ -255,7 +305,10 @@ def run_one(rows:list[dict],out:Path) -> int:
     if dest.exists():
         raise ValueError("REFUSE_OVERWRITE_VERIFIED_RESULTS")
     save(dest,{"rows":parsed,"job_id":state["job_id"],"room_id":state["room_id"],
-               "request_id":request_id,"transport":"HITEL_PUBLIC_HTTP_PROVEN_E2E",
+               "request_id":request_id,
+               "transport":("HITEL_TASK_ISOLATED_HTTP_OIDC"
+                            if state.get("task_id")=="scribd-18109"
+                            else "HITEL_PUBLIC_HTTP_PROVEN_E2E"),
                "verified_reply_sha256":remote["result_sha256"],
                "source_id_repairs":identity_repair_audit,
                "source_id_repair_count":len(identity_repair_audit)})
