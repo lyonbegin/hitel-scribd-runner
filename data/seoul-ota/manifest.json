@@ -1,10 +1,10 @@
 {
-  "run_time": "2026-11-21T19:25:23+00:00",
+  "run_time": "2026-11-21T19:44:53+00:00",
   "official_rows": 5321,
   "active": 4710,
   "closed": 611,
   "missing_public_address": 0,
-  "historical_not_in_latest": 6,
+  "historical_not_in_latest": 7,
   "platform_count": 48,
   "platforms": [
     {
@@ -408,17 +408,17 @@
   "last_run": {
     "selected": 250,
     "advanced": 250,
-    "new_evidence": 0,
+    "new_evidence": 2,
     "new_public_contacts": 0,
     "automated_new_contacts_this_run": 0,
     "counts": {
       "search_bing_rss_ok": 253,
-      "search_bing_rss_empty": 181,
+      "search_bing_rss_empty": 170,
       "search_duckduckgo_lite_ok": 51,
       "search_duckduckgo_lite_empty": 51,
       "properties_stages_completed": 250,
-      "search_duckduckgo_lite_fail": 130,
-      "irrelevant_result_rejected": 8
+      "irrelevant_result_rejected": 11,
+      "search_duckduckgo_lite_fail": 119
     }
   },
   "consolidated_index": {
@@ -426,8 +426,8 @@
     "prior_source_records": 20,
     "public_contact_source_rows": 46,
     "unique_properties_with_public_phone": 41,
-    "listing_link_rows": 22,
-    "unique_properties_with_listing_link": 16,
+    "listing_link_rows": 24,
+    "unique_properties_with_listing_link": 18,
     "prior_external_contact_source_rows": 13,
     "prior_external_businesses_with_phone": 10,
     "prior_external_unique_phone_numbers": 11,
