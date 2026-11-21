@@ -1,9 +1,10 @@
 {
-  "run_time": "2026-11-21T07:19:53+00:00",
-  "official_rows": 5314,
-  "active": 4703,
+  "run_time": "2026-11-21T07:23:27+00:00",
+  "official_rows": 5318,
+  "active": 4707,
   "closed": 611,
-  "platform_count": 43,
+  "missing_public_address": 0,
+  "platform_count": 48,
   "platforms": [
     {
       "id": "airbnb",
@@ -332,24 +333,24 @@
       "label": "단단홈즈",
       "category": "short_let",
       "domains": [
-        "dandan.homes",
         "dandanhomes.com"
       ]
     },
     {
-      "id": "homestay",
-      "label": "홈즈스테이 / 홈즈",
-      "category": "short_let",
+      "id": "homes",
+      "label": "HOMES / 홈즈스테이 (운영사)",
+      "category": "managed_stay",
       "domains": [
-        "homestay.com",
-        "homescompany.kr"
+        "homes.global",
+        "homes-stay.com"
       ]
     },
     {
       "id": "zipbang",
-      "label": "직방",
+      "label": "직방 단기임대",
       "category": "short_let",
       "domains": [
+        "str.zigbang.com",
         "zigbang.com"
       ]
     },
@@ -360,17 +361,58 @@
       "domains": [
         "spacecloud.kr"
       ]
+    },
+    {
+      "id": "blueground",
+      "label": "블루그라운드",
+      "category": "short_let",
+      "domains": [
+        "theblueground.com"
+      ]
+    },
+    {
+      "id": "coupangtravel",
+      "label": "쿠팡트래블",
+      "category": "korean_ota",
+      "domains": [
+        "coupang.com"
+      ]
+    },
+    {
+      "id": "plottlife",
+      "label": "플라트라이프",
+      "category": "short_let",
+      "domains": [
+        "life.plott.co.kr"
+      ]
+    },
+    {
+      "id": "actingfarm",
+      "label": "액팅팜",
+      "category": "local_stay",
+      "domains": [
+        "actingfarm.com"
+      ]
+    },
+    {
+      "id": "springhouse",
+      "label": "봄집",
+      "category": "short_let",
+      "domains": [
+        "springhouse.co.kr"
+      ]
     }
   ],
   "stages": 6,
   "last_run": {
-    "selected": 35,
-    "advanced": 35,
-    "new_evidence": 2,
+    "selected": 80,
+    "advanced": 80,
+    "new_evidence": 0,
     "new_public_contacts": 0,
     "counts": {
-      "search_bing_rss_ok": 35,
-      "properties_stages_completed": 35
+      "search_bing_rss_ok": 87,
+      "properties_stages_completed": 80,
+      "irrelevant_result_rejected": 1
     }
   },
   "critical": "Search hits are NOT verified accommodation listings. Only 'name_and_road' evidence supports an address match; contacts are NOT call-verified. The permit area is NOT exclusive area.",
