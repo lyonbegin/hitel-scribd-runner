@@ -94,6 +94,63 @@ class HttpOnceOnlyTests(unittest.TestCase):
                     runner.await_http_reply(path,state)
             self.assertEqual(json.loads(path.read_text())["status"],"unverified")
 
+    def test_worker_lost_terminal_request_can_prepare_one_audited_recovery(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d); key="01861-01880";digest="a"*64
+            original_req="scribd18109-"+key+"-"+digest[:32]
+            room="HITEL-SCRIBD-18109-PROVEN-HTTP-20261121-"+key
+            original={"key":key,"digest":digest,"source_ids":[{"no":1861,"id":"x"}],
+                      "request_id":original_req,"room_name":room,
+                      "job_id":"job_"+"f"*32,"status":"unverified",
+                      "remote_status":"stalled",
+                      "remote_error_code":"WORKER_CONNECTION_LOST"}
+            file=root/"http"/(key+".json")
+            runner.save(file,original)
+            remote={"job_id":original["job_id"],"request_id":original_req,
+                    "room_name":room,"status":"stalled",
+                    "error_code":"WORKER_CONNECTION_LOST",
+                    "result_ready":False,
+                    "chatgpt_send_confirmed":None,
+                    "assistant_reply_observed":None}
+            with patch.object(runner,"call",return_value=(200,remote)):
+                newfile,new=runner.recovery_after_verified_worker_disconnect(
+                    root,key,digest,original["source_ids"],file,original,
+                    original_req,room)
+            self.assertNotEqual(newfile,file)
+            self.assertEqual(new["request_id"],original_req+"-recovery1")
+            self.assertTrue(new["prior_delivery_unknown"])
+            self.assertEqual(json.loads(file.read_text()),original)
+            self.assertFalse(new["submit_attempted"])
+            with patch.object(runner,"call") as call:
+                later,stored=runner.recovery_after_verified_worker_disconnect(
+                    root,key,digest,original["source_ids"],file,original,
+                    original_req,room)
+                call.assert_not_called()
+            self.assertEqual(later,newfile)
+            self.assertEqual(stored,new)
+
+    def test_worker_lost_but_send_seen_refuses_duplicate(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);key="01861-01880";digest="b"*64
+            rid="scribd18109-"+key+"-"+digest[:32]
+            room="old-room"
+            original={"key":key,"digest":digest,"source_ids":[],
+                      "request_id":rid,"room_name":room,
+                      "job_id":"job_"+"e"*32,"status":"unverified",
+                      "remote_status":"stalled",
+                      "remote_error_code":"WORKER_CONNECTION_LOST"}
+            remote={"job_id":original["job_id"],"request_id":rid,
+                    "room_name":room,"status":"stalled",
+                    "error_code":"WORKER_CONNECTION_LOST",
+                    "result_ready":False,
+                    "chatgpt_send_confirmed":True}
+            with patch.object(runner,"call",return_value=(200,remote)):
+                with self.assertRaisesRegex(RuntimeError,
+                                            "RECOVERY_NOT_SAFE_NO_REPOST"):
+                    runner.recovery_after_verified_worker_disconnect(
+                        root,key,digest,[],root/"original",original,rid,room)
+            self.assertFalse((root/"http"/"worker_recoveries").exists())
+
     def test_legacy_unknown_job_audited_without_destroying_1100(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);key=runner.OLD_1101_KEY;digest="d"*64
