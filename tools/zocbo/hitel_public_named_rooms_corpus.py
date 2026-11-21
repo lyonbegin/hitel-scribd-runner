@@ -141,6 +141,31 @@ def validated_rows(reply,batch,identity_repair_audit=None):
             raise ValueError("AI reply contains duplicate or empty document identities")
         if len(rows)==len(batch) and set(actual)==expected:
             candidates.append(rows)
+        elif (len(rows)==20 and first==2121 and max(source_ids)==2140
+              and {no for no,_ in actual}==set(source_ids)
+              and [(no,raw_id,source_ids[no]) for no,raw_id in actual
+                   if raw_id!=source_ids[no]]
+                  ==[(2134,"748137352","748137062")]):
+            # Immutable historic response job_a0b91c... was independently
+            # audited against the hash-pinned source and original title
+            # "어삼쉬사 Plus - 수학Ⅱ (학생용)". The model transcribed
+            # 748137062 as 748137352. Only this exact observed error may
+            # be corrected; never generalize to arbitrary missing/foreign IDs.
+            source_row=next(x for x in rows if int(x["no"])==2134)
+            if (source_row.get("school")!="고등"
+                    or "수학Ⅱ" not in str(source_row.get("reason",""))
+                    or source_row.get("subject")!="미적분Ⅰ"):
+                raise ValueError("AUDITED_2134_TITLE_CONTENT_MISMATCH")
+            normalized=[{**row,"id":source_ids[int(row["no"])]}
+                        for row in rows]
+            if identity_repair_audit is not None:
+                identity_repair_audit.append({
+                    "no":2134,"model_id":"748137352",
+                    "verified_source_id":"748137062",
+                    "reason":"audited exact historic 2121-2140 response; title and source SHA matched",
+                    "immutable_result_job":"job_a0b91c0b09d044c9a9fb58e17129bc7e"})
+            print("AI_AUDITED_HISTORIC_2134_SOURCE_ID_REPAIRED",flush=True)
+            candidates.append(normalized)
         elif (len(rows)==len(batch)
               and {no for no,_ in actual}==set(source_ids)
               and len({no for no,_ in actual})==len(rows)):
@@ -168,31 +193,6 @@ def validated_rows(reply,batch,identity_repair_audit=None):
                     "reason":"one duplicated in-batch ID; source CSV SHA verified"})
             print("AI_SINGLE_DUPLICATED_SOURCE_ID_REPAIRED",no,
                   "MODEL_ID",incorrect,"SOURCE_ID",correct,flush=True)
-            candidates.append(normalized)
-        elif (len(rows)==20 and first==2121 and max(source_ids)==2140
-              and {no for no,_ in actual}==set(source_ids)
-              and [(no,raw_id,source_ids[no]) for no,raw_id in actual
-                   if raw_id!=source_ids[no]]
-                  ==[(2134,"748137352","748137062")]):
-            # Immutable historic response job_a0b91c... was independently
-            # audited against the hash-pinned source and original title
-            # "어삼쉬사 Plus - 수학Ⅱ (학생용)". The model transcribed
-            # 748137062 as 748137352. Only this exact observed error may
-            # be corrected; never generalize to arbitrary missing/foreign IDs.
-            source_row=next(x for x in rows if int(x["no"])==2134)
-            if (source_row.get("school")!="고등"
-                    or "수학Ⅱ" not in str(source_row.get("reason",""))
-                    or source_row.get("subject")!="미적분Ⅰ"):
-                raise ValueError("AUDITED_2134_TITLE_CONTENT_MISMATCH")
-            normalized=[{**row,"id":source_ids[int(row["no"])]}
-                        for row in rows]
-            if identity_repair_audit is not None:
-                identity_repair_audit.append({
-                    "no":2134,"model_id":"748137352",
-                    "verified_source_id":"748137062",
-                    "reason":"audited exact historic 2121-2140 response; title and source SHA matched",
-                    "immutable_result_job":"job_a0b91c0b09d044c9a9fb58e17129bc7e"})
-            print("AI_AUDITED_HISTORIC_2134_SOURCE_ID_REPAIRED",flush=True)
             candidates.append(normalized)
         elif all(no<first for no,_ in actual):
             print("IGNORED_DUPLICATE_PREVIOUS_JSON_PREFIX",
