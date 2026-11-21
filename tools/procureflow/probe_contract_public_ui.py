@@ -60,6 +60,12 @@ def network_info(req):
 
 def summarize_post_paths(report):
     """Use the independent POST-response buffer, not the capped first events."""
+    # The response sample stops at 40; the path/status counter does not.
+    # Derive the complete path set from counters to avoid hiding later endpoints.
+    counts = report.get("post_response_path_counts", {})
+    if counts:
+        return sorted({key.split("|", 2)[1] for key in counts
+                       if len(key.split("|", 2)) == 3 and key.split("|", 2)[1]})
     return sorted({x["path"] for x in report.get("tracked_post_responses", [])
                    if x.get("method") == "POST" and x.get("path")})
 
