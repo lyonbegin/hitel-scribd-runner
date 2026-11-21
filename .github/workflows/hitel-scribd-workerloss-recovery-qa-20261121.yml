@@ -21,5 +21,6 @@ jobs:
           python3 tools/zocbo/test_hitel_scribd_http_continue.py
           python3 tools/zocbo/test_hitel_dispatch_next_verified.py
           python3 tools/zocbo/test_hitel_scribd_watchdog.py
+          python3 tools/zocbo/test_hitel_scribd_watchdog_progress.py
           grep -q 'AUDITED_WORKER_LOSS_RECOVERY_PREPARED_ONCE' tools/zocbo/hitel_scribd_http_continue.py
           echo PASS_SCRIBD_WORKER_LOSS_SAFE_ONE_RETRY
