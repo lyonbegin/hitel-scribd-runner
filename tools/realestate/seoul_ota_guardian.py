@@ -105,11 +105,8 @@ def controller(mode, dry_run=False):
             report("watchdog_healthy_or_starting",watchdog_run=w["id"],
                    status=w.get("status"),age_seconds=elapsed)
             return "healthy"
-        if w.get("status")!="in_progress":
-            # Old queued run may be blocked by GitHub; avoid second competing dispatch.
-            report("watchdog_queue_stale",watchdog_run=w["id"],age_seconds=elapsed)
-            return "queued"
-        report("watchdog_stale_confirmed",watchdog_run=w["id"],age_seconds=elapsed)
+        report("watchdog_stale_confirmed",watchdog_run=w["id"],
+               status=w.get("status"),age_seconds=elapsed)
         if dry_run:return "would_cancel"
         try:
             gh("run","cancel",str(w["id"]),"--repo",REPO)
@@ -117,7 +114,22 @@ def controller(mode, dry_run=False):
         except Exception as e:
             report("watchdog_cancel_error",error=str(e))
             return "error"
-        # The next guardian run can safely dispatch after cancellation settles.
+        # Wait for GitHub to acknowledge cancellation. Do NOT overlap old and
+        # replacement watchdogs. The next guardian still serves as fallback.
+        for attempt in range(1,7):
+            time.sleep(5)
+            current=watchers()
+            replacements=[r for r in current if r["id"]!=w["id"] and
+                          str(r["id"])!=me and
+                          r.get("status") in {"in_progress","queued","pending","waiting","requested"}]
+            if replacements:
+                report("watchdog_recovered_by_other",run_id=replacements[0]["id"])
+                return "recovered_by_other"
+            old_run=next((r for r in current if r["id"]==w["id"]),None)
+            if old_run and old_run.get("status")=="completed":
+                dispatch("confirmed_stale_watchdog_cancelled",dry_run)
+                return "dispatched"
+        report("cancellation_unsettled_retry_next_guardian",watchdog_run=w["id"])
         return "cancel_requested"
     most_recent=runs[0] if runs else None
     if most_recent:
