@@ -246,6 +246,71 @@ class HttpOnceOnlyTests(unittest.TestCase):
                             runner.ensure_one_http_job(path,state,"prompt")
                         post.assert_not_called()
 
+    def test_stalled_unknown_old_request_recovers_only_with_disconnected_task(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);key="02981-03000";digest="a"*64
+            request="scribd18109-"+key+"-"+digest[:32]
+            name="HITEL-SCRIBD-18109-PROVEN-HTTP-20261121-"+key
+            source=[{"no":n,"id":str(800000000+n)} for n in range(2981,3001)]
+            old={"key":key,"digest":digest,"source_ids":source,
+                 "request_id":request,"room_name":name,"task_id":"scribd-18109",
+                 "status":"unverified","remote_status":"stalled",
+                 "remote_error_code":"UPSTREAM_DELIVERY_UNKNOWN",
+                 "submit_attempted":True,"job_id":"job_"+"a"*32,
+                 "room_id":"room_"+"a"*32}
+            file=root/"http"/(key+".json")
+            runner.save(file,old)
+            remote={"job_id":old["job_id"],"room_id":old["room_id"],
+                    "request_id":request,"status":"stalled",
+                    "error_code":"UPSTREAM_DELIVERY_UNKNOWN",
+                    "result_ready":False,"chatgpt_send_confirmed":None,
+                    "assistant_reply_observed":None,"updated_at":1_795_000_000_000}
+            worker={"task_id":"scribd-18109","worker_connected":False,
+                    "worker_heartbeat_recent":False,"worker_active_jobs_count":1}
+            with patch.object(runner.time,"time",return_value=1_795_001_000.0):
+                with patch.object(runner,"call",side_effect=[(200,remote),(200,worker)]):
+                    target,recovered=runner.recover_signed_task_only_after_terminal_disconnect(
+                        root,key,digest,source,file,old,file,old,request,name)
+            self.assertEqual(recovered["task_id"],"scribd-18109")
+            self.assertEqual(recovered["request_id"],request+"-recovery1")
+            self.assertTrue(recovered["prior_delivery_unknown"])
+            self.assertEqual(recovered["recovery_from_job"],old["job_id"])
+            self.assertFalse(recovered["submit_attempted"])
+            self.assertEqual(json.loads(file.read_text()),old)
+            self.assertTrue(target.exists())
+
+    def test_signed_recovery_refuses_live_worker_or_seen_send(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);key="02981-03000";digest="a"*64
+            source=[{"no":n,"id":str(n)} for n in range(2981,3001)]
+            original={"key":key,"digest":digest,"source_ids":source,
+                "request_id":"scribd18109-"+key+"-"+digest[:32],
+                "room_name":"HITEL-SCRIBD-18109-PROVEN-HTTP-20261121-"+key,
+                "task_id":"scribd-18109","status":"unverified",
+                "remote_status":"stalled","remote_error_code":"UPSTREAM_DELIVERY_UNKNOWN",
+                "job_id":"job_"+"a"*32,"room_id":"room_"+"a"*32}
+            file=root/"http"/(key+".json")
+            runner.save(file,original)
+            remote={"job_id":original["job_id"],"room_id":original["room_id"],
+                    "request_id":original["request_id"],"status":"stalled",
+                    "error_code":"UPSTREAM_DELIVERY_UNKNOWN",
+                    "result_ready":False,"chatgpt_send_confirmed":None,
+                    "assistant_reply_observed":None,"updated_at":1_795_000_000_000}
+            worker={"task_id":"scribd-18109","worker_connected":True,
+                    "worker_heartbeat_recent":True}
+            with patch.object(runner.time,"time",return_value=1_795_001_000):
+                with patch.object(runner,"call",side_effect=[(200,remote),(200,worker)]):
+                    with self.assertRaisesRegex(RuntimeError,"WORKER_STILL_PRESENT"):
+                        runner.recover_signed_task_only_after_terminal_disconnect(
+                            root,key,digest,source,file,original,file,original,
+                            original["request_id"],original["room_name"])
+                remote["assistant_reply_observed"]=True
+                with patch.object(runner,"call",return_value=(200,remote)):
+                    with self.assertRaisesRegex(RuntimeError,"SEND_OR_REPLY"):
+                        runner.recover_signed_task_only_after_terminal_disconnect(
+                            root,key,digest,source,file,original,file,original,
+                            original["request_id"],original["room_name"])
+
     def test_one_post_and_checkpoint_then_resume_with_no_second_post(self):
         with tempfile.TemporaryDirectory() as d:
             path,state=self.state(d)
