@@ -3566,3 +3566,8 @@
 3010000__CDFI2262212025000050,MJ House,general,bing_rss,10,0,0,,2026-11-21T14:29:18+00:00
 3010000__CDFI2262212025000051,스테이 디디피 해치,general,bing_rss,10,0,0,,2026-11-21T14:29:19+00:00
 3010000__CDFI2262212025000052,서울타워빌,general,bing_rss,10,0,0,,2026-11-21T14:29:20+00:00
+3010000__CDFI2262212025000053,동대문 도도,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T14:29:30+00:00
+3010000__CDFI2262212025000054,목인,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T14:29:38+00:00
+3010000__CDFI2262212025000056,WOW STAY SEOUL,general,bing_rss,10,0,0,,2026-11-21T14:29:40+00:00
+3010000__CDFI2262212025000058,체크인서울,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T14:29:48+00:00
+3010000__CDFI2262212025000061,스틸 하우스 신당,general,bing_rss,10,0,0,,2026-11-21T14:29:49+00:00
