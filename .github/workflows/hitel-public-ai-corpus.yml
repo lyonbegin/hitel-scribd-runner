@@ -46,13 +46,13 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.handoff_token != ''
         shell: bash
         env:
-          GH_TOKEN: \${{ github.token }}
-          HANDOFF_TOKEN: \${{ inputs.handoff_token }}
+          GH_TOKEN: ${{ github.token }}
+          HANDOFF_TOKEN: ${{ inputs.handoff_token }}
         run: |
           python3 - <<'PY'
           import json,os,re,urllib.request
           token=os.environ["HANDOFF_TOKEN"]
-          if not re.fullmatch(r"from-[0-9]+",token):
+          if not re.fullmatch(r"(?:from|watchdog)-[0-9]+",token):
               raise SystemExit("INVALID_VERIFIED_BATCH_HANDOFF_TOKEN")
           repo=os.environ["GITHUB_REPOSITORY"]
           url=("https://api.github.com/repos/"+repo+
