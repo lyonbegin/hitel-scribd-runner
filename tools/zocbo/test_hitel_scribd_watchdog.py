@@ -181,10 +181,10 @@ class WatchdogSafety(unittest.TestCase):
             p=Path(d)/"completed";p.mkdir()
             (p/"a.json").write_text('{"rows":[{"no":1300},{"no":1300}]}')
             fake=Fake([])
-            with patch.object(mod.subprocess,"run") as sr:
-                sr.return_value.returncode=0
+            with patch.object(mod,"download_exact_artifact") as get:
                 with self.assertRaisesRegex(ValueError,"DUPLICATE"):
-                    mod.restore_checkpoint(fake,{"workflow_run":{"id":5}},Path(d))
+                    mod.restore_checkpoint(fake,{"id":51,"workflow_run":{"id":5}},Path(d))
+                get.assert_called_once()
 
 
 if __name__=="__main__":
