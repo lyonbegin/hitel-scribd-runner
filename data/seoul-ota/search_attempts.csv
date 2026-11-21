@@ -8336,3 +8336,8 @@
 3020000__CDFI2262212026000167,MIN STAY,platforms_05,bing_rss,10,0,0,,2026-11-21T20:07:58+00:00
 3020000__CDFI2262212026000168,메누아 스테이,platforms_05,bing_rss,10,0,0,,2026-11-21T20:07:59+00:00
 3020000__CDFI2262212026000169,K-게스트,platforms_05,bing_rss,10,0,0,,2026-11-21T20:08:01+00:00
+3020000__CDFI2262212026000170,수애스테이,platforms_05,bing_rss,10,0,0,,2026-11-21T20:08:03+00:00
+3020000__CDFI2262212026000171,mellow Huam,platforms_05,bing_rss,10,0,0,,2026-11-21T20:08:05+00:00
+3020000__CDFI2262212026000172,나무채,platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T20:08:07+00:00
+3020000__CDFI2262212026000177,남산 들꽃코티지,platforms_05,bing_rss,10,0,0,,2026-11-21T20:08:08+00:00
+3020000__CDFI2262212026000178,남산아래 양지하우스,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectionError:('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",2026-11-21T20:08:10+00:00
