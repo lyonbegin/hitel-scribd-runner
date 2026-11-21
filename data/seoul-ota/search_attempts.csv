@@ -2421,3 +2421,8 @@
 3010000__CDFI2262212019000016,러브리 하우스,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:51:50+00:00
 3010000__CDFI2262212019000017,제이하우스 2,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:51:58+00:00
 3010000__CDFI2262212019000018,제이하우스 3,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:52:07+00:00
+3010000__CDFI2262212019000020,영게스트하우스,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:52:17+00:00
+3010000__CDFI2262212019000021,엘바하우스,platforms_02,bing_rss,10,0,0,,2026-11-21T12:52:18+00:00
+3010000__CDFI2262212019000022,제이하우스,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:52:26+00:00
+3010000__CDFI2262212019000026,동주르 하우스,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:52:35+00:00
+3010000__CDFI2262212019000030,오다가다,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:52:43+00:00
