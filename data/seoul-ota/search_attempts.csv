@@ -1336,3 +1336,8 @@
 3000000__CDFI2262212024000030,우주하우스,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:15:34+00:00
 3000000__CDFI2262212024000032,온세나라의 한옥집,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:15:43+00:00
 3000000__CDFI2262212024000034,서촌 스테이,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:15:51+00:00
+3000000__CDFI2262212024000035,이나스테이,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:16:01+00:00
+3000000__CDFI2262212024000037,한옥스테이 가인,platforms_05,bing_rss,10,0,0,,2026-11-21T11:16:02+00:00
+3000000__CDFI2262212024000038,온기스테이,platforms_05,bing_rss,10,0,0,,2026-11-21T11:16:04+00:00
+3000000__CDFI2262212024000039,미유하우스,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:16:12+00:00
+3000000__CDFI2262212024000040,healing stay,platforms_05,bing_rss,10,0,0,,2026-11-21T11:16:13+00:00
