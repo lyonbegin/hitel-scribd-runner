@@ -324,6 +324,99 @@ def recovery_after_verified_worker_disconnect(
           "PRIOR_SEND_UNCONFIRMED", flush=True)
     return recoveryfile, state
 
+
+MAX_SIGNED_TASK_RESTARTS=8
+MIN_TERMINAL_IDLE_SECONDS=300
+
+def recover_signed_task_only_after_terminal_disconnect(
+        out:Path,key:str,digest:str,ids:list[dict],
+        original_file:Path, original:dict,
+        current_file:Path,current:dict,
+        request_id:str,room_name:str):
+    """User-authorized Scribd-only audited recovery; never hide unknown delivery.
+
+    Every attempt has a separate immutable room/request ID and an audit link
+    to the previous job. No attempt is made while ChatGPT may still be active,
+    while an answer is observed, or before a quiet five-minute interval.
+    """
+    if current.get("task_id")!="scribd-18109":
+        return current_file,current
+    if current.get("status")!="unverified" or current.get("remote_status") not in ("stalled","unknown"):
+        return current_file,current
+    if current.get("remote_error_code") not in ("UPSTREAM_DELIVERY_UNKNOWN","WORKER_CONNECTION_LOST"):
+        return current_file,current
+    if not current.get("job_id"):
+        return current_file,current
+    code,remote=call(API+"/jobs/"+current["job_id"])
+    if code!=200 or any(remote.get(k)!=current.get(k) for k in ("job_id","request_id","room_id")):
+        raise ValueError("SIGNED_RECOVERY_PREVIOUS_REMOTE_IDENTITY_MISMATCH")
+    if remote.get("status")=="completed":
+        print("SIGNED_RECOVERY_PREVIOUS_COMPLETED_REUSE_SAME_REQUEST",current["job_id"],flush=True)
+        return current_file,current
+    if (remote.get("status") not in ("stalled","unknown")
+            or remote.get("error_code") not in ("UPSTREAM_DELIVERY_UNKNOWN","WORKER_CONNECTION_LOST")
+            or remote.get("result_ready") is not False
+            or remote.get("chatgpt_send_confirmed") is True
+            or remote.get("assistant_reply_observed") is True):
+        raise RuntimeError("SIGNED_RECOVERY_SEND_OR_REPLY_POSSIBLY_OBSERVED_NO_REPOST")
+    observed_at=remote.get("updated_at")
+    if not isinstance(observed_at,(int,float)):
+        raise RuntimeError("SIGNED_RECOVERY_MISSING_REMOTE_TIMESTAMP")
+    # Some versions expose milliseconds, others seconds.
+    observed_seconds=observed_at/1000 if observed_at>10**11 else observed_at
+    if time.time()-observed_seconds<MIN_TERMINAL_IDLE_SECONDS:
+        raise RuntimeError("SIGNED_RECOVERY_TERMINAL_NOT_IDLE_FIVE_MINUTES")
+    status_code,task=call(API+"/isolated/tasks/scribd-18109/status")
+    if (status_code!=200 or task.get("task_id")!="scribd-18109"
+            or task.get("worker_connected") is not False
+            or task.get("worker_heartbeat_recent") is not False):
+        raise RuntimeError("SIGNED_RECOVERY_WORKER_STILL_PRESENT_NO_REPOST")
+    # Even if the prior worker disappeared before acknowledging send, delivery
+    # is not provably absent. Audit this explicit user-approved one-time
+    # handoff instead of claiming no duplication risk.
+    previous_sequence=int(current.get("recovery_sequence",0))
+    if previous_sequence<0 or previous_sequence>=MAX_SIGNED_TASK_RESTARTS:
+        raise RuntimeError("SIGNED_RECOVERY_RETRY_BUDGET_EXHAUSTED")
+    next_sequence=previous_sequence+1
+    next_key=(key+".json" if next_sequence==1
+              else key+f"-recovery{next_sequence}.json")
+    target=out/"http"/"worker_recoveries"/next_key
+    next_id=request_id+f"-recovery{next_sequence}"
+    next_room=room_name+f"-RECOVERY{next_sequence}"
+    if target.exists():
+        existing=json.loads(target.read_text("utf-8"))
+        if (existing.get("key")!=key or existing.get("digest")!=digest
+                or existing.get("source_ids")!=ids
+                or existing.get("request_id")!=next_id
+                or existing.get("room_name")!=next_room
+                or existing.get("recovery_from_job")!=current["job_id"]
+                or existing.get("task_id")!="scribd-18109"
+                or existing.get("recovery_sequence")!=next_sequence):
+            raise ValueError("SIGNED_RECOVERY_CHECKPOINT_REPLAY_SCOPE_MISMATCH")
+        return target,existing
+    state={
+        "key":key,"digest":digest,"source_ids":ids,
+        "request_id":next_id,"room_name":next_room,
+        "task_id":"scribd-18109",
+        "status":"prepared","submit_attempted":False,
+        "recovery_from_job":current["job_id"],
+        "recovery_sequence":next_sequence,
+        "prior_delivery_unknown":True,
+        "prior_error_code":remote["error_code"],
+        "prior_result_ready":False,
+        "prior_send_confirmed":remote.get("chatgpt_send_confirmed"),
+        "prior_reply_observed":remote.get("assistant_reply_observed"),
+        "prior_updated_at":observed_at,
+        "recovered_under_user_approved_disconnect_policy":True,
+    }
+    save(target,state)
+    print("SIGNED_SCRIBD_DISCONNECT_RECOVERY_AUDITED",
+          "BATCH",key,"ATTEMPT",next_sequence,
+          "OLD_JOB",current["job_id"],
+          "OLD_SEND_UNKNOWN_POSSIBLE_DUPLICATE",flush=True)
+    return target,state
+
+
 def run_one(rows:list[dict],out:Path) -> int:
     verified=load_verified(rows,out)
     batch=next_batch(rows,verified)
@@ -355,8 +448,12 @@ def run_one(rows:list[dict],out:Path) -> int:
                "task_id":os.environ.get("HITEL_ISOLATED_TASK_ID") or None,
                "status":"prepared","submit_attempted":False}
         save(statefile,state)
+    original_file,original=statefile,state
     statefile,state=recovery_after_verified_worker_disconnect(
         out,key,digest,ids,statefile,state,request_id,room_name)
+    statefile,state=recover_signed_task_only_after_terminal_disconnect(
+        out,key,digest,ids,original_file,original,statefile,state,
+        request_id,room_name)
     state=ensure_one_http_job(statefile,state,question)
     answer,remote=await_http_reply(statefile,state)
     identity_repair_audit=[]
