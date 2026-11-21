@@ -3921,3 +3921,8 @@
 3020000__CDFI2262212019000002,RTR,general,bing_rss,10,0,0,,2026-11-21T14:59:00+00:00
 3020000__CDFI2262212019000008,MINGOO HOUSE,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T14:59:08+00:00
 3020000__CDFI2262212019000009,아라메종,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T14:59:16+00:00
+3020000__CDFI2262212019000013,에이미하우스,general,bing_rss,10,0,0,,2026-11-21T14:59:19+00:00
+3020000__CDFI2262212019000024,디맨션,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T14:59:27+00:00
+3020000__CDFI2262212019000025,아름다운민박,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T14:59:36+00:00
+3020000__CDFI2262212019000028,Goeun Stay Seoul,general,bing_rss,10,0,0,,2026-11-21T14:59:37+00:00
+3020000__CDFI2262212019000030,JH House,general,bing_rss,10,0,0,,2026-11-21T14:59:38+00:00
