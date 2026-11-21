@@ -1211,3 +1211,8 @@
 3000000__CDFI2262212016000006,누하278,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:07:32+00:00
 3000000__CDFI2262212016000007,조이하우스,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:07:40+00:00
 3000000__CDFI2262212016000008,와이게스트하우스,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:07:49+00:00
+3000000__CDFI2262212025000073,stay hanyang,platforms_04,bing_rss,10,0,0,,2026-11-21T11:10:59+00:00
+3000000__CDFI2262212025000074,나비잠,platforms_04,no_results,0,0,0,,2026-11-21T11:11:01+00:00
+3000000__CDFI2262212025000075,류진스(Ryujeans),platforms_04,no_results,0,0,0,,2026-11-21T11:11:02+00:00
+3000000__CDFI2262212025000076,스테이 조이(stay joy),platforms_04,bing_rss,10,0,0,,2026-11-21T11:11:04+00:00
+3000000__CDFI2262212025000077,페이보릿 종로,platforms_04,no_results,0,0,0,,2026-11-21T11:11:05+00:00

@@ -21332,7 +21332,7 @@
     "closed_date": "",
     "area": "48.3",
     "permit_phone": "",
-    "source_current": "no",
+    "source_current": "yes",
     "baseline_preserved": "yes"
   },
   "3070000__CDFI3261142014000002": {
@@ -63812,7 +63812,7 @@
     "closed_date": "",
     "area": "48.31",
     "permit_phone": "",
-    "source_current": "yes",
+    "source_current": "no",
     "baseline_preserved": "no"
   },
   "3230000__CDFI2262212026000118": {
@@ -63835,6 +63835,18 @@
     "raw_status": "영업/정상",
     "closed_date": "",
     "area": "56.05",
+    "permit_phone": "",
+    "source_current": "yes",
+    "baseline_preserved": "no"
+  },
+  "3190000__CDFI2262212026000048": {
+    "license_id": "3190000__CDFI2262212026000048",
+    "name": "아우리19",
+    "address": "서울특별시 동작구 남부순환로269길 7, 202호 (사당동)",
+    "status": "active",
+    "raw_status": "영업/정상",
+    "closed_date": "",
+    "area": "41.2",
     "permit_phone": "",
     "source_current": "yes",
     "baseline_preserved": "no"
