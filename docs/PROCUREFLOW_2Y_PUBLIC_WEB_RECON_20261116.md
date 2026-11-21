@@ -91,3 +91,12 @@
 - **다음 코드 검증의 우선순위:** 차단된 초기화 POST의 메서드·경로·호출 스택·안전 가드 차단 사유를 공개 정적 자산 및 진단 로그로 구분한다. 계약·보고서·쇼핑몰의 실제 조회 요청으로 식별되기 전에는 가드를 해제하거나 임의 POST를 재생하지 않는다. 공식 공개 조회임이 확인된 경우에만 제한된 읽기 전용 시험에서 응답 원본·SHA256·목록/상세/페이징을 검증한다. 기존 공고 930,379건·187쌍 Release·운영/복구 워크플로·PC Runner는 변경하지 않는다.
 
 이 감사는 새 계약 실데이터 적재나 전수 완료를 의미하지 않는다.
+
+## 2026-11-21 23시 재검증 — 홈페이지 POST와 계약 조회를 구분
+
+- [공개 웹 진단 #44793063465](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/44793063465)의 `inspect-public-g2b` 원본 작업 로그에서 **실제 서버 응답을 받은 POST** `https://www.g2b.go.kr/fa/faz/fazf/PrtlFtre/selectPrtlFtreMainList.do`를 확인했다. 요청 최상위 키는 `dlSrchParmM`, 응답은 HTTP 200 JSON **120,914바이트**, 원본 SHA256 `93b342272a384773dabe33517bea39519d5063b73cd69580ca8e7c276795ab0c`이고 저장·재해시 검증됨. 이 경로는 **포털 메인 목록**이므로 계약 목록/상세 원본 1건으로 계산하지 않는다.
+- 같은 로그의 `/co/coz/coza/util/getSession.do` POST는 `net::ERR_FAILED`로 종료되어 서버 HTTP 상태코드를 확인할 수 없었다. 초기화 진단의 클라이언트 가드 차단 POST와도 별개로 분류한다. 재전송·인증 우회하지 않는다.
+- 동일 실행의 나라장터 초기 DOM은 2·5·9초에 자식 0개였지만 **12초에 자식 7개·컨트롤 232개**로 전환되었다. 따라서 '나라장터가 항상 빈 DOM'이라는 진술은 부정확하며, 공개 메뉴 조사에서는 최소 12초 이후 렌더링 상태를 구분해야 한다. 12초 시점의 메뉴 표시도 계약 조회 성공의 증거는 아니다.
+- 같은 실행의 부트스트랩은 OIDC GET 302를 관측했지만 이는 공개 조회 전체가 인증 필수임을 입증하지 않는다. 112R/113R 및 쇼핑몰 실데이터 목록·상세·페이징·JOIN은 계속 0건 검증이다.
+- [선택 복구 #43868699164](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/43868699164)의 169번 샤드는 `processed=5000`, `verified_complete=3385`, `no_opening_data=1512`, `no_bidder_rows_unverified=103`, `complete=false`. `new_shards_remaining=3`은 당시의 값으로 170~172의 최신 완료를 증명하지 않는다.
+- 이번 보강은 **기존 Actions 원본 로그에 대한 추가 판독**이며 신규 데이터 적재·수집 실행·전체 완료가 아니다. 기존 공고 인덱스·187쌍 Release·운영 및 복구 워크플로·PC Runner는 변경하지 않는다.
