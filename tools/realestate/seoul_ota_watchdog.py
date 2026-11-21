@@ -84,6 +84,29 @@ def decide_worker(active,heartbeat,now):
     if silence>STALE_SECONDS:return "stale_no_progress"
     return "healthy"
 
+def failed_run_diagnostics(run):
+    """Capture the actual failing job/step and small log tail for postmortem."""
+    if not run or run.get("conclusion")=="success":return {}
+    rid=run["id"]
+    out={"run_id":rid,"conclusion":run.get("conclusion")}
+    try:
+        data=api(f"repos/{REPO}/actions/runs/{rid}/jobs?per_page=100")
+        failures=[]
+        for job in data.get("jobs",[]):
+            if job.get("conclusion") not in {"failure","timed_out","cancelled"}:continue
+            failures.append({"job":job.get("name"),
+              "conclusion":job.get("conclusion"),
+              "failed_steps":[s.get("name") for s in job.get("steps",[])
+                 if s.get("conclusion")=="failure"]})
+        out["job_failures"]=failures
+    except Exception as e:out["job_query_error"]=str(e)[:200]
+    if run.get("conclusion")=="failure":
+        try:
+            out["failed_log_tail"]=gh("run","view",str(rid),
+                "--repo",REPO,"--log-failed",timeout=45)[-2800:]
+        except Exception as e:out["log_unavailable"]=str(e)[:150]
+    return out
+
 def slowdown_seconds(completed):
     """Throttle repeated no-progress failures to avoid runaway expensive loops."""
     bad=[]
@@ -168,6 +191,8 @@ def check_once(dry_run=False):
     if LAST_DISPATCH_AT and (now-LAST_DISPATCH_AT).total_seconds()<180:
         record(action="dispatch_cooldown",seconds=int((now-LAST_DISPATCH_AT).total_seconds()))
         return "cooldown"
+    if last and last.get("conclusion") in {"failure","cancelled","timed_out"}:
+        record(action="failed_worker_diagnosis",details=failed_run_diagnostics(last))
     if not dry_run:
         # Workflow exists on default main; research branch is checked out in worker YAML.
         gh("workflow","run",WORKFLOW,"--repo",REPO,"--ref","main")
