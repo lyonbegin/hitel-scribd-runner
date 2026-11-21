@@ -5116,3 +5116,8 @@
 3010000__CDFI2262212026000081,네스토리 서울 스테이션,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:27:38+00:00
 3010000__CDFI2262212026000082,스테이 수,platforms_06,bing_rss,10,0,0,,2026-11-21T16:27:39+00:00
 3010000__CDFI2262212026000084,여백,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:27:48+00:00
+3010000__CDFI2262212026000085,온기,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:27:58+00:00
+3010000__CDFI2262212026000088,메종 레브,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:28:06+00:00
+3010000__CDFI2262212026000089,메종 오브,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:28:14+00:00
+3010000__CDFI2262212026000091,스테이봄,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:28:23+00:00
+3010000__CDFI2262212026000092,로컬 네스트 서울,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:28:31+00:00
