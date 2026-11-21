@@ -15,6 +15,8 @@ import datetime as dt
 import hashlib
 import io
 import json
+import urllib.parse
+import zipfile
 import os
 import subprocess
 import tempfile
@@ -33,7 +35,7 @@ TOTAL = 18109
 MINIMUM_SAVED = 1300
 ACTIVE = {"queued", "in_progress", "pending", "requested", "waiting"}
 SAFE_COMPLETED_FLAGS = ("result_ready", "chatgpt_send_confirmed", "assistant_reply_observed")
-CLASSIFY_STEP = "Submit one 20-title batch via E2E-proven public HTTP and verify stored reply"
+CLASSIFY_STEP = "Resume preserved AI answer or submit one signed scribd-18109 isolated HTTP batch"
 API_PUBLIC = "https://hitel-integration-api-production.up.railway.app/integrations/v1/public"
 STALE_COMPLETED_THRESHOLD_SECONDS = 35 * 60
 
@@ -76,16 +78,53 @@ def latest_artifact(client: GithubClient):
     return max(matching, key=lambda x: x["created_at"])
 
 
+def download_exact_artifact(client: GithubClient, artifact_id:int, root:Path):
+    """Restore by immutable artifact ID; never accidentally load a rerun artifact.
+
+    GitHub's 302 redirects to signed Azure blob storage. Never forward its
+    GitHub Authorization header to a different hostname.
+    """
+    if not isinstance(artifact_id,int) or artifact_id<=0:
+        raise ValueError("INVALID_WATCHDOG_ARTIFACT_ID")
+    url=(f"https://api.github.com/repos/{client.repository}"
+         f"/actions/artifacts/{artifact_id}/zip")
+    request=urllib.request.Request(url,headers={
+        "Authorization":"Bearer "+client.token,
+        "Accept":"application/vnd.github+json",
+        "X-GitHub-Api-Version":"2022-11-28",
+    })
+    class StripCrossHostAuth(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self,req,fp,code,msg,headers,newurl):
+            redirected=super().redirect_request(req,fp,code,msg,headers,newurl)
+            if redirected and (urllib.parse.urlsplit(newurl).hostname
+                               !=urllib.parse.urlsplit(req.full_url).hostname):
+                for key in ("Authorization","Accept","X-GitHub-Api-Version"):
+                    redirected.remove_header(key)
+            return redirected
+    with urllib.request.build_opener(StripCrossHostAuth()).open(
+            request,timeout=60) as response:
+        payload=response.read(40_000_001)
+    if len(payload)>40_000_000:
+        raise RuntimeError("WATCHDOG_ARTIFACT_TOO_LARGE")
+    root=root.resolve()
+    root.mkdir(parents=True,exist_ok=True)
+    with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+        entries=archive.infolist()
+        if not entries:
+            raise RuntimeError("WATCHDOG_ARTIFACT_EMPTY")
+        for ent in entries:
+            target=(root/ent.filename).resolve()
+            if not target.is_relative_to(root):
+                raise ValueError("WATCHDOG_ARTIFACT_ZIP_TRAVERSAL")
+            if (ent.external_attr >> 16) & 0o170000 == 0o120000:
+                raise ValueError("WATCHDOG_ARTIFACT_SYMLINK_FORBIDDEN")
+        archive.extractall(root)
+    print("WATCHDOG_RESTORED_EXACT_ARTIFACT",artifact_id,flush=True)
+
+
 def restore_checkpoint(client: GithubClient, artifact, root: Path):
     source_run = artifact["workflow_run"]["id"]
-    env = dict(os.environ, GH_TOKEN=client.token)
-    completed = subprocess.run(
-        ["gh", "run", "download", str(source_run), "--repo", client.repository,
-         "-n", ARTIFACT, "-D", str(root)],
-        env=env, text=True, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, timeout=120, check=False)
-    if completed.returncode:
-        raise RuntimeError("CHECKPOINT_DOWNLOAD_FAILED_NO_RESTART")
+    download_exact_artifact(client,int(artifact["id"]),root)
     # Integrity and id checks are repeated by the classifier before any send.
     files = sorted((root / "completed").glob("*.json"))
     verified = {}
@@ -101,8 +140,8 @@ def restore_checkpoint(client: GithubClient, artifact, root: Path):
         raise ValueError("CHECKPOINT_HAS_UNVERIFIED_SKIPPED_ROWS")
     missing = next((i for i in range(1, TOTAL + 1) if i not in verified), None)
     print("WATCHDOG_DURABLE_CHECKPOINT",
-          "SOURCE_RUN", source_run, "VERIFIED", len(verified),
-          "NEXT_MISSING", missing, flush=True)
+          "SOURCE_RUN", source_run,"ARTIFACT_ID",artifact["id"],
+          "VERIFIED", len(verified),"NEXT_MISSING", missing,flush=True)
     return verified, missing
 
 
