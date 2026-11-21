@@ -1,7 +1,7 @@
 {
-  "run_time": "2026-11-21T11:07:51+00:00",
-  "official_rows": 5320,
-  "active": 4709,
+  "run_time": "2026-11-21T11:29:18+00:00",
+  "official_rows": 5321,
+  "active": 4710,
   "closed": 611,
   "missing_public_address": 0,
   "historical_not_in_latest": 6,
@@ -412,17 +412,17 @@
     "new_public_contacts": 0,
     "automated_new_contacts_this_run": 0,
     "counts": {
-      "search_bing_rss_ok": 278,
+      "search_bing_rss_ok": 276,
       "properties_stages_completed": 250,
-      "search_bing_rss_empty": 210,
+      "search_bing_rss_empty": 176,
       "search_duckduckgo_lite_ok": 51,
       "search_duckduckgo_lite_empty": 51,
       "irrelevant_result_rejected": 15,
-      "search_duckduckgo_lite_fail": 159
+      "search_duckduckgo_lite_fail": 125
     }
   },
   "consolidated_index": {
-    "records": 5320,
+    "records": 5321,
     "prior_source_records": 20,
     "public_contact_source_rows": 46,
     "unique_properties_with_public_phone": 41,
