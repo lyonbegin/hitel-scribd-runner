@@ -21,14 +21,14 @@ jobs:
           from queue import PriorityQueue
           out=Path('out')
           # Seoul city bounding rectangle; overlaps surroundings; deduplicate by Airbnb ID.
-          root=(37.415,37.725,126.755,127.245)
-          max_queries=1050
+          root=(37.550,37.615,126.935,127.025)
+          max_queries=55
           max_depth=7
           min_height=.0035
           min_width=.0045
           seen=set();queries=[];errors=[];terminals=[];jobs=PriorityQueue();serial=0
           # 5x7 seeded cells prevent a single highly dense city-center root from starving all areas.
-          latsteps=5;lonsteps=7
+          latsteps=3;lonsteps=3
           for i in range(latsteps):
             for j in range(lonsteps):
               a=root[0]+(root[1]-root[0])*i/latsteps;b=root[0]+(root[1]-root[0])*(i+1)/latsteps
@@ -55,9 +55,9 @@ jobs:
                 last_error=repr(e)[:190];time.sleep(1.5*(retry+1))
             return {'status':0,'ids':[],'error':last_error}
           start=time.monotonic();submitted=0;inflight={}
-          with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+          with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             while not jobs.empty() or inflight:
-              while len(inflight)<6 and not jobs.empty() and submitted<max_queries:
+              while len(inflight)<1 and not jobs.empty() and submitted<max_queries:
                 _,_,depth,bounds=jobs.get()
                 fut=executor.submit(get,bounds)
                 inflight[fut]=(depth,bounds)
@@ -70,7 +70,7 @@ jobs:
                 v=fut.result()
                 ids=v['ids']
                 added=len(set(ids)-seen);seen.update(ids)
-                node={'depth':depth,'bounds':bounds,'count':len(ids),'new':added,'status':v['status']}
+                node={'depth':depth,'bounds':bounds,'count':len(ids),'new':added,'status':v['status'],'bytes':v.get('bytes'),'html_mentions':v.get('html_mentions')};print('CELL',node,flush=True)
                 queries.append(node)
                 if 'error' in v:
                   errors.append({**node,'error':v['error']})
