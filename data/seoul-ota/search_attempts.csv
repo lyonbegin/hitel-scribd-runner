@@ -5071,3 +5071,8 @@
 3010000__CDFI2262212026000014,남산 하나 하우스,platforms_06,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T16:22:43+00:00
 3010000__CDFI2262212026000018,콘크리트 정글,platforms_06,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T16:22:44+00:00
 3010000__CDFI2262212026000019,스틸 타임,platforms_06,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T16:22:46+00:00
+3010000__CDFI2262212026000020,서울 나침반,platforms_06,bing_rss,10,0,0,,2026-11-21T16:22:49+00:00
+3010000__CDFI2262212026000021,연 스테이,platforms_06,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T16:22:51+00:00
+3010000__CDFI2262212026000022,메종 마리 서울,platforms_06,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T16:22:53+00:00
+3010000__CDFI2262212026000023,쉼 스테이,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectionError:('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",2026-11-21T16:22:54+00:00
+3010000__CDFI2262212026000025,소당 스테이,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:23:03+00:00
