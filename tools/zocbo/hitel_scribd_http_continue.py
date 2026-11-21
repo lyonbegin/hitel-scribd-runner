@@ -281,7 +281,8 @@ def recovery_after_verified_worker_disconnect(
                 or state.get("request_id") != request_id + "-recovery1"
                 or state.get("room_name") != room_name + "-RECOVERY1"
                 or state.get("recovery_from_job") != original.get("job_id")
-                or state.get("prior_delivery_unknown") is not True):
+                or state.get("prior_delivery_unknown") is not True
+                or state.get("task_id")!=original.get("task_id")):
             raise ValueError("WORKER_RECOVERY_CHECKPOINT_SCOPE_MISMATCH")
         return recoveryfile, state
 
@@ -295,7 +296,7 @@ def recovery_after_verified_worker_disconnect(
     code, remote = call(API + "/jobs/" + original["job_id"])
     if (code != 200 or remote.get("job_id") != original["job_id"]
             or remote.get("request_id") != request_id
-            or remote.get("room_name") != room_name):
+            or remote.get("room_name") != expected_server_room_name(original)):
         raise ValueError("ORIGINAL_DISCONNECTED_REQUEST_IDENTITY_MISMATCH")
     # Another process might have completed the original; in that case
     # preserve it and allow the ordinary same-ID read-only path to verify.
@@ -313,6 +314,7 @@ def recovery_after_verified_worker_disconnect(
         "key": key, "digest": digest, "source_ids": ids,
         "request_id": request_id + "-recovery1",
         "room_name": room_name + "-RECOVERY1",
+        "task_id": original.get("task_id"),
         "status": "prepared", "submit_attempted": False,
         "recovery_from_job": original["job_id"],
         "prior_delivery_unknown": True,
