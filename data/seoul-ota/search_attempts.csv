@@ -5371,3 +5371,8 @@
 3020000__CDFI2262212023000099,Cozy Wooden House,general,bing_rss,10,0,0,,2026-11-21T16:43:28+00:00
 3020000__CDFI2262212023000101,어반네스트(Urbanest) 하우스,general,bing_rss,10,0,0,"duckduckgo_lite:ConnectionError:('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",2026-11-21T16:43:29+00:00
 3020000__CDFI2262212023000102,NY room,general,bing_rss,7,0,0,,2026-11-21T16:43:31+00:00
+3020000__CDFI2262212023000103,Seoul Earl-Stay,general,bing_rss,10,0,0,,2026-11-21T16:43:33+00:00
+3020000__CDFI2262212024000002,스윗미 1949,general,bing_rss,10,0,0,,2026-11-21T16:43:38+00:00
+3020000__CDFI2262212024000003,이젤하우스(Easel House),general,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:43:46+00:00
+3020000__CDFI2262212024000004,꺄도하우스(Cadeau House),general,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:43:55+00:00
+3020000__CDFI2262212024000006,엘하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:44:03+00:00
