@@ -1,4 +1,6 @@
 name: HITEL Scribd audited Chrome-disconnect recovery QA
+# Also prove deterministic single-ID correction from immutable 18109 source.
+
 # Regression: stalled->unknown after Railway restart retains WORKER_CONNECTION_LOST.
 on:
   push:
