@@ -2931,3 +2931,8 @@
 3010000__CDFI2262212020000006,어니 브라운,platforms_04,bing_rss,10,0,0,,2026-11-21T13:37:46+00:00
 3010000__CDFI2262212020000008,모던하우스,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:37:54+00:00
 3010000__CDFI2262212021000003,코지하우스4,platforms_04,bing_rss,10,0,0,,2026-11-21T13:37:55+00:00
+3010000__CDFI2262212021000004,영게스트하우스5,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:38:05+00:00
+3010000__CDFI2262212021000005,소다하우스3,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:38:14+00:00
+3010000__CDFI2262212022000004,Logan,platforms_04,bing_rss,10,0,0,,2026-11-21T13:38:15+00:00
+3010000__CDFI2262212022000006,러블리 데이지,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:38:23+00:00
+3010000__CDFI2262212022000007,하우스 오브 로리앤요한,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:38:32+00:00
