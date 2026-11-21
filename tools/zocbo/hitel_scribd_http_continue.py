@@ -127,6 +127,49 @@ def expected_server_room_name(state:dict):
     raise ValueError("INVALID_TASK_IN_CHECKPOINT")
 
 
+def allow_exact_prior_http_403_rejected_attempt(statefile:Path,state:dict):
+    """One audited recovery of a proven PRE-DB-write producer OIDC 403 only.
+
+    GitHub run 44887496031 was a push event. Railway rejects such producer
+    OIDC before allocating jobs. The exact attempted 2181-2200 request
+    received HTTP 403, and public /requests returned 404. Reuse the SAME
+    immutable request_id and task-specific room once on workflow_dispatch.
+    Never relax this for a 5xx, transport timeout or delivery uncertainty.
+    """
+    digest="c58ef9aed39a78d6ed52838df6a2d4b5a1974f6441939df40ac8175790f18fb1"
+    if not (
+        state.get("key")=="02181-02200"
+        and state.get("digest")==digest
+        and state.get("task_id")=="scribd-18109"
+        and state.get("request_id")=="scribd18109-02181-02200-"+digest[:32]
+        and state.get("room_name")=="HITEL-SCRIBD-18109-PROVEN-HTTP-20261121-02181-02200"
+        and [int(x["no"]) for x in state.get("source_ids",[])]==list(range(2181,2201))
+        and state.get("submit_attempted") is True
+        and not state.get("job_id")
+        and os.environ.get("GITHUB_EVENT_NAME")=="workflow_dispatch"
+    ):
+        raise RuntimeError("POST_DELIVERY_UNCERTAIN_LOOKUP_404_REFUSE_DUPLICATE_SEND")
+    auditfile=statefile.parent/"producer_rejections"/"02181-02200.json"
+    if auditfile.exists():
+        raise RuntimeError("ALREADY_RECOVERED_PRIOR_403_DO_NOT_RESEND")
+    save(auditfile,{
+        "key":state["key"],"digest":state["digest"],
+        "request_id":state["request_id"],"room_name":state["room_name"],
+        "source_ids":state["source_ids"],
+        "task_id":"scribd-18109",
+        "previous_workflow_run":44887496031,
+        "previous_server_rejection":"HTTP_403_BEFORE_DB_INSERT",
+        "remote_request_lookup_http":404,
+        "user_authorized_new_isolated_task_recovery":True,
+        "single_recovery_only":True,
+    })
+    state["submit_attempted"]=False
+    state["prior_rejected_403_audit"]=str(auditfile.relative_to(statefile.parent.parent))
+    save(statefile,state)
+    print("AUDITED_PRE_SEND_403_SAME_REQUEST_ID_RECOVERY_ONE_TIME",
+          state["key"],flush=True)
+
+
 def ensure_one_http_job(statefile: Path, state: dict, text: str) -> dict:
     """Persist attempt before network I/O. A lost POST reply is never resent."""
     if state.get("job_id"):
@@ -138,7 +181,7 @@ def ensure_one_http_job(statefile: Path, state: dict, text: str) -> dict:
         print("RECOVER_EXISTING_HTTP_JOB_NO_RESEND",job["job_id"],flush=True)
     else:
         if state.get("submit_attempted") is True:
-            raise RuntimeError("POST_DELIVERY_UNCERTAIN_LOOKUP_404_REFUSE_DUPLICATE_SEND")
+            allow_exact_prior_http_403_rejected_attempt(statefile,state)
         # This atomic write happens BEFORE any request can reach the API.
         state["submit_attempted"]=True
         save(statefile,state)
