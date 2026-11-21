@@ -49,10 +49,10 @@ jobs:
                       v['seoul_rows']=len(rows);v['columns']=header;print('SEOUL ROWS',len(rows),flush=True)
                 continue
               if name=='airbtics' and r.ok:
-                ids=list(dict.fromkeys(re.findall(r'app\\.airbtics\\.com/listing/(\\d{7,20})',r.text)))
+                ids=list(dict.fromkeys(re.findall(r'app\.airbtics\.com/listing/(\d{7,20})',r.text)))
                 with (out/'airbnb_top30_ids.csv').open('w',newline='',encoding='utf-8-sig') as f:
                   w=csv.writer(f);w.writerow(['listing_id','airbnb_url','source']);w.writerows([[a,'https://www.airbnb.com/rooms/'+a,url] for a in ids])
-                v['airbnb_ids']=len(ids)
+                v['airbnb_ids']=len(ids);print('AIRBTICS IDS',len(ids),ids[:3],flush=True)
             except Exception as e:
               logs.append({'source':name,'error':str(e)[:250]})
           found=set();pages=[];empty=0
@@ -60,9 +60,10 @@ jobs:
             url='https://www.airbnb.com/s/Seoul--South-Korea/homes?items_offset='+str(offset)
             try:
               r=s.get(url,timeout=20)
-              ids=set(re.findall(r'/rooms/(\\d{7,20})',r.text)) if r.ok else set()
+              ids=set(re.findall(r'/rooms/(\d{7,20})',r.text)) if r.ok else set()
+              ids |= set(re.findall(r'\\"listingId\\"\\s*:\\s*\\"?(\\d{7,20})',r.text))
               new=ids-found;found|=ids
-              pages.append({'offset':offset,'status':r.status_code,'new':len(new)})
+              pages.append({'offset':offset,'status':r.status_code,'new':len(new),'html_bytes':len(r.content),'rooms_mentions':r.text.count('rooms/'),'listingId_mentions':r.text.count('listingId')})
               if r.status_code in (403,429):break
               empty=empty+1 if not new else 0
               if empty>=3:break
