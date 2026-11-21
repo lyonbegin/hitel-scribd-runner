@@ -63812,7 +63812,7 @@
     "closed_date": "",
     "area": "48.31",
     "permit_phone": "",
-    "source_current": "no",
+    "source_current": "yes",
     "baseline_preserved": "no"
   },
   "3230000__CDFI2262212026000118": {
@@ -63824,7 +63824,7 @@
     "closed_date": "",
     "area": "60",
     "permit_phone": "",
-    "source_current": "no",
+    "source_current": "yes",
     "baseline_preserved": "no"
   },
   "3230000__CDFI2262212026000119": {
@@ -63836,7 +63836,7 @@
     "closed_date": "",
     "area": "56.05",
     "permit_phone": "",
-    "source_current": "no",
+    "source_current": "yes",
     "baseline_preserved": "no"
   },
   "3190000__CDFI2262212026000048": {
@@ -63848,7 +63848,7 @@
     "closed_date": "",
     "area": "41.2",
     "permit_phone": "",
-    "source_current": "yes",
+    "source_current": "no",
     "baseline_preserved": "no"
   }
 }
