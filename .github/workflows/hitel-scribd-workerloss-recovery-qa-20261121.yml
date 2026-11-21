@@ -1,0 +1,22 @@
+name: HITEL Scribd audited Chrome-disconnect recovery QA
+on:
+  push:
+    branches: [feature/hitel-public-ai-batches-20261119]
+    paths: [.github/workflows/hitel-scribd-workerloss-recovery-qa-20261121.yml]
+permissions:
+  contents: read
+jobs:
+  offline-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test exact single audited worker-disconnect restart and no duplicate sends
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/zocbo/hitel_scribd_http_continue.py tools/zocbo/test_hitel_scribd_http_continue.py
+          python3 tools/zocbo/test_hitel_scribd_http_continue.py
+          python3 tools/zocbo/test_hitel_dispatch_next_verified.py
+          python3 tools/zocbo/test_hitel_scribd_watchdog.py
+          grep -q 'AUDITED_WORKER_LOSS_RECOVERY_PREPARED_ONCE' tools/zocbo/hitel_scribd_http_continue.py
+          echo PASS_SCRIBD_WORKER_LOSS_SAFE_ONE_RETRY
