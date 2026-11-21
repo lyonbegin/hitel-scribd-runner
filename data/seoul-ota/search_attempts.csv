@@ -1866,3 +1866,8 @@
 3000000__CDFI2262212026000122,온유132,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:04:04+00:00
 3000000__CDFI2262212026000124,허니홈,general,bing_rss,10,0,0,,2026-11-21T12:04:05+00:00
 3000000__CDFI2262212026000125,노토 스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:04:13+00:00
+3000000__CDFI2262212026000126,모나크Ⅲ,general,bing_rss,10,0,0,,2026-11-21T12:04:16+00:00
+3000000__CDFI2262212026000127,무드무브,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:04:24+00:00
+3000000__CDFI2262212026000128,여홈,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:04:33+00:00
+3000000__CDFI2262212026000130,카페2층 '코지스테이',general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:04:41+00:00
+3000000__CDFI2262212026000131,하우스오브모리,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:04:49+00:00
