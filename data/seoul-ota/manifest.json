@@ -1,10 +1,10 @@
 {
-  "run_time": "2026-11-21T13:59:18+00:00",
+  "run_time": "2026-11-21T14:23:45+00:00",
   "official_rows": 5321,
   "active": 4710,
   "closed": 611,
   "missing_public_address": 0,
-  "historical_not_in_latest": 5,
+  "historical_not_in_latest": 7,
   "platform_count": 48,
   "platforms": [
     {
@@ -408,17 +408,17 @@
   "last_run": {
     "selected": 250,
     "advanced": 250,
-    "new_evidence": 1,
+    "new_evidence": 0,
     "new_public_contacts": 0,
     "automated_new_contacts_this_run": 0,
     "counts": {
-      "search_bing_rss_ok": 259,
-      "search_bing_rss_empty": 158,
-      "search_duckduckgo_lite_ok": 51,
-      "search_duckduckgo_lite_empty": 51,
+      "search_bing_rss_ok": 257,
+      "search_bing_rss_empty": 197,
+      "search_duckduckgo_lite_ok": 50,
+      "search_duckduckgo_lite_empty": 50,
       "properties_stages_completed": 250,
-      "irrelevant_result_rejected": 25,
-      "search_duckduckgo_lite_fail": 107
+      "irrelevant_result_rejected": 10,
+      "search_duckduckgo_lite_fail": 147
     }
   },
   "consolidated_index": {
