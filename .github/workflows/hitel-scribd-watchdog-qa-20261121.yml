@@ -1,0 +1,57 @@
+name: HITEL Scribd watchdog safe recovery tests
+
+on:
+  push:
+    branches: [fix/scribd-durable-watchdog-20261121]
+    paths: [.github/workflows/hitel-scribd-watchdog-qa-20261121.yml]
+permissions:
+  contents: read
+jobs:
+  dry-run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/hitel-public-ai-batches-20261119
+      - name: Run offline five-minute watchdog regression and source integrity
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/zocbo/hitel_scribd_watchdog.py tools/zocbo/hitel_dispatch_next_verified.py
+          python3 tools/zocbo/test_hitel_scribd_watchdog.py
+          python3 tools/zocbo/test_hitel_dispatch_next_verified.py
+          python3 - <<'PY'
+          import sys
+          sys.path.insert(0,"tools/zocbo")
+          import hitel_scribd_watchdog as w
+          rows=w.source_rows()
+          assert len(rows)==18109
+          print("PASS_ORIGINAL_18109_SOURCE_AND_WATCHDOG",flush=True)
+          PY
+      - name: Confirm actual candidate workflows parse and use safe token syntax
+        run: |
+          python3 -m pip install -q PyYAML
+          python3 - <<'PY'
+          import urllib.request,yaml
+          branch="fix/scribd-durable-watchdog-20261121"
+          base="https://raw.githubusercontent.com/lyonbegin/hitel-scribd-runner/"+branch+"/.github/workflows/"
+          def get(filename):
+              url=base+filename
+              with urllib.request.urlopen(url,timeout=25) as response:
+                  return response.read().decode("utf-8")
+          classifier=get("hitel-public-ai-corpus.yml")
+          watcher=get("hitel-scribd-watchdog-five-min.yml")
+          expr=chr(36)+chr(123)+chr(123)
+          assert "GH_TOKEN: " + chr(92) + expr not in classifier
+          assert "HANDOFF_TOKEN: " + chr(92) + expr not in classifier
+          assert "GH_TOKEN: " + expr + " github.token }}" in classifier
+          assert "HANDOFF_TOKEN: " + expr + " inputs.handoff_token }}" in classifier
+          assert "watchdog)-[0-9]+" in classifier
+          assert "cron: '*/5 * * * *'" in watcher
+          assert "cancel-in-progress: false" in watcher
+          assert "hitel_scribd_watchdog.py" in watcher
+          for code in (classifier,watcher):
+              doc=yaml.safe_load(code)
+              assert "jobs" in doc
+          print("PASS_ACTUAL_CANDIDATE_WORKFLOWS_AND_FIVE_MINUTE_SCHEDULE",flush=True)
+          PY
