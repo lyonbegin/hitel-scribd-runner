@@ -107,7 +107,7 @@ class HttpOnceOnlyTests(unittest.TestCase):
             file=root/"http"/(key+".json")
             runner.save(file,original)
             remote={"job_id":original["job_id"],"request_id":original_req,
-                    "room_name":room,"status":"stalled",
+                    "room_name":room,"status":"unknown",
                     "error_code":"WORKER_CONNECTION_LOST",
                     "result_ready":False,
                     "chatgpt_send_confirmed":None,
