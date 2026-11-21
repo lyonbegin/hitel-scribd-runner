@@ -4931,3 +4931,8 @@
 3020000__CDFI2262212017000033,SAM HOUSE,platforms_05,bing_rss,7,0,0,,2026-11-21T16:15:25+00:00
 3020000__CDFI2262212017000034,하트 오브 서울,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:15:34+00:00
 3020000__CDFI2262212017000038,케이하우스,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:15:42+00:00
+3020000__CDFI2262212017000039,더블랙웨일,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:15:52+00:00
+3020000__CDFI2262212017000041,제니하우스,platforms_05,bing_rss,10,0,0,,2026-11-21T16:15:53+00:00
+3020000__CDFI2262212017000042,엘림하우스,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:16:02+00:00
+3020000__CDFI2262212017000043,다나스테이,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:16:10+00:00
+3020000__CDFI2262212017000044,S house,platforms_05,bing_rss,10,0,0,,2026-11-21T16:16:11+00:00
