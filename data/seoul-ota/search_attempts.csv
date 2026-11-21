@@ -6846,3 +6846,8 @@
 3020000__CDFI2262212023000087,엘하우스,platforms_06,bing_rss,10,0,0,,2026-11-21T18:18:09+00:00
 3020000__CDFI2262212023000088,Park 520,platforms_06,bing_rss,10,0,0,,2026-11-21T18:18:10+00:00
 3020000__CDFI2262212023000089,딩딩네,platforms_06,bing_rss,10,0,0,,2026-11-21T18:18:11+00:00
+3020000__CDFI2262212023000091,보리하우스,platforms_06,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T18:18:14+00:00
+3020000__CDFI2262212023000093,Story House,platforms_06,bing_rss,10,0,0,,2026-11-21T18:18:16+00:00
+3020000__CDFI2262212023000095,구초이스,platforms_06,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T18:18:18+00:00
+3020000__CDFI2262212023000096,홈안젤라(Home_Angela),platforms_06,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T18:18:20+00:00
+3020000__CDFI2262212023000098,제이하우스(Jay house),platforms_06,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T18:18:22+00:00
