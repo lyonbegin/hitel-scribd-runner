@@ -73,11 +73,17 @@ jobs:
           with (d/'listing_evidence.csv').open(encoding='utf-8-sig',newline='') as f:
               assert all(x['match_grade']!='unverified' for x in csv.DictReader(f))
           PY
-      - name: Publish remaining safe checkpoint on partial job failure
+      - name: Publish final safe checkpoint even on partial failure
         if: always()
+        env:
+          COLLECT_JOB_STATUS: ${{ job.status }}
         run: |
           if [ -f data/seoul-ota/state.json ]; then
-            python3 tools/realestate/seoul_ota_checkpoint.py --phase running
+            if [ "$COLLECT_JOB_STATUS" = "success" ]; then
+              python3 tools/realestate/seoul_ota_checkpoint.py --phase complete
+            else
+              python3 tools/realestate/seoul_ota_checkpoint.py --phase running
+            fi
           fi
       - name: Preserve run diagnostics and evidence
         if: always()
