@@ -1,6 +1,7 @@
 name: HITEL Scribd 18109 - native Web2API completion verified
 run-name: HITEL Scribd AI handoff ${{ inputs.handoff_token || 'direct' }}
-# Transport: production HITEL /integrations/v1/public/chat used by E2E-proven test page.
+# Transport: signed /isolated/tasks/scribd-18109/chat for new batches;
+# legacy completed HTTP jobs are recovered by read-only /jobs requests.
 # Keep 340 previously verified records. Never mark an AI or transport failure as processed.
 # Missing or uncertain replies are never implicitly reposted.
 # Verified after Railway restart changes the old remote status from stalled to unknown.
@@ -30,6 +31,7 @@ on:
 permissions:
   contents: read
   actions: write
+  id-token: write
 
 concurrency:
   group: hitel-scribd-ai-18109-transport-v2
@@ -82,43 +84,25 @@ jobs:
           print("HANDOFF_OWNER_RUN",owner,"THIS_RUN",os.environ["GITHUB_RUN_ID"],
                 "SKIP_DUPLICATE",is_duplicate,flush=True)
           PY
-      - name: Verify currently connected corrected Web2API worker, without pinning its run ID
+      - name: Check scribd-18109 isolated task route, without requiring an existing worker
         if: steps.claim_handoff.outputs.skip != 'true'
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # Do not bind all subsequent windows to the single GitHub worker run
-          # 44798708561. A worker session can rotate while the 18109-row
-          # classifier continues. Never cancel a worker or resend a chat.
-          while true; do
-            WORKER_RUN="$(gh api 'repos/lyonbegin/procureflow/actions/runs?per_page=20&status=in_progress' \
-              --jq '[.workflow_runs[] | select(.path == ".github/workflows/hitel-integration-bridge-live-qa.yml" and .head_branch == "main") | .id] | first // empty')"
-            if [[ -n "$WORKER_RUN" ]]; then
-              ACTIVE_STEP="$(gh api "repos/lyonbegin/procureflow/actions/runs/$WORKER_RUN/jobs" \
-                --jq '[.jobs[].steps[]? | select(.name == "Keep connected worker running for the selected session") | .status] | first // ""')"
-              if [[ "$ACTIVE_STEP" == "in_progress" ]]; then
-                if python3 - <<'PY'
+          # The task scheduler starts a dedicated Chrome only AFTER the signed
+          # project producer has enqueued its first task-specific job. Waiting
+          # for an isolated Chrome here would deadlock the new task queue.
+          python3 - <<'PY'
           import json,urllib.request
-          url="https://hitel-integration-api-production.up.railway.app/integrations/v1/public/status"
+          url=("https://hitel-integration-api-production.up.railway.app/"
+               "integrations/v1/public/isolated/tasks/scribd-18109/status")
           with urllib.request.urlopen(url,timeout=15) as response:
-              status=json.load(response)
-          required=("worker_connected","worker_heartbeat_recent",
-                    "worker_bootstrap_ready","worker_available_for_new_job")
-          if not all(status.get(k) is True for k in required):
-              raise SystemExit("WORKER_NOT_READY_YET_NO_CHAT_SENT")
-          print("PASS_LIVE_WORKER_CONNECTED_HEARTBEAT_BOOTSTRAPPED_CAPACITY",flush=True)
+              task=json.load(response)
+          assert task.get("task_id")=="scribd-18109", "ISOLATED_TASK_MISSING"
+          assert isinstance(task.get("queued_jobs_count"),int), "ISOLATED_QUEUE_MISSING"
+          assert isinstance(task.get("generation"),int), "ISOLATED_GENERATION_MISSING"
+          print("PASS_SCRIBD_ISOLATED_TASK_REGISTERED_NO_CROSS_TASK_WORKER",flush=True)
           PY
-                then
-                  echo "PASS_CORRECTED_WEB2API_WORKER_RUN=$WORKER_RUN"
-                  break
-                fi
-              fi
-            fi
-            echo "WAIT_LIVE_WEB2API_WORKER_NO_CHAT_SENT"
-            sleep 15
-          done
 
   ai:
     needs: worker_ready
@@ -212,8 +196,10 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
               f.write(f"verified={len(rows)}\n")
           PY
-      - name: Submit one 20-title batch via E2E-proven public HTTP and verify stored reply
+      - name: Resume preserved AI answer or submit one signed scribd-18109 isolated HTTP batch
         id: classify
+        env:
+          HITEL_ISOLATED_TASK_ID: scribd-18109
         # One POST per exact prompt and immutable request_id; thereafter GET only.
         # Old 1101 WS timeout is audited and old 1100 verified rows retained.
         shell: bash
