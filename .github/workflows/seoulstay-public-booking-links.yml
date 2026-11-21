@@ -1,0 +1,25 @@
+name: Public SeoulStay booking link directory research
+on:
+  push:
+    branches: [research/seoul-homestay-public-20261121]
+    paths: [.github/workflows/seoulstay-public-booking-links.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m pip install -q requests beautifulsoup4
+      - name: Crawl public SeoulStay accommodation pages and direct booking links
+        run: python3 tools/realestate/seoul_stay_official_links.py
+      - name: Save exact public sources and links
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoulstay-official-booking-public-links
+          path: artifacts/seoul-stay-contacts/
+          retention-days: 7
+          if-no-files-found: warn
