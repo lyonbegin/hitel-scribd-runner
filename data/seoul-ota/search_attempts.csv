@@ -10641,3 +10641,8 @@
 3060000__CDFI2262212021000001,둘레길 하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:13:32+00:00
 3060000__CDFI2262212022000001,The stay(더 스테이),general,bing_rss,10,0,0,,2026-11-21T23:13:33+00:00
 3060000__CDFI2262212023000001,그린하우스(Green House),general,bing_rss,10,0,0,,2026-11-21T23:13:35+00:00
+3060000__CDFI2262212023000003,유니게르(uniger),general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:13:51+00:00
+3060000__CDFI2262212023000004,헤디예 스테이(HEDIYE STAY),general,bing_rss,10,0,0,,2026-11-21T23:13:53+00:00
+3060000__CDFI2262212023000005,중랑 레몬트리 스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:14:01+00:00
+3060000__CDFI2262212024000002,안식,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:14:09+00:00
+3060000__CDFI2262212025000004,원더 서울,general,bing_rss,10,0,0,,2026-11-21T23:14:11+00:00
