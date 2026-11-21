@@ -141,11 +141,52 @@ def controller(mode, dry_run=False):
     return "dispatched"
 
 def selftest():
+    """Replay missing, healthy, stuck-running, stuck-queued and complete cases."""
+    from unittest.mock import patch
     assert age(None) is None
     assert age("bad") is None
     assert MAX_AGE_SECONDS>RECENT_RUN_SECONDS
     assert WATCHDOG=="seoul-ota-watchdog.yml"
-    print("OTA_GUARDIAN_SELFTEST_OK",flush=True)
+    current=now()
+    fresh={"id":123,"status":"in_progress",
+           "created_at":current.isoformat(),
+           "run_started_at":current.isoformat()}
+    stale={"id":456,"status":"in_progress",
+           "created_at":(current-dt.timedelta(minutes=15)).isoformat(),
+           "run_started_at":(current-dt.timedelta(minutes=15)).isoformat()}
+    finished={**stale,"status":"completed","conclusion":"cancelled"}
+    with patch(__name__+".fully_completed",return_value=(False,{"records":5320})):
+        with patch(__name__+".watchers",return_value=[]),patch(__name__+".gh",return_value="") as fake:
+            assert controller("rescue")=="dispatched"
+            fake.assert_called_once_with("workflow","run",WATCHDOG,"--repo",REPO,"--ref","main")
+        with patch(__name__+".watchers",return_value=[fresh]),patch(__name__+".gh",return_value="") as fake:
+            assert controller("rescue")=="healthy"
+            fake.assert_not_called()
+        with patch(__name__+".watchers",side_effect=[[stale],[finished]]),\
+             patch(__name__+".gh",return_value="") as fake,\
+             patch(__name__+".time.sleep",return_value=None):
+            assert controller("rescue")=="dispatched"
+            assert fake.call_count==2
+            assert fake.call_args_list[0].args==("run","cancel","456","--repo",REPO)
+            assert fake.call_args_list[1].args==("workflow","run",WATCHDOG,"--repo",REPO,"--ref","main")
+        stale_queued={**stale,"status":"queued"}
+        finished_queued={**stale_queued,"status":"completed","conclusion":"cancelled"}
+        with patch(__name__+".watchers",side_effect=[[stale_queued],[finished_queued]]),\
+             patch(__name__+".gh",return_value="") as fake,\
+             patch(__name__+".time.sleep",return_value=None):
+            assert controller("rescue")=="dispatched"
+            assert fake.call_count==2
+        with patch(__name__+".watchers",return_value=[]),patch(__name__+".gh",return_value="") as fake:
+            assert controller("chain")=="dispatched"
+            fake.assert_called_once()
+        with patch(__name__+".watchers",return_value=[fresh]),patch(__name__+".gh",return_value="") as fake:
+            assert controller("chain")=="waiting"
+            fake.assert_not_called()
+    with patch(__name__+".fully_completed",return_value=(True,{"records":5320,"fully_done":5320})),\
+         patch(__name__+".gh",return_value="") as fake:
+        assert controller("rescue")=="done"
+        fake.assert_not_called()
+    print("OTA_GUARDIAN_SELFTEST_OK missing healthy stuck_running stuck_queue chain complete",flush=True)
 
 def main():
     parser=argparse.ArgumentParser()
