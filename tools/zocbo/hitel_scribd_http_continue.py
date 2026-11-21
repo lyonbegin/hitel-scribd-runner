@@ -451,9 +451,16 @@ def run_one(rows:list[dict],out:Path) -> int:
     original_file,original=statefile,state
     statefile,state=recovery_after_verified_worker_disconnect(
         out,key,digest,ids,statefile,state,request_id,room_name)
-    statefile,state=recover_signed_task_only_after_terminal_disconnect(
-        out,key,digest,ids,original_file,original,statefile,state,
-        request_id,room_name)
+    for _ in range(MAX_SIGNED_TASK_RESTARTS+1):
+        nextfile,nextstate=recover_signed_task_only_after_terminal_disconnect(
+            out,key,digest,ids,original_file,original,statefile,state,
+            request_id,room_name)
+        if nextfile==statefile or nextstate.get("status")!="unverified":
+            statefile,state=nextfile,nextstate
+            break
+        statefile,state=nextfile,nextstate
+    else:
+        raise RuntimeError("SIGNED_RECOVERY_CHAIN_FAILED_CLOSED")
     state=ensure_one_http_job(statefile,state,question)
     answer,remote=await_http_reply(statefile,state)
     identity_repair_audit=[]
