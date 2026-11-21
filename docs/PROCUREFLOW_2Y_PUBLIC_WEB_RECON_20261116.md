@@ -100,3 +100,10 @@
 - 같은 실행의 부트스트랩은 OIDC GET 302를 관측했지만 이는 공개 조회 전체가 인증 필수임을 입증하지 않는다. 112R/113R 및 쇼핑몰 실데이터 목록·상세·페이징·JOIN은 계속 0건 검증이다.
 - [선택 복구 #43868699164](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/43868699164)의 169번 샤드는 `processed=5000`, `verified_complete=3385`, `no_opening_data=1512`, `no_bidder_rows_unverified=103`, `complete=false`. `new_shards_remaining=3`은 당시의 값으로 170~172의 최신 완료를 증명하지 않는다.
 - 이번 보강은 **기존 Actions 원본 로그에 대한 추가 판독**이며 신규 데이터 적재·수집 실행·전체 완료가 아니다. 기존 공고 인덱스·187쌍 Release·운영 및 복구 워크플로·PC Runner는 변경하지 않는다.
+
+## 2026-11-22 공개 UI 차단 요청 계수 보정
+
+- `probe_contract_public_ui.py`에서 비읽기 요청 차단 표본은 최대 40개만 저장되지만 기존 `block_count`도 표본 길이를 반환하던 오류를 수정하였다. 전체 차단 횟수 `blocked_request_count_total`, 표본 수, 잘림 여부를 분리하며 기존 `block_count`는 실제 전체 계수로 보정한다.
+- 회귀시험 `tests/test_procureflow_ui_guard_accounting.py`를 추가하고 연구 워크플로의 GitHub-hosted 검사 단계에 연결하였다. 변경 커밋은 `06e9e987`, `262d1b2d`, `2056bc52`이다. **변경 이후 Actions 통과 및 실제 계약 응답 수집은 아직 확인되지 않았다.**
+- POST 허용 정책은 변경하지 않았고 인증 우회, 운영 수집기, 기존 930,379개 공고, 187쌍 Release, 선택 복구 워크플로 및 self-hosted PC Runner도 변경하지 않았다. 기존 `no_bidder_rows_unverified`는 그대로 미검증으로 유지한다.
+- 이 수정은 진단 계수의 정확성만 개선한다. 계약·112R/113R·MAS·납품요구의 실데이터 목록·상세·페이징·JOIN 검증은 여전히 미완료이다.
