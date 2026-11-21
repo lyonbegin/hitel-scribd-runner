@@ -123,13 +123,17 @@ class SampleSafety(unittest.TestCase):
             "request":lambda self,*args:(200,{
                 "artifacts":[{"name":p.SAMPLE_ARTIFACT,
                  "created_at":"2026-11-21T04:00:00Z",
+                 "id":901,
                  "expired":False,
                  "workflow_run":{"id":9,"head_branch":"main"}}]})
         })()
         def write_invalid(*args,**kwargs):
             Path(args[0][args[0].index("-D")+1],p.SAMPLE_FILE).write_text("{}")
             return type("Result",(),{"returncode":0})()
-        with patch.object(p.subprocess,"run",side_effect=write_invalid):
+        def write_invalid_artifact(client,artifact_id,root):
+            (root/p.SAMPLE_FILE).write_text("{}",encoding="utf-8")
+        with patch.object(p.base,"download_exact_artifact",
+                          side_effect=write_invalid_artifact):
             with self.assertRaisesRegex(ValueError,"CORRUPTED"):
                 p.prior_observation(api)
 
