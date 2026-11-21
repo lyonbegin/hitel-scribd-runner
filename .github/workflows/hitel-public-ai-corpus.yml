@@ -156,7 +156,7 @@ jobs:
           if [[ -n "$RECOVERY_ARTIFACT" ]]; then
             echo "RESTORE_LATEST_EXACT_ARTIFACT_ID=$RECOVERY_ARTIFACT"
             python3 - "$RECOVERY_ARTIFACT" <<'PY'
-          import io,os,pathlib,sys,urllib.request,zipfile
+          import io,os,pathlib,sys,urllib.parse,urllib.request,zipfile
           aid=sys.argv[1]
           if not aid.isdecimal():raise SystemExit("INVALID_CHECKPOINT_ARTIFACT_ID")
           url="https://api.github.com/repos/"+os.environ["GITHUB_REPOSITORY"]+"/actions/artifacts/"+aid+"/zip"
@@ -164,7 +164,19 @@ jobs:
               "Authorization":"Bearer "+os.environ["GH_TOKEN"],
               "Accept":"application/vnd.github+json",
               "X-GitHub-Api-Version":"2022-11-28"})
-          with urllib.request.urlopen(req,timeout=60) as response:
+          class NoTokenCrossHostRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, request, fp, code, msg, headers, newurl):
+                  redirect=super().redirect_request(request,fp,code,msg,headers,newurl)
+                  if (redirect and
+                      urllib.parse.urlsplit(newurl).hostname !=
+                      urllib.parse.urlsplit(request.full_url).hostname):
+                      # Azure signed blob URLs reject a forwarded GitHub
+                      # Authorization header (HTTP 401). Keep SAS URL as is.
+                      for key in ("Authorization","X-GitHub-Api-Version","Accept"):
+                          redirect.remove_header(key)
+                  return redirect
+          opener=urllib.request.build_opener(NoTokenCrossHostRedirect())
+          with opener.open(req,timeout=60) as response:
               archive=response.read(40_000_001)
           if len(archive)>40_000_000:
               raise SystemExit("CHECKPOINT_ARCHIVE_EXCEEDS_LIMIT")
