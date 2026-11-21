@@ -50,6 +50,8 @@ jobs:
                   return {'status':r.status_code,'ids':[],'error':'blocked_rate_limit','bytes':len(r.content)}
                 r.raise_for_status()
                 ids=list(dict.fromkeys(re.findall(r'listingId.{0,55}?(\d{7,20})',r.text)))
+                if len(r.content)<2000:
+                  print('SHORT_HTML_BODY',repr(r.text[:1600]),flush=True)
                 return {'status':r.status_code,'ids':ids,'bytes':len(r.content),'html_mentions':r.text.count('listingId')}
               except Exception as e:
                 last_error=repr(e)[:190];time.sleep(1.5*(retry+1))
