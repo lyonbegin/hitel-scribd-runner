@@ -198,6 +198,52 @@ class HttpOnceOnlyTests(unittest.TestCase):
             self.assertEqual(call.call_count,1)
             self.assertEqual(call.call_args.args[0],runner.API+"/jobs/"+job["job_id"])
 
+    def test_isolated_false_stalled_job_keeps_get_only_when_task_active(self):
+        with tempfile.TemporaryDirectory() as d:
+            path,state=self.state(d)
+            state.update({"task_id":"scribd-18109",
+                          "job_id":"job_"+"b"*32,"room_id":"room_"+"a"*32})
+            runner.save(path,state)
+            initial={"job_id":state["job_id"],
+                     "request_id":state["request_id"],
+                     "room_id":state["room_id"],
+                     "status":"stalled",
+                     "error_code":"WORKER_NOT_ACTIVE_FOR_JOB"}
+            task={"task_id":"scribd-18109","worker_connected":True,
+                  "worker_heartbeat_recent":True,"worker_active_jobs_count":1}
+            completed={**initial,"status":"completed","error_code":None,
+                       "result_ready":True,
+                       "chatgpt_send_confirmed":True,
+                       "assistant_reply_observed":True}
+            with patch.object(runner,"call",side_effect=[
+                    (200,initial),(200,task),(200,completed)]) as gets:
+                with patch.object(runner.time,"sleep") as sleep:
+                    with patch.object(runner,"read_completed_result",
+                                      return_value='{"rows":[]}'):
+                        got,_=runner.await_http_reply(path,state)
+            self.assertEqual(got,'{"rows":[]}')
+            self.assertEqual(gets.call_count,3)
+            sleep.assert_called_once_with(10)
+
+    def test_isolated_false_stall_with_no_active_worker_fails_closed(self):
+        with tempfile.TemporaryDirectory() as d:
+            path,state=self.state(d)
+            state.update({"task_id":"scribd-18109",
+                          "job_id":"job_"+"b"*32,"room_id":"room_"+"a"*32})
+            runner.save(path,state)
+            initial={"job_id":state["job_id"],
+                     "request_id":state["request_id"],
+                     "room_id":state["room_id"],
+                     "status":"stalled",
+                     "error_code":"WORKER_NOT_ACTIVE_FOR_JOB"}
+            absent={"task_id":"scribd-18109","worker_connected":False,
+                    "worker_heartbeat_recent":False,"worker_active_jobs_count":0}
+            with patch.object(runner,"call",side_effect=[
+                    (200,initial),(200,absent)]):
+                with self.assertRaisesRegex(RuntimeError,"KEEP_CHECKPOINT"):
+                    runner.await_http_reply(path,state)
+            self.assertEqual(json.loads(path.read_text())["status"],"unverified")
+
     def test_completed_reply_is_verified_by_three_evidence_flags(self):
         with tempfile.TemporaryDirectory() as d:
             path,state=self.state(d)
