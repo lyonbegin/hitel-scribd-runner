@@ -1,0 +1,44 @@
+name: Seoul OTA guardian - revive stopped watchdog
+on:
+  # GitHub scheduled events are best effort; this is a fallback, not the only trigger.
+  schedule:
+    - cron: "4,14,24,34,44,54 * * * *"
+  workflow_run:
+    workflows:
+      - Seoul OTA watchdog - independent monitoring and safe restart
+      - Seoul public OTA + short-let contact evidence (rolling)
+    types: [completed]
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/seoul-ota-guardian.yml
+permissions:
+  actions: write
+  contents: read
+concurrency:
+  group: seoul-ota-one-guardian
+  cancel-in-progress: false
+jobs:
+  rescue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Verify guardian restart decisions
+        run: python3 tools/realestate/seoul_ota_guardian.py --selftest
+      - name: Check watchdog existence and restart if it is missing or stuck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/realestate/seoul_ota_guardian.py --mode rescue
+      - name: Preserve watchdog restoration proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoul-ota-guardian-diagnostics
+          path: artifacts/seoul-ota-watchdog/guardian.json
+          retention-days: 30
+          if-no-files-found: warn
