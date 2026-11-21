@@ -1,0 +1,49 @@
+name: Seoul Airbnb geobounds search coverage probe
+on:
+  push:
+    branches: ["research/seoul-airbnb-registry-20261121"]
+    paths: [".github/workflows/seoul-airbnb-map-probe-20261121.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Probe mapped-bounds response changes
+        shell: bash
+        run: |
+          mkdir -p out
+          python - <<'PY'
+          import requests,re,json,time
+          from pathlib import Path
+          s=requests.Session();s.headers.update({'User-Agent':'Mozilla/5.0'})
+          tests=[
+            ('jongno',37.565,37.590,126.980,127.015),
+            ('mapo',37.550,37.575,126.905,126.945),
+            ('gangnam',37.485,37.525,127.015,127.060),
+            ('seongbuk',37.590,37.620,127.000,127.045)]
+          data=[]
+          for name,swlat,nelat,swlng,nelng in tests:
+            prm={'search_by_map':'true','ne_lat':nelat,'ne_lng':nelng,'sw_lat':swlat,'sw_lng':swlng,'query':'Seoul, South Korea'}
+            url='https://www.airbnb.com/s/Seoul--South-Korea/homes'
+            try:
+              r=s.get(url,params=prm,timeout=30)
+              ids=list(dict.fromkeys(re.findall(r'listingId.{0,60}?(\d{7,20})',r.text)))
+              data.append({'name':name,'status':r.status_code,'bytes':len(r.content),'ids':ids,'url':r.url})
+              print('MAP_PROBE',name,'HTTP',r.status_code,'ids',len(ids),ids[:10],flush=True)
+            except Exception as e:
+              data.append({'name':name,'error':str(e)[:240]})
+            time.sleep(.3)
+          for i in range(len(data)):
+            for j in range(i):
+              print('INTERSECTION',data[i]['name'],data[j]['name'],len(set(data[i].get('ids',[]))&set(data[j].get('ids',[]))),flush=True)
+          Path('out/probe.json').write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
+          PY
+      - name: Upload probe audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoul-airbnb-map-probe-20261121
+          path: out/
+          retention-days: 14
