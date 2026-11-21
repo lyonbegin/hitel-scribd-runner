@@ -193,7 +193,7 @@ def recovery_after_verified_worker_disconnect(
     # preserve it and allow the ordinary same-ID read-only path to verify.
     if remote.get("status") == "completed":
         return original_file, original
-    if (remote.get("status") != "stalled"
+    if (remote.get("status") not in ("stalled", "unknown")
             or remote.get("error_code") != "WORKER_CONNECTION_LOST"
             or remote.get("result_ready") is not False
             or remote.get("chatgpt_send_confirmed") is True
