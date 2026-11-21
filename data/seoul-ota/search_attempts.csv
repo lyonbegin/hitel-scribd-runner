@@ -7136,3 +7136,8 @@
 3020000__CDFI2262212026000219,선주스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:34:58+00:00
 3020000__CDFI2262212026000220,예진스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:35:06+00:00
 3020000__CDFI2262212026000221,르네스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:35:15+00:00
+3020000__CDFI2262212026000222,Gray stay,general,bing_rss,10,0,0,,2026-11-21T18:35:18+00:00
+3020000__CDFI2262212026000223,유현 스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:35:26+00:00
+3020000__CDFI2262212026000224,지현 스테이,general,bing_rss,10,0,0,,2026-11-21T18:35:27+00:00
+3020000__CDFI2262212026000225,더 화이트,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:35:36+00:00
+3020000__CDFI2262212026000226,루덴스 스테이 용산,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T18:35:44+00:00
