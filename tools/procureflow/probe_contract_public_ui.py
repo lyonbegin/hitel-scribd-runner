@@ -93,7 +93,7 @@ def main():
         "at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "scope": "PUBLIC_READ_ONLY_UI_INSPECTION",
         "events": [], "screenshots": [], "pages": [],
-        "blocked_non_read_only_requests": [],
+        "blocked_non_read_only_requests": [], "blocked_request_count_total": 0,
         "errors": [], "console_errors": [], "page_errors": [], "browser_pages": [],
         "request_failures": [], "http_errors": [], "tracked_post_responses": [],
         "response_count_total": 0, "post_response_count_total": 0, "late_script_paths": [], "xhr_paths": [],
@@ -121,6 +121,7 @@ def main():
                     not DANGEROUS.search(path)
                 ):
                     return route.continue_()
+                report["blocked_request_count_total"] += 1
                 if len(report["blocked_non_read_only_requests"]) < 40:
                     report["blocked_non_read_only_requests"].append(network_info(req))
                 return route.abort()
@@ -354,7 +355,9 @@ def main():
         "tracked_post_responses": report["tracked_post_responses"],
         "read_only_response_proofs": report["read_only_response_proofs"],
         "document_probes": [p.get("document_probe") for p in report["pages"]],
-        "block_count": len(report["blocked_non_read_only_requests"]),
+        "block_count": report["blocked_request_count_total"],
+        "blocked_request_sample_count": len(report["blocked_non_read_only_requests"]),
+        "blocked_request_sample_truncated": report["blocked_request_count_total"] > len(report["blocked_non_read_only_requests"]),
         "errors": report["errors"], "browser_pages": report["browser_pages"],
         "page_errors": report["page_errors"], "console_errors": report["console_errors"],
         "get_paths": sorted(set(x["path"] for x in report["events"] if x["method"] == "GET"))[:70],
