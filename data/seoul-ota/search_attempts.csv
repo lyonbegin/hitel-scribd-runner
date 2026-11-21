@@ -9876,3 +9876,8 @@
 3040000__CDFI2262212025000098,쁘씨마루,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T21:58:48+00:00
 3040000__CDFI2262212025000099,무드 홈,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T21:58:57+00:00
 3040000__CDFI2262212026000002,이지스테이 건대역점,platforms_04,bing_rss,10,0,0,,2026-11-21T21:58:58+00:00
+3040000__CDFI2262212026000003,인트리스테이,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T21:59:08+00:00
+3040000__CDFI2262212026000004,OEDORIUM,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T21:59:16+00:00
+3040000__CDFI2262212026000005,어반리브 인 한강,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T21:59:25+00:00
+3040000__CDFI2262212026000006,브리지스테이,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T21:59:34+00:00
+3040000__CDFI2262212026000008,제이 스테이,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T21:59:42+00:00
