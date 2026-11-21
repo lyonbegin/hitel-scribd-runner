@@ -7436,3 +7436,8 @@
 3030000__CDFI2262212025000019,숨 스테이(Soom Stay),general,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:00:32+00:00
 3030000__CDFI2262212025000023,서울숲 스위트,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:00:41+00:00
 3030000__CDFI2262212025000024,루프탑하우스,general,bing_rss,10,0,0,,2026-11-21T19:00:42+00:00
+3030000__CDFI2262212025000025,다색,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:00:52+00:00
+3030000__CDFI2262212025000026,Joony stay,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:01:00+00:00
+3030000__CDFI2262212025000027,리틀 포레스트,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:01:08+00:00
+3030000__CDFI2262212025000029,SEOULMATE S (서울메이트 성수),general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:01:17+00:00
+3030000__CDFI2262212025000030,코지네스트,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:01:25+00:00
