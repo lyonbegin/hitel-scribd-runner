@@ -6003,11 +6003,11 @@
     }
   },
   "first_started_at": "2026-11-21T07:19:06+00:00",
-  "latest_run_at": "2026-11-21T22:30:11+00:00",
+  "latest_run_at": "2026-11-21T22:30:13+00:00",
   "platforms": 48,
   "stages": 7,
   "input_records": 5321,
-  "done_full_pass": 1250,
+  "done_full_pass": 1267,
   "total_stages_completed": 10212,
   "last_run": {
     "selected": 250,
@@ -6016,13 +6016,13 @@
     "new_public_contacts": 0,
     "automated_new_contacts_this_run": 0,
     "counts": {
-      "search_bing_rss_ok": 265,
-      "search_bing_rss_empty": 160,
-      "search_duckduckgo_lite_ok": 51,
-      "search_duckduckgo_lite_empty": 51,
+      "search_bing_rss_ok": 269,
+      "search_bing_rss_empty": 169,
+      "search_duckduckgo_lite_ok": 50,
+      "search_duckduckgo_lite_empty": 50,
       "properties_stages_completed": 250,
-      "irrelevant_result_rejected": 14,
-      "search_duckduckgo_lite_fail": 109
+      "irrelevant_result_rejected": 23,
+      "search_duckduckgo_lite_fail": 119
     }
   },
   "consolidated_index": {
