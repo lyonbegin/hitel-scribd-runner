@@ -1,7 +1,7 @@
 {
-  "run_time": "2026-11-21T07:23:27+00:00",
-  "official_rows": 5318,
-  "active": 4707,
+  "run_time": "2026-11-21T07:28:36+00:00",
+  "official_rows": 5313,
+  "active": 4702,
   "closed": 611,
   "missing_public_address": 0,
   "platform_count": 48,
@@ -410,10 +410,22 @@
     "new_evidence": 0,
     "new_public_contacts": 0,
     "counts": {
-      "search_bing_rss_ok": 87,
+      "search_bing_rss_ok": 81,
+      "search_bing_rss_empty": 58,
+      "search_duckduckgo_lite_ok": 50,
+      "search_duckduckgo_lite_empty": 50,
       "properties_stages_completed": 80,
-      "irrelevant_result_rejected": 1
+      "irrelevant_result_rejected": 2,
+      "search_duckduckgo_lite_fail": 8
     }
+  },
+  "consolidated_index": {
+    "records": 5313,
+    "prior_source_records": 20,
+    "public_contact_source_rows": 46,
+    "unique_properties_with_public_phone": 41,
+    "listing_link_rows": 20,
+    "unique_properties_with_listing_link": 15
   },
   "critical": "Search hits are NOT verified accommodation listings. Only 'name_and_road' evidence supports an address match; contacts are NOT call-verified. The permit area is NOT exclusive area.",
   "scraping_policy": "public search/robots permitted pages only; no authentication, messages, CAPTCHAs or bypass."
