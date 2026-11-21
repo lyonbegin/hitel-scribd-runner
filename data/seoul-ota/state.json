@@ -1003,10 +1003,10 @@
     }
   },
   "first_started_at": "2026-11-21T07:19:06+00:00",
-  "latest_run_at": "2026-11-21T08:28:36+00:00",
+  "latest_run_at": "2026-11-21T08:28:39+00:00",
   "platforms": 48,
   "stages": 7,
-  "input_records": 5318,
+  "input_records": 5320,
   "done_full_pass": 0,
   "total_stages_completed": 962,
   "last_run": {
@@ -1015,17 +1015,17 @@
     "new_evidence": 0,
     "new_public_contacts": 0,
     "counts": {
-      "search_bing_rss_ok": 256,
+      "search_bing_rss_ok": 269,
       "properties_stages_completed": 250,
-      "search_bing_rss_empty": 160,
-      "search_duckduckgo_lite_ok": 52,
-      "search_duckduckgo_lite_empty": 52,
-      "irrelevant_result_rejected": 4,
-      "search_duckduckgo_lite_fail": 108
+      "search_bing_rss_empty": 189,
+      "search_duckduckgo_lite_ok": 51,
+      "search_duckduckgo_lite_empty": 51,
+      "irrelevant_result_rejected": 5,
+      "search_duckduckgo_lite_fail": 138
     }
   },
   "consolidated_index": {
-    "records": 5318,
+    "records": 5320,
     "prior_source_records": 20,
     "public_contact_source_rows": 46,
     "unique_properties_with_public_phone": 41,
