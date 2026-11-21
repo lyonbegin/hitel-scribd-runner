@@ -135,8 +135,21 @@ def controller(mode, dry_run=False):
     if most_recent:
         latest_age=age(most_recent.get("created_at"))
         if latest_age is not None and latest_age<RECENT_RUN_SECONDS:
-            report("watchdog_handoff_grace",latest_run=most_recent["id"],age_seconds=latest_age)
-            return "grace"
+            # If the watcher failed shortly after starting, a simple grace
+            # return could strand the entire chain. Give GitHub ten seconds
+            # to expose a just-dispatched successor, then rescue immediately.
+            report("watchdog_handoff_verify",latest_run=most_recent["id"],
+                   age_seconds=latest_age)
+            if not dry_run:
+                time.sleep(10)
+                fresh=watchers()
+                successors=[r for r in fresh if
+                    r.get("status") in {"in_progress","queued","pending","waiting","requested"}]
+                if successors:
+                    report("watchdog_successor_confirmed",run_id=successors[0]["id"])
+                    return "healthy"
+            dispatch("recent_watchdog_ended_without_successor",dry_run)
+            return "dispatched"
     dispatch("watchdog_missing_or_not_restarted",dry_run)
     return "dispatched"
 
@@ -160,6 +173,18 @@ def selftest():
             assert controller("rescue")=="dispatched"
             fake.assert_called_once_with("workflow","run",WATCHDOG,"--repo",REPO,"--ref","main")
         with patch(__name__+".watchers",return_value=[fresh]),patch(__name__+".gh",return_value="") as fake:
+            assert controller("rescue")=="healthy"
+            fake.assert_not_called()
+        just_finished={"id":124,"status":"completed","conclusion":"failure",
+             "created_at":current.isoformat(),"updated_at":current.isoformat()}
+        with patch(__name__+".watchers",return_value=[just_finished]),\
+             patch(__name__+".gh",return_value="") as fake,\
+             patch(__name__+".time.sleep",return_value=None):
+            assert controller("rescue")=="dispatched"
+            fake.assert_called_once_with("workflow","run",WATCHDOG,"--repo",REPO,"--ref","main")
+        with patch(__name__+".watchers",side_effect=[[just_finished],[fresh]]),\
+             patch(__name__+".gh",return_value="") as fake,\
+             patch(__name__+".time.sleep",return_value=None):
             assert controller("rescue")=="healthy"
             fake.assert_not_called()
         with patch(__name__+".watchers",side_effect=[[stale],[finished]]),\
@@ -186,7 +211,7 @@ def selftest():
          patch(__name__+".gh",return_value="") as fake:
         assert controller("rescue")=="done"
         fake.assert_not_called()
-    print("OTA_GUARDIAN_SELFTEST_OK missing healthy stuck_running stuck_queue chain complete",flush=True)
+    print("OTA_GUARDIAN_SELFTEST_OK missing healthy early_failure successor_race stuck_running stuck_queue chain complete",flush=True)
 
 def main():
     parser=argparse.ArgumentParser()
