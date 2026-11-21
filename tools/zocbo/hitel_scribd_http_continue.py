@@ -187,6 +187,23 @@ def await_http_reply(statefile:Path,state:dict):
                           "answer_sha256":hashlib.sha256(answer.encode("utf-8")).hexdigest()})
             save(statefile,state)
             return answer,remote
+        if (state.get("task_id")=="scribd-18109"
+                and status=="stalled"
+                and remote.get("error_code")=="WORKER_NOT_ACTIVE_FOR_JOB"):
+            # The legacy read-only /public/jobs view checks the SHARED
+            # web2api_active_jobs set, which does not hold task-isolated
+            # Chrome jobs. This is NOT an upstream model failure when
+            # the signed dedicated Scribd worker is actively processing.
+            # Poll the original job only; never POST a second request.
+            task_code,task=call(API+"/isolated/tasks/scribd-18109/status")
+            if (task_code==200 and task.get("task_id")=="scribd-18109"
+                    and task.get("worker_connected") is True
+                    and task.get("worker_heartbeat_recent") is True
+                    and task.get("worker_active_jobs_count",0)>0):
+                print("ISOLATED_TASK_ACTIVE_LEGACY_STATUS_FALSE_STALL_GET_ONLY",
+                      state["job_id"],flush=True)
+                time.sleep(10)
+                continue
         if status in ("queued","running"):
             print("HTTP_JOB_PROGRESS",state["job_id"],status,
                   str(remote.get("stage",""))[:90],flush=True)
