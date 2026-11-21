@@ -10601,3 +10601,8 @@
 3050000__CDFI2262212025000003,이문 스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:09:26+00:00
 3050000__CDFI2262212025000004,샤일로 스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:09:35+00:00
 3050000__CDFI2262212025000005,까사 드 다올,general,bing_rss,10,0,0,,2026-11-21T23:09:36+00:00
+3050000__CDFI2262212025000008,제기 로프트,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:09:46+00:00
+3050000__CDFI2262212025000010,쿠키집,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:09:54+00:00
+3050000__CDFI2262212025000015,루미스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:10:02+00:00
+3050000__CDFI2262212025000016,쉼표,general,bing_rss,10,0,0,,2026-11-21T23:10:03+00:00
+3050000__CDFI2262212025000017,Nook Hoegi,general,bing_rss,10,0,0,,2026-11-21T23:10:05+00:00
