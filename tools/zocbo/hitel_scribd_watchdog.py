@@ -1,0 +1,256 @@
+#!/usr/bin/env python3
+"""Five-minute external GitHub Actions watchdog for verified Scribd batches.
+
+Never confuse a five-minute inspection cadence with a five-minute model timeout.
+Do not cancel healthy Chrome/AI work. When no classifier run exists, restore the
+most recent durable checkpoint and dispatch ONE next run with a stable token.
+When an in-progress classifier is old, only cancel it if the exact deterministic
+remote request is already verified COMPLETED (read-only proof). Next watchdog
+will resume from the last durable verified batch without a second AI send.
+"""
+from __future__ import annotations
+
+import csv
+import datetime as dt
+import hashlib
+import io
+import json
+import os
+import subprocess
+import tempfile
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+from hitel_dispatch_next_verified import GithubClient, handoff
+from hitel_public_named_rooms_corpus import title_prompt
+from hitel_scribd_ws_continue import SOURCE_SHA, load_verified, next_batch
+
+WORKFLOW = "hitel-public-ai-corpus.yml"
+ARTIFACT = "hitel-ai-18109-ws-recovery-checkpoint"
+TOTAL = 18109
+MINIMUM_SAVED = 1300
+ACTIVE = {"queued", "in_progress", "pending", "requested", "waiting"}
+SAFE_COMPLETED_FLAGS = ("result_ready", "chatgpt_send_confirmed", "assistant_reply_observed")
+CLASSIFY_STEP = "Submit one 20-title batch via E2E-proven public HTTP and verify stored reply"
+API_PUBLIC = "https://hitel-integration-api-production.up.railway.app/integrations/v1/public"
+STALE_COMPLETED_THRESHOLD_SECONDS = 35 * 60
+
+
+def date_of(s: str) -> dt.datetime:
+    return dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
+
+
+def seconds_since(s: str, now=None) -> float:
+    return ((now or dt.datetime.now(dt.timezone.utc)) - date_of(s)).total_seconds()
+
+
+def github_listing(client: GithubClient, path: str, what: str):
+    status, data = client.request("GET", path)
+    if status != 200 or not isinstance(data, dict):
+        raise RuntimeError(what + "_HTTP_" + str(status))
+    return data
+
+
+def relevant_runs(client: GithubClient):
+    data = github_listing(
+        client, "actions/workflows/" + WORKFLOW + "/runs?per_page=100",
+        "WORKFLOW_RUNS_LISTING")
+    return sorted(
+        (x for x in data.get("workflow_runs", [])
+         if x.get("head_branch") == "main" and x.get("event")
+         in ("push", "workflow_dispatch")),
+        key=lambda r: r["created_at"], reverse=True)
+
+
+def latest_artifact(client: GithubClient):
+    data = github_listing(
+        client, "actions/artifacts?name=" + ARTIFACT + "&per_page=100",
+        "VERIFIED_CHECKPOINT_LISTING")
+    matching = [x for x in data.get("artifacts", [])
+                if x.get("name") == ARTIFACT and not x.get("expired")
+                and x.get("workflow_run", {}).get("head_branch") == "main"]
+    if not matching:
+        raise RuntimeError("VERIFIED_CHECKPOINT_ARTIFACT_MISSING")
+    return max(matching, key=lambda x: x["created_at"])
+
+
+def restore_checkpoint(client: GithubClient, artifact, root: Path):
+    source_run = artifact["workflow_run"]["id"]
+    env = dict(os.environ, GH_TOKEN=client.token)
+    completed = subprocess.run(
+        ["gh", "run", "download", str(source_run), "--repo", client.repository,
+         "-n", ARTIFACT, "-D", str(root)],
+        env=env, text=True, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, timeout=120, check=False)
+    if completed.returncode:
+        raise RuntimeError("CHECKPOINT_DOWNLOAD_FAILED_NO_RESTART")
+    # Integrity and id checks are repeated by the classifier before any send.
+    files = sorted((root / "completed").glob("*.json"))
+    verified = {}
+    for file in files:
+        for row in json.loads(file.read_text("utf-8"))["rows"]:
+            n = int(row["no"])
+            if not 1 <= n <= TOTAL or n in verified:
+                raise ValueError("CHECKPOINT_VERIFIED_DUPLICATE_OR_BAD_RANGE")
+            verified[n] = row
+    if len(verified) < MINIMUM_SAVED:
+        raise ValueError("CHECKPOINT_VERIFIED_COUNT_REGRESSED")
+    if list((root / "skipped").glob("*.json")):
+        raise ValueError("CHECKPOINT_HAS_UNVERIFIED_SKIPPED_ROWS")
+    missing = next((i for i in range(1, TOTAL + 1) if i not in verified), None)
+    print("WATCHDOG_DURABLE_CHECKPOINT",
+          "SOURCE_RUN", source_run, "VERIFIED", len(verified),
+          "NEXT_MISSING", missing, flush=True)
+    return verified, missing
+
+
+def source_rows():
+    pieces = sorted(Path("data/raw_18109").glob("part_*.csv"))
+    if len(pieces) != 20:
+        raise ValueError("SOURCE_18109_PART_COUNT_CHANGED")
+    joined = "".join(x.read_text("utf-8") for x in pieces)
+    original = b"\xef\xbb\xbf" + joined.replace("\n", "\r\n").encode("utf-8")
+    if hashlib.sha256(original).hexdigest() != SOURCE_SHA:
+        raise ValueError("SOURCE_18109_DIGEST_CHANGED")
+    rows = list(csv.DictReader(io.StringIO(original.decode("utf-8-sig"),
+                                            newline="")))
+    if len(rows) != TOTAL:
+        raise ValueError("SOURCE_18109_SIZE_CHANGED")
+    for n, row in enumerate(rows, 1):
+        row["번호"] = n
+    return rows
+
+
+def read_remote_for_batch(verified):
+    rows = source_rows()
+    # Verify each persisted document ID before deciding to cancel any run.
+    for number, row in verified.items():
+        if str(rows[number - 1]["문서 ID"]) != str(row["id"]):
+            raise ValueError("CHECKPOINT_SOURCE_ID_MISMATCH")
+    batch = next_batch(rows, verified)
+    if not batch:
+        return None
+    key = "%05d-%05d" % (batch[0]["번호"], batch[-1]["번호"])
+    digest = hashlib.sha256(title_prompt(batch).encode("utf-8")).hexdigest()
+    request_id = "scribd18109-" + key + "-" + digest[:32]
+    url = API_PUBLIC + "/requests/" + request_id
+    try:
+        with urllib.request.urlopen(url, timeout=20) as res:
+            pointer = json.load(res)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+    if pointer.get("request_id") != request_id:
+        raise ValueError("REMOTE_REQUEST_ID_CHANGED")
+    job_id = pointer.get("job_id")
+    if not isinstance(job_id, str) or not job_id.startswith("job_"):
+        raise ValueError("REMOTE_JOB_ID_INVALID")
+    with urllib.request.urlopen(API_PUBLIC + "/jobs/" + job_id,
+                                timeout=20) as res:
+        remote = json.load(res)
+    if remote.get("job_id") != job_id or remote.get("request_id") != request_id:
+        raise ValueError("REMOTE_JOB_REFERENCE_CHANGED")
+    return remote
+
+
+def maybe_cancel_definitely_stuck(client: GithubClient, run, artifact):
+    """Never terminate generation just because no new GitHub log has appeared."""
+    run_id = int(run["id"])
+    status = run["status"]
+    if status != "in_progress":
+        return "queued_or_waiting"
+    jobs = github_listing(client, "actions/runs/%d/jobs?per_page=100" % run_id,
+                          "ACTIVE_JOB_STEPS")
+    ai = next((j for j in jobs.get("jobs", []) if j.get("name") == "ai"), None)
+    if not ai:
+        return "worker_waiting"
+    classify = next((s for s in ai.get("steps", [])
+                     if s.get("name") == CLASSIFY_STEP), None)
+    if not classify or classify.get("status") != "in_progress":
+        return "not_in_ai_classification"
+    started = classify.get("started_at")
+    if not started or seconds_since(started) < STALE_COMPLETED_THRESHOLD_SECONDS:
+        return "generating_or_observing_answer"
+    # Only look inside durable previous verified checkpoint AFTER a long
+    # classification. Nothing is submitted to ChatGPT by the watchdog.
+    with tempfile.TemporaryDirectory() as tmp:
+        verified, _ = restore_checkpoint(client, artifact, Path(tmp))
+        remote = read_remote_for_batch(verified)
+    if not remote:
+        return "no_matching_remote_job_preserve_run"
+    if (remote.get("status") != "completed"
+            or any(remote.get(k) is not True for k in SAFE_COMPLETED_FLAGS)):
+        return ("remote_not_verified_preserve_run_" +
+                str(remote.get("status", "unknown"))[:24])
+    # The exact remote job is independently complete; restarting this client
+    # can only fetch that same deterministic request_id. Not a new AI prompt.
+    status, _ = client.request("POST",
+        "actions/runs/%d/cancel" % run_id)
+    if status not in (202, 409):
+        raise RuntimeError("SAFE_STALE_CANCELLATION_HTTP_" + str(status))
+    print("WATCHDOG_SAFE_CANCEL_REMOTE_ALREADY_COMPLETED",
+          "RUN", run_id, "HTTP", status, flush=True)
+    return "safe_cancelled_verified_remote"
+
+
+def monitor(client: GithubClient):
+    runs = relevant_runs(client)
+    if not runs:
+        raise RuntimeError("NO_BASELINE_CLASSIFIER_RUN_FOUND")
+    active = [r for r in runs if r.get("status") in ACTIVE]
+    print("WATCHDOG_FIVE_MINUTE_CHECK", "TOTAL_RUNS", len(runs),
+          "ACTIVE", [r["id"] for r in active],
+          "LATEST", runs[0]["id"], runs[0]["status"], flush=True)
+    if active:
+        # Active jobs are NEVER preempted by normal five-minute monitoring.
+        # Only the safe, separately evidenced 35-minute case may cancel.
+        newest = active[0]
+        print("WATCHDOG_ACTIVE_RUN", newest["id"],
+              "AGE_MIN", round(seconds_since(newest["created_at"]) / 60, 1),
+              flush=True)
+        if newest["status"] == "in_progress":
+            artifact = latest_artifact(client)
+            decision = maybe_cancel_definitely_stuck(client, newest, artifact)
+            print("WATCHDOG_ACTIVE_DECISION", decision, flush=True)
+        return "active_safe"
+
+    # No active/pending/queued workflow. Recover from last verified checkpoint
+    # rather than guessing that the previous action's partial output is valid.
+    artifact = latest_artifact(client)
+    with tempfile.TemporaryDirectory() as tmp:
+        verified, missing = restore_checkpoint(client, artifact, Path(tmp))
+    if missing is None:
+        print("WATCHDOG_COMPLETE_VERIFIED_ALL", TOTAL, flush=True)
+        return "complete"
+
+    newest = runs[0]
+    # Give GitHub's delayed queue/index a grace period after a terminal run.
+    if seconds_since(newest["updated_at"]) < 120:
+        print("WATCHDOG_RECENT_TERMINAL_RUN_QUEUE_GRACE", newest["id"],
+              "NEXT", missing, flush=True)
+        return "grace"
+    # Stable token across watchdog retries of the same terminal predecessor,
+    # so uncertain GitHub dispatch 500 cannot create multiple classifier jobs.
+    token = "watchdog-" + str(newest["id"])
+    status, child = handoff(client, token)
+    print("WATCHDOG_RECOVERY_DISPATCH", status,
+          "CHILD_RUN", child, "NEXT_MISSING", missing, flush=True)
+    return status
+
+
+def main():
+    client = GithubClient(os.environ["GITHUB_REPOSITORY"],
+                          os.environ["GH_TOKEN"])
+    result = monitor(client)
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as f:
+            f.write("Scribd five-minute watchdog: " + result + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
