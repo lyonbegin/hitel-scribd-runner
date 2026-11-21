@@ -1,4 +1,4 @@
-name: Seoul homestay public permit CSV probe
+name: Seoul homestay 25-district public permit collection
 on:
   push:
     branches:
@@ -9,18 +9,18 @@ on:
 permissions:
   contents: read
 jobs:
-  probe:
+  collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Probe official public localdata CSV endpoints
-        run: python3 tools/realestate/seoul_homestay_public_source_probe.py
-      - name: Preserve original source CSV and manifest
+      - name: Download all Seoul district original licensing records
+        run: python3 tools/realestate/seoul_homestay_collect_all.py
+      - name: Preserve full original records, candidate subset and provenance
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: seoul-homestay-public-permit-probe
+          name: seoul-homestay-25-district-source
           path: artifacts/seoul-homestay/
           if-no-files-found: warn
           retention-days: 7
