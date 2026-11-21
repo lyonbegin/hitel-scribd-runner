@@ -5956,3 +5956,8 @@
 3020000__CDFI2262212021000003,OLD CABIN,platforms_03,bing_rss,7,0,0,,2026-11-21T17:20:02+00:00
 3020000__CDFI2262212021000006,롱램,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:20:11+00:00
 3020000__CDFI2262212021000008,도담도담,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:20:19+00:00
+3020000__CDFI2262212021000020,컴파이스테이(Comfystay),platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:20:36+00:00
+3020000__CDFI2262212021000022,문스테이(MOON스테이),platforms_03,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:20:44+00:00
+3020000__CDFI2262212021000023,라라스테이,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:20:53+00:00
+3020000__CDFI2262212021000024,에스제이하우스,platforms_03,bing_rss,10,0,0,,2026-11-21T17:20:54+00:00
+3020000__CDFI2262212021000026,서울로스테이,platforms_03,bing_rss,7,0,0,,2026-11-21T17:20:55+00:00
