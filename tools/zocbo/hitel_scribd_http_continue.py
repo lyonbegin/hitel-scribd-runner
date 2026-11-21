@@ -152,6 +152,70 @@ def await_http_reply(statefile:Path,state:dict):
         raise RuntimeError("HTTP_JOB_NOT_VERIFIED_KEEP_CHECKPOINT")
 
 
+
+def recovery_after_verified_worker_disconnect(
+        out: Path, key: str, digest: str, ids: list[dict],
+        original_file: Path, original: dict, request_id: str,
+        room_name: str):
+    """Explicit operator-requested restart of an interrupted AI batch, ONCE.
+
+    Preserve the exact old request as immutable evidence. No reply from a
+    stalled job may count as verified. A fresh, uniquely scoped request can
+    be created only for the literal WORKER_CONNECTION_LOST terminal state.
+    Earlier ChatGPT delivery remains unknown and is audited explicitly.
+    If any prior send/reply was observed, refuse automatic duplication.
+    """
+    recoveryfile = out / "http" / "worker_recoveries" / (key + ".json")
+    if recoveryfile.exists():
+        state = json.loads(recoveryfile.read_text("utf-8"))
+        if (state.get("key") != key or state.get("digest") != digest
+                or state.get("source_ids") != ids
+                or state.get("request_id") != request_id + "-recovery1"
+                or state.get("room_name") != room_name + "-RECOVERY1"
+                or state.get("recovery_from_job") != original.get("job_id")
+                or state.get("prior_delivery_unknown") is not True):
+            raise ValueError("WORKER_RECOVERY_CHECKPOINT_SCOPE_MISMATCH")
+        return recoveryfile, state
+
+    # Existing uncertain jobs are never automatically replayed unless an
+    # exact terminal worker-disconnect failure has been confirmed by Railway.
+    if (original.get("status") != "unverified"
+            or original.get("remote_status") != "stalled"
+            or original.get("remote_error_code") != "WORKER_CONNECTION_LOST"
+            or not original.get("job_id")):
+        return original_file, original
+    code, remote = call(API + "/jobs/" + original["job_id"])
+    if (code != 200 or remote.get("job_id") != original["job_id"]
+            or remote.get("request_id") != request_id
+            or remote.get("room_name") != room_name):
+        raise ValueError("ORIGINAL_DISCONNECTED_REQUEST_IDENTITY_MISMATCH")
+    # Another process might have completed the original; in that case
+    # preserve it and allow the ordinary same-ID read-only path to verify.
+    if remote.get("status") == "completed":
+        return original_file, original
+    if (remote.get("status") != "stalled"
+            or remote.get("error_code") != "WORKER_CONNECTION_LOST"
+            or remote.get("result_ready") is not False
+            or remote.get("chatgpt_send_confirmed") is True
+            or remote.get("assistant_reply_observed") is True):
+        raise RuntimeError("WORKER_LOSS_RECOVERY_NOT_SAFE_NO_REPOST")
+    # One fresh idempotent request in a different room. It may repeat an
+    # unobserved earlier send. Keep the fact available for audit.
+    state = {
+        "key": key, "digest": digest, "source_ids": ids,
+        "request_id": request_id + "-recovery1",
+        "room_name": room_name + "-RECOVERY1",
+        "status": "prepared", "submit_attempted": False,
+        "recovery_from_job": original["job_id"],
+        "prior_delivery_unknown": True,
+        "prior_error_code": "WORKER_CONNECTION_LOST",
+    }
+    save(recoveryfile, state)
+    print("AUDITED_WORKER_LOSS_RECOVERY_PREPARED_ONCE", key,
+          "PRIOR_JOB", original["job_id"],
+          "PRIOR_SEND_UNCONFIRMED", flush=True)
+    return recoveryfile, state
+
 def run_one(rows:list[dict],out:Path) -> int:
     verified=load_verified(rows,out)
     batch=next_batch(rows,verified)
@@ -181,6 +245,8 @@ def run_one(rows:list[dict],out:Path) -> int:
                "request_id":request_id,"room_name":room_name,
                "status":"prepared","submit_attempted":False}
         save(statefile,state)
+    statefile,state=recovery_after_verified_worker_disconnect(
+        out,key,digest,ids,statefile,state,request_id,room_name)
     state=ensure_one_http_job(statefile,state,question)
     answer,remote=await_http_reply(statefile,state)
     parsed=validated_rows(answer,batch)
