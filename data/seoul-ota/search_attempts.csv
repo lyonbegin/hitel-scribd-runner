@@ -1651,3 +1651,8 @@
 3000000__CDFI2262212025000003,MIRO STAY,platforms_06,bing_rss,10,0,0,,2026-11-21T11:47:03+00:00
 3000000__CDFI2262212025000005,블루브릭스 혜화,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:47:12+00:00
 3000000__CDFI2262212025000007,혜화비앤비,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:47:20+00:00
+3000000__CDFI2262212025000008,뚜뚜집,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:47:29+00:00
+3000000__CDFI2262212025000009,Today Sinseol,platforms_06,bing_rss,7,0,0,,2026-11-21T11:47:31+00:00
+3000000__CDFI2262212025000010,스테이 릴리헤이븐,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:47:39+00:00
+3000000__CDFI2262212025000011,사유스테이,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:47:47+00:00
+3000000__CDFI2262212025000012,제니스하우스,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:47:56+00:00
