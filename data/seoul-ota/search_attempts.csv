@@ -10821,3 +10821,8 @@
 3060000__CDFI2262212023000001,그린하우스(Green House),platforms_01,bing_rss,10,0,0,,2026-11-21T23:26:11+00:00
 3060000__CDFI2262212023000003,유니게르(uniger),platforms_01,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403;duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T23:26:14+00:00
 3060000__CDFI2262212023000004,헤디예 스테이(HEDIYE STAY),platforms_01,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403;duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T23:26:16+00:00
+3060000__CDFI2262212023000005,중랑 레몬트리 스테이,platforms_01,no_results,0,0,0,"duckduckgo_lite:ConnectionError:('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",2026-11-21T23:26:20+00:00
+3060000__CDFI2262212024000002,안식,platforms_01,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:26:28+00:00
+3060000__CDFI2262212025000004,원더 서울,platforms_01,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:26:36+00:00
+3060000__CDFI2262212025000008,땡스테이(thankstay),platforms_01,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:26:52+00:00
+3060000__CDFI2262212025000010,RB HOUSE 301,platforms_01,bing_rss,10,0,0,,2026-11-21T23:26:54+00:00
