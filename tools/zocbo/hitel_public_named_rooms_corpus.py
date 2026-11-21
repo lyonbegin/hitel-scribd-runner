@@ -99,7 +99,7 @@ def title_prompt(batch,normalize_titles=True):
     )
     return rules+json.dumps(titles,ensure_ascii=False,separators=(",",":"))
 
-def validated_rows(reply,batch):
+def validated_rows(reply,batch,identity_repair_audit=None):
     s=(reply or "").strip()
     fence=chr(96)*3
     if s.startswith(fence):s=s.split("\n",1)[-1].rsplit(fence,1)[0].strip()
@@ -110,6 +110,8 @@ def validated_rows(reply,batch):
     # and reject any unrecognized/future/mixed batches. Never re-send merely
     # because a prefix belongs to an earlier already-completed turn.
     expected={(x["번호"],str(x["문서 ID"])) for x in batch}
+    source_ids={int(x["번호"]):str(x["문서 ID"]) for x in batch}
+    expected_ids=set(source_ids.values())
     first=min(x["번호"] for x in batch)
     decoder=json.JSONDecoder()
     pos=0
@@ -139,6 +141,34 @@ def validated_rows(reply,batch):
             raise ValueError("AI reply contains duplicate or empty document identities")
         if len(rows)==len(batch) and set(actual)==expected:
             candidates.append(rows)
+        elif (len(rows)==len(batch)
+              and {no for no,_ in actual}==set(source_ids)
+              and len({no for no,_ in actual})==len(rows)):
+            # The AI sometimes copies an adjacent document's ID even though
+            # its row number and classification are correct. Preserve the
+            # original response digest and repair ONLY one duplicated in-batch
+            # ID against the original hash-verified 18,109-row CSV. Never
+            # accept missing, extra, shifted, unrelated or future documents.
+            wrong=[(no,raw_id,source_ids[no])
+                   for no,raw_id in actual if raw_id!=source_ids[no]]
+            emitted_ids=[raw_id for _,raw_id in actual]
+            if (len(wrong)!=1
+                    or wrong[0][1] not in expected_ids
+                    or len(set(emitted_ids))!=len(rows)-1
+                    or emitted_ids.count(wrong[0][1])!=2):
+                raise ValueError("AI reply omitted, mixed, or contained future document IDs")
+            no,incorrect,correct=wrong[0]
+            normalized=[{**row,"id":source_ids[int(row["no"])]}
+                        for row in rows]
+            if {(int(row["no"]),str(row["id"])) for row in normalized}!=expected:
+                raise ValueError("AI source identity correction failed")
+            if identity_repair_audit is not None:
+                identity_repair_audit.append({
+                    "no":no,"model_id":incorrect,"verified_source_id":correct,
+                    "reason":"one duplicated in-batch ID; source CSV SHA verified"})
+            print("AI_SINGLE_DUPLICATED_SOURCE_ID_REPAIRED",no,
+                  "MODEL_ID",incorrect,"SOURCE_ID",correct,flush=True)
+            candidates.append(normalized)
         elif all(no<first for no,_ in actual):
             print("IGNORED_DUPLICATE_PREVIOUS_JSON_PREFIX",
                   min(no for no,_ in actual),max(no for no,_ in actual),flush=True)
