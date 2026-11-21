@@ -9961,3 +9961,8 @@
 3040000__CDFI2262212024000026,"스테이,H",platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T22:08:22+00:00
 3040000__CDFI2262212024000028,앤딩스테이,platforms_05,bing_rss,10,0,0,,2026-11-21T22:08:23+00:00
 3040000__CDFI2262212024000029,루나 스테이(LUNA STAY),platforms_05,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T22:08:32+00:00
+3040000__CDFI2262212026000080,누르;빛,platforms_04,no_results,0,0,0,,2026-11-21T22:11:30+00:00
+3040000__CDFI2262212026000081,MOON STAY,platforms_04,bing_rss,7,0,0,,2026-11-21T22:11:32+00:00
+3040000__CDFI2262212026000082,YEON INN,platforms_04,bing_rss,7,0,0,,2026-11-21T22:11:33+00:00
+3040000__CDFI2262212026000083,달무드 스테이(Dalmood Stay),platforms_04,no_results,0,0,0,,2026-11-21T22:11:34+00:00
+3040000__CDFI2262212026000084,스테이 안온,platforms_04,bing_rss,10,0,0,,2026-11-21T22:11:36+00:00
