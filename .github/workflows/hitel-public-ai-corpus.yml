@@ -3,6 +3,7 @@ run-name: HITEL Scribd AI handoff ${{ inputs.handoff_token || 'direct' }}
 # Transport: production HITEL /integrations/v1/public/chat used by E2E-proven test page.
 # Keep 340 previously verified records. Never mark an AI or transport failure as processed.
 # Missing or uncertain replies are never implicitly reposted.
+# Verified after Railway restart changes the old remote status from stalled to unknown.
 # Explicit operator-authorized WORKER_CONNECTION_LOST recovery is audited once
 # in a separate immutable request/room, keeping the original uncertain send.
 # Each 20-title batch uses exactly one durable HTTP request_id and a fresh room.
