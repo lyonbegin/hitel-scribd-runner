@@ -56,7 +56,8 @@ def branch_json(path):
         return json.loads(raw.decode("utf-8-sig"))
     except Exception as exc:
         EVENTS.append({"event":"branch_file_unavailable","path":path,"error":str(exc)[:180]})
-        return {}
+        if "404" in str(exc):return {}
+        return {"_read_error":True}
 
 def recent_worker_runs():
     try:
@@ -74,6 +75,7 @@ def decide_worker(active,heartbeat,now):
             return "stale_queue"
         return "queued"
     if start_age is None:return "unknown_start"
+    if heartbeat.get("_read_error"):return "monitor_read_error"
     if start_age<=NO_HEARTBEAT_GRACE_SECONDS:return "startup_grace"
     if str(heartbeat.get("run_id"))!=str(active["id"]):
         return "stale_missing_heartbeat"
@@ -101,7 +103,7 @@ def save_report():
     REPORT.parent.mkdir(parents=True,exist_ok=True)
     REPORT.write_text(json.dumps({
         "updated_at":stamp(),
-        "recovered_from_checkpoint":True,
+        "recovery_enabled":True,
         "monitoring_source":"GitHub Actions worker + GitHub branch heartbeat",
         "github_schedule_minimum_minutes":5,
         "within_run_poll_seconds":120,
@@ -145,6 +147,9 @@ def check_once(dry_run=False):
         return "active"
     if not runs:
         record(action="no_worker_history",detail="Dispatch initial worker")
+    if state.get("_read_error"):
+        record(action="monitor_degraded",detail="Cannot read state from GitHub; refusing speculative dispatch")
+        return "error"
     if records>0 and done>=records:
         record(action="finished_all",done=done,records=records,stages=stages)
         return "done"
@@ -187,6 +192,8 @@ def selftest():
     active["run_started_at"]=(now-dt.timedelta(minutes=2)).isoformat()
     assert decide_worker(active,{},now)=="startup_grace"
     assert slowdown_seconds([{"conclusion":"failure"}]*6)==1800
+    active["run_started_at"]=(now-dt.timedelta(minutes=20)).isoformat()
+    assert decide_worker(active,{"_read_error":True},now)=="monitor_read_error"
     print("WATCHDOG_SELFTEST_OK",flush=True)
 
 def main():
