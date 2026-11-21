@@ -1,10 +1,10 @@
 {
-  "run_time": "2026-11-21T08:28:39+00:00",
+  "run_time": "2026-11-21T11:07:51+00:00",
   "official_rows": 5320,
   "active": 4709,
   "closed": 611,
   "missing_public_address": 0,
-  "historical_not_in_latest": 4,
+  "historical_not_in_latest": 6,
   "platform_count": 48,
   "platforms": [
     {
@@ -410,14 +410,15 @@
     "advanced": 250,
     "new_evidence": 0,
     "new_public_contacts": 0,
+    "automated_new_contacts_this_run": 0,
     "counts": {
-      "search_bing_rss_ok": 269,
+      "search_bing_rss_ok": 278,
       "properties_stages_completed": 250,
-      "search_bing_rss_empty": 189,
+      "search_bing_rss_empty": 210,
       "search_duckduckgo_lite_ok": 51,
       "search_duckduckgo_lite_empty": 51,
-      "irrelevant_result_rejected": 5,
-      "search_duckduckgo_lite_fail": 138
+      "irrelevant_result_rejected": 15,
+      "search_duckduckgo_lite_fail": 159
     }
   },
   "consolidated_index": {
@@ -426,7 +427,22 @@
     "public_contact_source_rows": 46,
     "unique_properties_with_public_phone": 41,
     "listing_link_rows": 15,
-    "unique_properties_with_listing_link": 10
+    "unique_properties_with_listing_link": 10,
+    "prior_external_contact_source_rows": 13,
+    "prior_external_businesses_with_phone": 10,
+    "prior_external_unique_phone_numbers": 11,
+    "prior_ota_phone_source_rows": 8,
+    "prior_ota_businesses_with_phone": 5,
+    "prior_ota_unique_phone_numbers": 6,
+    "prior_district_office_unique_phone_numbers": 5,
+    "automated_contact_evidence_rows_to_date": 0
+  },
+  "contact_summary": {
+    "all_public_phone_businesses": 41,
+    "external_sources_found_this_project": 11,
+    "ota_phone_numbers_previously_discovered": 6,
+    "automated_additional_contact_rows_to_date": 0,
+    "note": "0 automated new rows does not mean 0 contacts acquired during the project."
   },
   "critical": "Search hits are NOT verified accommodation listings. Only 'name_and_road' evidence supports an address match; contacts are NOT call-verified. The permit area is NOT exclusive area.",
   "scraping_policy": "public search/robots permitted pages only; no authentication, messages, CAPTCHAs or bypass."
