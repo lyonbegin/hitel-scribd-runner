@@ -1,0 +1,107 @@
+name: Seoul Airbnb full-coverage adaptive map listing ID collector
+on:
+  push:
+    branches: ["research/seoul-airbnb-registry-20261121"]
+    paths: [".github/workflows/seoul-airbnb-adaptive-20261121.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Adaptive geobounds search of all Seoul districts
+        shell: bash
+        run: |
+          mkdir -p out
+          python - <<'PY'
+          import requests,re,json,time,csv,collections,concurrent.futures,threading
+          from pathlib import Path
+          from queue import PriorityQueue
+          out=Path('out')
+          # Seoul city bounding rectangle; overlaps surroundings; deduplicate by Airbnb ID.
+          root=(37.415,37.725,126.755,127.245)
+          max_queries=1050
+          max_depth=7
+          min_height=.0035
+          min_width=.0045
+          seen=set();queries=[];errors=[];terminals=[];jobs=PriorityQueue();serial=0
+          # 5x7 seeded cells prevent a single highly dense city-center root from starving all areas.
+          latsteps=5;lonsteps=7
+          for i in range(latsteps):
+            for j in range(lonsteps):
+              a=root[0]+(root[1]-root[0])*i/latsteps;b=root[0]+(root[1]-root[0])*(i+1)/latsteps
+              c=root[2]+(root[3]-root[2])*j/lonsteps;d=root[2]+(root[3]-root[2])*(j+1)/lonsteps
+              jobs.put((0,serial,0,(a,b,c,d)));serial+=1
+          thread=threading.local()
+          def get(bounds):
+            if not hasattr(thread,'s'):
+              thread.s=requests.Session()
+              thread.s.headers.update({'User-Agent':'Mozilla/5.0','Accept-Language':'ko-KR,ko;q=0.9,en;q=0.8'})
+            a,b,c,d=bounds
+            params={'search_by_map':'true','ne_lat':round(b,7),'ne_lng':round(d,7),'sw_lat':round(a,7),'sw_lng':round(c,7),'query':'Seoul, South Korea'}
+            url='https://www.airbnb.com/s/Seoul--South-Korea/homes'
+            last_error=''
+            for retry in range(3):
+              try:
+                r=thread.s.get(url,params=params,timeout=25)
+                if r.status_code in (403,429):
+                  return {'status':r.status_code,'ids':[],'error':'blocked_rate_limit','bytes':len(r.content)}
+                r.raise_for_status()
+                ids=list(dict.fromkeys(re.findall(r'listingId.{0,55}?(\d{7,20})',r.text)))
+                return {'status':r.status_code,'ids':ids,'bytes':len(r.content),'html_mentions':r.text.count('listingId')}
+              except Exception as e:
+                last_error=repr(e)[:190];time.sleep(1.5*(retry+1))
+            return {'status':0,'ids':[],'error':last_error}
+          start=time.monotonic();submitted=0;inflight={}
+          with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            while not jobs.empty() or inflight:
+              while len(inflight)<6 and not jobs.empty() and submitted<max_queries:
+                _,_,depth,bounds=jobs.get()
+                fut=executor.submit(get,bounds)
+                inflight[fut]=(depth,bounds)
+                submitted+=1
+              if not inflight: break
+              ready,_=concurrent.futures.wait(inflight.keys(),return_when=concurrent.futures.FIRST_COMPLETED,timeout=30)
+              if not ready:continue
+              for fut in ready:
+                depth,bounds=inflight.pop(fut)
+                v=fut.result()
+                ids=v['ids']
+                added=len(set(ids)-seen);seen.update(ids)
+                node={'depth':depth,'bounds':bounds,'count':len(ids),'new':added,'status':v['status']}
+                queries.append(node)
+                if 'error' in v:
+                  errors.append({**node,'error':v['error']})
+                  continue
+                a,b,c,d=bounds
+                splittable=(len(ids)>=19 and depth<max_depth and b-a>min_height and d-c>min_width)
+                if splittable:
+                  midlat=(a+b)/2;midlon=(c+d)/2
+                  for box in [(a,midlat,c,midlon),(a,midlat,midlon,d),(midlat,b,c,midlon),(midlat,b,midlon,d)]:
+                    jobs.put((depth+1,serial,depth+1,box));serial+=1
+                else:
+                  terminals.append(node)
+                if len(queries)%75==0:
+                  print('COLLECT_PROGRESS',len(queries),'unique',len(seen),'queued',jobs.qsize(),'errors',len(errors),'full_terminals',sum(x['count']>=19 for x in terminals),flush=True)
+              if submitted>=max_queries and not inflight:break
+          with (out/'seoul_airbnb_direct_map_listing_ids.csv').open('w',encoding='utf-8-sig',newline='') as f:
+            w=csv.writer(f);w.writerow(['airbnb_listing_id','airbnb_public_url','collection_type'])
+            w.writerows([[x,'https://www.airbnb.com/rooms/'+x,'public Airbnb Seoul map search'] for x in sorted(seen)])
+          audit={'source':'https://www.airbnb.com/s/Seoul--South-Korea/homes','bbox':root,'total_requests':len(queries),
+                 'total_unique_airbnb_ids':len(seen),'remaining_queue':jobs.qsize(),'errors':errors,
+                 'full_terminal_boxes':sum(x['count']>=19 for x in terminals),
+                 'full_coverage_proven':bool(not jobs.qsize() and not errors and not any(x['count']>=19 for x in terminals)),
+                 'elapsed_seconds':round(time.monotonic()-start,1),'queries':queries}
+          (out/'airbnb_direct_map_collection_audit.json').write_text(json.dumps(audit,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('FINAL_SUMMARY',json.dumps({k:audit[k] for k in ['total_requests','total_unique_airbnb_ids','remaining_queue','full_terminal_boxes','full_coverage_proven','elapsed_seconds']},ensure_ascii=False),flush=True)
+          PY
+      - name: Upload collected listing ID CSV and per-tile audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoul-airbnb-adaptive-ids-20261121
+          path: out/
+          retention-days: 14
+          if-no-files-found: warn
