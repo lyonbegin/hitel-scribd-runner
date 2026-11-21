@@ -249,13 +249,16 @@ def run_one(rows:list[dict],out:Path) -> int:
         out,key,digest,ids,statefile,state,request_id,room_name)
     state=ensure_one_http_job(statefile,state,question)
     answer,remote=await_http_reply(statefile,state)
-    parsed=validated_rows(answer,batch)
+    identity_repair_audit=[]
+    parsed=validated_rows(answer,batch,identity_repair_audit)
     dest=out/"completed"/(key+".json")
     if dest.exists():
         raise ValueError("REFUSE_OVERWRITE_VERIFIED_RESULTS")
     save(dest,{"rows":parsed,"job_id":state["job_id"],"room_id":state["room_id"],
                "request_id":request_id,"transport":"HITEL_PUBLIC_HTTP_PROVEN_E2E",
-               "verified_reply_sha256":remote["result_sha256"]})
+               "verified_reply_sha256":remote["result_sha256"],
+               "source_id_repairs":identity_repair_audit,
+               "source_id_repair_count":len(identity_repair_audit)})
     summary=output_file(rows,out)
     if summary["verified_ai_completed"]!=len(verified)+len(parsed):
         raise ValueError("VERIFIED_TOTAL_MISMATCH")
