@@ -1,7 +1,7 @@
 {
-  "run_time": "2026-11-21T22:30:13+00:00",
-  "official_rows": 5321,
-  "active": 4710,
+  "run_time": "2026-11-21T22:58:23+00:00",
+  "official_rows": 5323,
+  "active": 4712,
   "closed": 611,
   "missing_public_address": 0,
   "historical_not_in_latest": 0,
@@ -412,17 +412,17 @@
     "new_public_contacts": 0,
     "automated_new_contacts_this_run": 0,
     "counts": {
-      "search_bing_rss_ok": 269,
-      "search_bing_rss_empty": 169,
-      "search_duckduckgo_lite_ok": 50,
-      "search_duckduckgo_lite_empty": 50,
+      "search_bing_rss_ok": 263,
+      "search_bing_rss_empty": 158,
+      "search_duckduckgo_lite_ok": 51,
+      "search_duckduckgo_lite_empty": 51,
       "properties_stages_completed": 250,
-      "irrelevant_result_rejected": 23,
-      "search_duckduckgo_lite_fail": 119
+      "irrelevant_result_rejected": 14,
+      "search_duckduckgo_lite_fail": 107
     }
   },
   "consolidated_index": {
-    "records": 5321,
+    "records": 5323,
     "prior_source_records": 20,
     "public_contact_source_rows": 46,
     "unique_properties_with_public_phone": 41,
