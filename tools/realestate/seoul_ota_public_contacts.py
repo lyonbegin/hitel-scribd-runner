@@ -421,11 +421,24 @@ def build_consolidated_indexes(properties,progress):
         "facility_area_sqm","known_public_phone_count","listing_link_count",
         "source_in_latest_snapshot","search_stage_completed","last_search_at","exclusive_area_verified",
         "operator_owner_verified","phone_connection_verified"])
+    # Historical platform/district discovery belongs to the same project.
+    # Keep it separately identifiable; NEVER present zero automation hits as zero found contacts.
+    prior_phone_rows=[r for r in seed if r.get("public_business_phone","").strip()]
+    prior_ota_rows=[r for r in prior_phone_rows if r.get("source_platform")!="강남구청 공식명부"]
+    unique_nums=lambda items:len(set(re.sub(r"[^0-9]","",r["public_business_phone"]) for r in items))
     return {"records":len(summary),"prior_source_records":len(seed),
             "public_contact_source_rows":len(uniq_contact),
             "unique_properties_with_public_phone":len(phones_by),
             "listing_link_rows":len(uniq_link),
-            "unique_properties_with_listing_link":len(links_by)}
+            "unique_properties_with_listing_link":len(links_by),
+            "prior_external_contact_source_rows":len(prior_phone_rows),
+            "prior_external_businesses_with_phone":len(set(r["license_id"] for r in prior_phone_rows)),
+            "prior_external_unique_phone_numbers":unique_nums(prior_phone_rows),
+            "prior_ota_phone_source_rows":len(prior_ota_rows),
+            "prior_ota_businesses_with_phone":len(set(r["license_id"] for r in prior_ota_rows)),
+            "prior_ota_unique_phone_numbers":unique_nums(prior_ota_rows),
+            "prior_district_office_unique_phone_numbers":unique_nums([r for r in prior_phone_rows if r.get("source_platform")=="강남구청 공식명부"]),
+            "automated_contact_evidence_rows_to_date":sum(bool(r.get("public_business_phone") or r.get("public_business_email")) and r.get("match_grade")=="name_and_road" for r in discovered)}
 
 def run(args):
     assert len(FAMILIES)==len(set(name for name,_ in FAMILIES))
@@ -532,10 +545,19 @@ def run(args):
     state["done_full_pass"]=sum(int(x.get("stage_idx",0))>=len(FAMILIES) for x in progress.values())
     state["total_stages_completed"]=sum(int(x.get("stage_idx",0)) for x in progress.values())
     state["last_run"]={"selected":len(selected),"advanced":COUNTS["properties_stages_completed"],
-                       "new_evidence":evidence_total,"new_public_contacts":new_contact_total,
+                       "new_evidence":evidence_total,
+                       "new_public_contacts":new_contact_total,
+                       "automated_new_contacts_this_run":new_contact_total,
                        "counts":dict(COUNTS)}
     index_counts=build_consolidated_indexes(rows,progress)
     state["consolidated_index"]=index_counts
+    state["contact_summary"]={
+        "all_public_phone_businesses":index_counts["unique_properties_with_public_phone"],
+        "external_sources_found_this_project":index_counts["prior_external_unique_phone_numbers"],
+        "ota_phone_numbers_previously_discovered":index_counts["prior_ota_unique_phone_numbers"],
+        "automated_additional_contact_rows_to_date":index_counts["automated_contact_evidence_rows_to_date"],
+        "note":"0 automated new rows does not mean 0 contacts acquired during the project."
+    }
     atomic_json(ROOT/"state.json",state)
     manifest={"run_time":STAMP(),"official_rows":len(rows),"active":sum(r["status"]=="active" for r in rows.values()),
       "closed":sum(r["status"]=="closed" for r in rows.values()),
@@ -545,6 +567,7 @@ def run(args):
       "platforms":[{"id":x[0],"label":x[1],"category":x[2],"domains":x[3]} for x in PLATFORMS],
       "stages":len(FAMILIES),"last_run":state["last_run"],
       "consolidated_index":index_counts,
+      "contact_summary":state["contact_summary"],
       "critical":"Search hits are NOT verified accommodation listings. Only 'name_and_road' evidence supports an address match; contacts are NOT call-verified. The permit area is NOT exclusive area.",
       "scraping_policy":"public search/robots permitted pages only; no authentication, messages, CAPTCHAs or bypass."}
     atomic_json(ROOT/"manifest.json",manifest)
