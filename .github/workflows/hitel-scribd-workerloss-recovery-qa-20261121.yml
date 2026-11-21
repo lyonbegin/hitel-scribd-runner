@@ -1,4 +1,5 @@
 name: HITEL Scribd audited Chrome-disconnect recovery QA
+# Regression: stalled->unknown after Railway restart retains WORKER_CONNECTION_LOST.
 on:
   push:
     branches: [feature/hitel-public-ai-batches-20261119]
