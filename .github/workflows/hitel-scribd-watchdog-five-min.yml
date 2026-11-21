@@ -1,7 +1,9 @@
 name: HITEL Scribd verified checkpoint watchdog - every 5 minutes
 
-# A separate runner checks status every five minutes. The schedule may be
-# delayed by GitHub; no action on the UI or a human session is required.
+# Checks the signed scribd-18109 task every five minutes. A terminal
+# disconnected/unknown AI delivery is audited against the immutable job ID,
+# source checkpoint, worker heartbeat and retry policy before auto-resume.
+# No human browser session or hourly ChatGPT reminder is required.
 # NEVER consider five minutes of model generation to be a stalled job.
 on:
   schedule:
@@ -44,6 +46,7 @@ jobs:
           python3 tools/zocbo/test_hitel_scribd_watchdog.py
           python3 tools/zocbo/test_hitel_scribd_watchdog_progress.py
           python3 tools/zocbo/test_hitel_dispatch_next_verified.py
+          python3 tools/zocbo/test_hitel_scribd_http_continue.py
       - name: Give a just-completed classifier time to index its child run
         if: github.event_name == 'workflow_run'
         run: |
