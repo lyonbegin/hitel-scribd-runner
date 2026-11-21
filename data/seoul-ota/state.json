@@ -322,52 +322,52 @@
       "last_attempt": "2026-11-21T07:31:54+00:00"
     },
     "3000000__CDFI2262212024000025": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:42+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:33:19+00:00"
     },
     "3000000__CDFI2262212024000026": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:43+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:33:21+00:00"
     },
     "3000000__CDFI2262212024000028": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:44+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:33:23+00:00"
     },
     "3000000__CDFI2262212024000029": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:46+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:33:24+00:00"
     },
     "3000000__CDFI2262212024000030": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:47+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:33:25+00:00"
     },
     "3000000__CDFI2262212024000032": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:48+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:33:27+00:00"
     },
     "3000000__CDFI2262212024000034": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:50+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:33:28+00:00"
     },
     "3000000__CDFI2262212024000035": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:51+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:33:32+00:00"
     },
     "3000000__CDFI2262212024000037": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:52+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:33:34+00:00"
     },
     "3000000__CDFI2262212024000038": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:53+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:33:35+00:00"
     },
     "3000000__CDFI2262212024000039": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:55+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:33:37+00:00"
     },
     "3000000__CDFI2262212024000040": {
-      "stage_idx": 1,
-      "last_attempt": "2026-11-21T07:22:56+00:00"
+      "stage_idx": 2,
+      "last_attempt": "2026-11-21T07:33:38+00:00"
     },
     "3000000__CDFI2262212024000041": {
       "stage_idx": 1,
@@ -783,29 +783,28 @@
     }
   },
   "first_started_at": "2026-11-21T07:19:06+00:00",
-  "latest_run_at": "2026-11-21T07:31:56+00:00",
+  "latest_run_at": "2026-11-21T07:33:39+00:00",
   "platforms": 48,
-  "stages": 6,
-  "input_records": 5317,
+  "stages": 7,
+  "input_records": 5318,
   "done_full_pass": 0,
-  "total_stages_completed": 275,
+  "total_stages_completed": 287,
   "last_run": {
-    "selected": 80,
-    "advanced": 80,
+    "selected": 12,
+    "advanced": 12,
     "new_evidence": 0,
     "new_public_contacts": 0,
     "counts": {
-      "search_bing_rss_ok": 84,
-      "properties_stages_completed": 80,
-      "search_bing_rss_empty": 55,
-      "search_duckduckgo_lite_ok": 51,
-      "search_duckduckgo_lite_empty": 51,
-      "irrelevant_result_rejected": 2,
-      "search_duckduckgo_lite_fail": 4
+      "search_bing_rss_ok": 12,
+      "properties_stages_completed": 12,
+      "search_bing_rss_empty": 9,
+      "search_duckduckgo_lite_ok": 9,
+      "search_duckduckgo_lite_empty": 9,
+      "irrelevant_result_rejected": 9
     }
   },
   "consolidated_index": {
-    "records": 5317,
+    "records": 5318,
     "prior_source_records": 20,
     "public_contact_source_rows": 46,
     "unique_properties_with_public_phone": 41,

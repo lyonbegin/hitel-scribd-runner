@@ -21332,7 +21332,7 @@
     "closed_date": "",
     "area": "48.3",
     "permit_phone": "",
-    "source_current": "yes",
+    "source_current": "no",
     "baseline_preserved": "yes"
   },
   "3070000__CDFI3261142014000002": {
@@ -63802,5 +63802,17 @@
     "permit_phone": "024429303",
     "source_current": "yes",
     "baseline_preserved": "yes"
+  },
+  "3040000__CDFI2262212026000172": {
+    "license_id": "3040000__CDFI2262212026000172",
+    "name": "까사 몬테포레",
+    "address": "서울특별시 광진구 용마산로28나길 12, 301호 (중곡동)",
+    "status": "active",
+    "raw_status": "영업/정상",
+    "closed_date": "",
+    "area": "48.31",
+    "permit_phone": "",
+    "source_current": "yes",
+    "baseline_preserved": "no"
   }
 }
