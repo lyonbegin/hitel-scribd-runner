@@ -16,7 +16,7 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,37 +36,10 @@ jobs:
           else
             echo 'Historical licenses already retained in GitHub'
           fi
-      - name: Recover 250 searches from failed Git push #44880839882 (if missing)
+      - name: Restore most recent higher-progress checkpoint from saved run artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          python - <<'PY'
-          import json, pathlib
-          s=pathlib.Path("data/seoul-ota/state.json")
-          count=json.loads(s.read_text()).get("total_stages_completed",0) if s.exists() else 0
-          print("CHECKPOINT_BEFORE_RECOVERY",count)
-          with open("/tmp/seoul_ota_restore_needed","w") as f: f.write("yes" if count<537 else "no")
-          PY
-          if [ "$(cat /tmp/seoul_ota_restore_needed)" = "yes" ]; then
-            mkdir -p "$RUNNER_TEMP/seoul-ota-recovery"
-            gh run download 44880839882 --repo lyonbegin/hitel-scribd-runner --name seoul-public-ota-contact-audit --dir "$RUNNER_TEMP/seoul-ota-recovery"
-            python - <<'PY'
-          import os,json,pathlib,shutil
-          old=pathlib.Path(os.environ["RUNNER_TEMP"])/"seoul-ota-recovery/data/seoul-ota"
-          latest=pathlib.Path("data/seoul-ota")
-          assert old.is_dir(), "Failed-run artifact has no checkpoint data"
-          recovered=json.loads((old/"state.json").read_text())
-          prior=json.loads((latest/"state.json").read_text()) if (latest/"state.json").exists() else {}
-          assert recovered["total_stages_completed"]>=537, "Not the expected 250-stage checkpoint"
-          assert recovered["total_stages_completed"]>=prior.get("total_stages_completed",0), "Refusing stale checkpoint"
-          latest.mkdir(parents=True,exist_ok=True)
-          for p in old.iterdir():
-              if p.is_file():shutil.copy2(p,latest/p.name)
-          print("RECOVERED_CHECKPOINT",recovered["total_stages_completed"])
-          PY
-          else
-            echo "Checkpoint already present. No restore needed."
-          fi
+        run: python3 tools/realestate/seoul_ota_recover.py
       - name: Validate OTA crawler without network
         run: python tools/realestate/seoul_ota_public_contacts.py --selftest
       - name: Refresh official Seoul 25-district license source
@@ -100,25 +73,11 @@ jobs:
           with (d/'listing_evidence.csv').open(encoding='utf-8-sig',newline='') as f:
               assert all(x['match_grade']!='unverified' for x in csv.DictReader(f))
           PY
-      - name: Commit cumulative progress and verified-source references
+      - name: Publish remaining safe checkpoint on partial job failure
         if: always()
         run: |
-          if [ ! -d data/seoul-ota ]; then
-            echo "No crawl state to commit"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/seoul-ota/
-          if git diff --cached --quiet; then
-            echo "No changes"
-          else
-            git commit -m "data(realestate): checkpoint public OTA research [skip ci]"
-            # The 250-stage run failed because the remote branch was updated
-            # after checkout. Rebase ONLY our new data commit; no force push.
-            git fetch origin research/seoul-homestay-public-20261121
-            git rebase origin/research/seoul-homestay-public-20261121
-            git push origin HEAD:research/seoul-homestay-public-20261121
+          if [ -f data/seoul-ota/state.json ]; then
+            python3 tools/realestate/seoul_ota_checkpoint.py --phase running
           fi
       - name: Preserve run diagnostics and evidence
         if: always()
