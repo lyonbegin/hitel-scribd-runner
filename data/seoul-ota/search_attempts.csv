@@ -6391,3 +6391,8 @@
 3020000__CDFI2262212024000054,림하우스,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:48:26+00:00
 3020000__CDFI2262212024000055,타이니 스탠다드,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:48:35+00:00
 3020000__CDFI2262212024000057,우나스테이,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:48:43+00:00
+3020000__CDFI2262212024000058,이태원 코지스테이,platforms_04,bing_rss,10,0,0,,2026-11-21T17:48:46+00:00
+3020000__CDFI2262212025000001,더 팔레트 후암,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:48:54+00:00
+3020000__CDFI2262212025000002,용산 제니하우스,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:49:03+00:00
+3020000__CDFI2262212025000006,로제하우스,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T17:49:11+00:00
+3020000__CDFI2262212025000008,C Travel,platforms_04,bing_rss,10,0,0,,2026-11-21T17:49:12+00:00
