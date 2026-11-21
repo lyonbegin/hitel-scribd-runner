@@ -10086,3 +10086,8 @@
 3040000__CDFI2262212025000046,On Stay Seoul,platforms_05,bing_rss,10,0,0,,2026-11-21T22:15:51+00:00
 3040000__CDFI2262212025000047,마음단지,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T22:15:59+00:00
 3040000__CDFI2262212025000049,스테이 라온,platforms_05,bing_rss,10,0,0,,2026-11-21T22:16:00+00:00
+3040000__CDFI2262212025000050,아늑 스테이,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T22:16:10+00:00
+3040000__CDFI2262212025000051,하베스트,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T22:16:18+00:00
+3040000__CDFI2262212025000052,칠 스테이(chill stay),platforms_05,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T22:16:27+00:00
+3040000__CDFI2262212025000053,Stay Maru,platforms_05,bing_rss,7,0,0,,2026-11-21T22:16:28+00:00
+3040000__CDFI2262212025000054,헌트릭스 스테이(Huntrix Stay),platforms_05,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T22:16:37+00:00
