@@ -449,6 +449,20 @@ def run(args):
             for r in csv.DictReader(f):
                 seen.add((r["license_id"],r["listing_url"]))
     evidence=[];attempts=[]
+    evidence_total=0
+    new_contact_total=0
+    def checkpoint():
+        nonlocal evidence,attempts,evidence_total,new_contact_total
+        if not evidence and not attempts:return
+        append_rows(ROOT/"listing_evidence.csv",evidence,EVIDENCE_COLS)
+        append_rows(ROOT/"search_attempts.csv",attempts,ATTEMPT_COLS)
+        evidence_total+=len(evidence)
+        new_contact_total+=sum(bool(r["public_business_phone"] or r["public_business_email"]) for r in evidence)
+        evidence=[];attempts=[]
+        state["progress"]=progress
+        state["latest_run_at"]=STAMP()
+        state["total_stages_completed"]=sum(int(v.get("stage_idx",0)) for v in progress.values())
+        atomic_json(ROOT/"state.json",state)
     for i,key in enumerate(selected,1):
         rec=rows[key]
         old=progress.get(key,{})
@@ -502,9 +516,9 @@ def run(args):
         old["last_attempt"]=STAMP()
         progress[key]=old
         COUNTS["properties_stages_completed"]+=1
+        if i % 25 == 0:checkpoint()
         time.sleep(args.delay)
-    append_rows(ROOT/"listing_evidence.csv",evidence,EVIDENCE_COLS)
-    append_rows(ROOT/"search_attempts.csv",attempts,ATTEMPT_COLS)
+    checkpoint()
     state["progress"]=progress
     state["latest_run_at"]=STAMP()
     state["platforms"]=len(PLATFORMS)
@@ -513,7 +527,7 @@ def run(args):
     state["done_full_pass"]=sum(int(x.get("stage_idx",0))>=len(FAMILIES) for x in progress.values())
     state["total_stages_completed"]=sum(int(x.get("stage_idx",0)) for x in progress.values())
     state["last_run"]={"selected":len(selected),"advanced":COUNTS["properties_stages_completed"],
-                       "new_evidence":len(evidence),"new_public_contacts":sum(bool(r["public_business_phone"] or r["public_business_email"]) for r in evidence),
+                       "new_evidence":evidence_total,"new_public_contacts":new_contact_total,
                        "counts":dict(COUNTS)}
     index_counts=build_consolidated_indexes(rows,progress)
     state["consolidated_index"]=index_counts
