@@ -17,6 +17,7 @@ on:
       - tests/test_procureflow_bootstrap_evidence.py
       - tests/test_procureflow_post_response_accounting.py
       - tests/test_procureflow_websquare_failure_accounting.py
+      - tests/test_procureflow_ui_guard_accounting.py
       - tools/procureflow/audit_stage2_empty_bidder_response.py
       - tests/test_procureflow_stage2_empty_bidder_response.py
       - tools/procureflow/schema_2y_core.sql
@@ -81,6 +82,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python -m unittest discover -s tests -p test_procureflow_ui_guard_accounting.py
           python -m unittest discover -s tests -p test_procureflow_public_readonly_raw.py
           python -m unittest discover -s tests -p test_procureflow_contract_response_gate.py
           python -m unittest discover -s tests -p test_procureflow_public_ui_data_proof.py
