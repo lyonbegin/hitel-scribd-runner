@@ -98,8 +98,11 @@ def run(site, out):
             report.append({"requested_url":url,"final_url":page.url,"http_status":status,
                            "dom":dom,"errors":errors[:40],"responses":events[-180:],
                            "response_total":len(events),"request_failures":failed_requests[:40],
+                           "request_failure_count_total":len(failed_requests),
+                           "request_failure_sample_truncated":len(failed_requests)>40,
                            "client_guard_decisions":guard_decisions[guard_start:][:80],
                            "client_guard_decision_count":len(guard_decisions)-guard_start,
+                           "client_guard_sample_truncated":len(guard_decisions)-guard_start>80,
                            "get_302":[e for e in events if e["status"]==302][-20:],
                            "non_static":[e for e in events if e["type"] in ("xhr","fetch","document")][-60:]})
             page.close()
@@ -110,7 +113,10 @@ def run(site, out):
         "non_static":r["non_static"],"errors":r["errors"],
         "client_guard_decision_count":r["client_guard_decision_count"],
         "client_guard_decisions":r["client_guard_decisions"],
-        "failed_request_count":len(r["request_failures"])} for r in report],ensure_ascii=False),flush=True)
+        "failed_request_count":r["request_failure_count_total"],
+        "failed_request_sample_count":len(r["request_failures"]),
+        "failed_request_sample_truncated":r["request_failure_sample_truncated"],
+        "client_guard_sample_truncated":r["client_guard_sample_truncated"]} for r in report],ensure_ascii=False),flush=True)
 
 if __name__ == "__main__":
     p=argparse.ArgumentParser()
