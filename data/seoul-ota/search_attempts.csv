@@ -6086,3 +6086,8 @@
 3020000__CDFI2262212023000070,정단재,platforms_03,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T17:26:01+00:00
 3020000__CDFI2262212023000071,서울 비앤비(Seoul B&B),platforms_03,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T17:26:02+00:00
 3020000__CDFI2262212023000072,B&B House,platforms_03,bing_rss,10,0,0,,2026-11-21T17:26:04+00:00
+3020000__CDFI2262212023000073,Harry's House(해리 하우스),platforms_03,bing_rss,10,0,0,,2026-11-21T17:26:07+00:00
+3020000__CDFI2262212023000074,Jasmine House,platforms_03,bing_rss,10,0,0,,2026-11-21T17:26:08+00:00
+3020000__CDFI2262212023000075,센트리안,platforms_03,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T17:26:10+00:00
+3020000__CDFI2262212023000078,윤슬,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectionError:('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",2026-11-21T17:26:11+00:00
+3020000__CDFI2262212023000079,JuJu house,platforms_03,bing_rss,10,0,0,,2026-11-21T17:26:12+00:00
