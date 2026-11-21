@@ -4421,3 +4421,8 @@
 3020000__CDFI2262212017000013,테라피하우스,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:35:00+00:00
 3020000__CDFI2262212017000014,바바뷰 VAVAVIEW,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:35:08+00:00
 3020000__CDFI2262212017000017,BLACKJAYSHOCK,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:35:16+00:00
+3020000__CDFI2262212017000018,코코마통,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:35:26+00:00
+3020000__CDFI2262212017000019,Casa de Theo,platforms_03,bing_rss,10,0,0,,2026-11-21T15:35:28+00:00
+3020000__CDFI2262212017000021,James house,platforms_03,bing_rss,10,0,0,,2026-11-21T15:35:29+00:00
+3020000__CDFI2262212017000023,이태원 561,platforms_03,bing_rss,10,0,0,,2026-11-21T15:35:31+00:00
+3020000__CDFI2262212017000024,이태원 마당,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T15:35:39+00:00
