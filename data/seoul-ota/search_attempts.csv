@@ -1421,3 +1421,8 @@
 3000000__CDFI2262212025000035,Stay forest,platforms_05,bing_rss,10,0,0,,2026-11-21T11:24:34+00:00
 3000000__CDFI2262212025000038,Dreamer Nest,platforms_05,bing_rss,10,0,0,,2026-11-21T11:24:36+00:00
 3000000__CDFI2262212025000039,Sunrise Inwang House,platforms_05,bing_rss,10,0,0,,2026-11-21T11:24:37+00:00
+3000000__CDFI2262212025000041,어반종로,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:24:46+00:00
+3000000__CDFI2262212025000043,"스테이 종로, 209",platforms_05,bing_rss,10,0,0,,2026-11-21T11:24:48+00:00
+3000000__CDFI2262212025000044,종로 인사이드,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:24:56+00:00
+3000000__CDFI2262212025000045,청노루,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:25:04+00:00
+3000000__CDFI2262212025000046,충신 아뜨리에,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:25:13+00:00
