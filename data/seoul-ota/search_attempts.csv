@@ -2906,3 +2906,8 @@
 3010000__CDFI2262212017000021,ware house,platforms_04,bing_rss,10,0,0,,2026-11-21T13:34:51+00:00
 3010000__CDFI2262212018000002,H Place,platforms_04,bing_rss,10,0,0,,2026-11-21T13:34:52+00:00
 3010000__CDFI2262212018000003,The Myeongdong Residence,platforms_04,bing_rss,7,0,0,,2026-11-21T13:34:54+00:00
+3010000__CDFI2262212018000006,마틴의 집,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:35:04+00:00
+3010000__CDFI2262212018000010,준 하우스,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:35:12+00:00
+3010000__CDFI2262212018000012,곰 게스트하우스,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:35:20+00:00
+3010000__CDFI2262212018000013,동대문ddp 게스트하우스,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:35:29+00:00
+3010000__CDFI2262212018000014,ANNA HOUSE,platforms_04,bing_rss,9,0,0,,2026-11-21T13:35:30+00:00
