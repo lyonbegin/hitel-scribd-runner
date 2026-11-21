@@ -5211,3 +5211,8 @@
 3020000__CDFI2262212021000023,라라스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:37:17+00:00
 3020000__CDFI2262212021000024,에스제이하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:37:26+00:00
 3020000__CDFI2262212021000026,서울로스테이,general,bing_rss,10,0,0,,2026-11-21T16:37:27+00:00
+3020000__CDFI2262212020000013,이든하우스,platforms_01,no_results,0,0,0,,2026-11-21T16:38:58+00:00
+3020000__CDFI2262212020000017,서울46,platforms_01,no_results,0,0,0,,2026-11-21T16:39:00+00:00
+3020000__CDFI2262212020000019,Bora Bora,platforms_01,bing_rss,10,0,0,,2026-11-21T16:39:01+00:00
+3020000__CDFI2262212020000021,Urin stay,platforms_01,bing_rss,10,0,0,,2026-11-21T16:39:03+00:00
+3020000__CDFI2262212020000023,URin,platforms_01,bing_rss,10,0,0,,2026-11-21T16:39:04+00:00
