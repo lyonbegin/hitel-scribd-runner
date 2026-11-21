@@ -298,6 +298,103 @@ EVIDENCE_COLS=["license_id","business_name","permit_status","closed_date","facil
 ATTEMPT_COLS=["license_id","business_name","stage","search_provider","result_count",
               "platform_hits","verified_address_matches","error","observed_at"]
 
+def write_complete_csv(path,records,columns):
+    path.parent.mkdir(parents=True,exist_ok=True)
+    temp=path.with_name(path.name+".tmp")
+    with temp.open("w",encoding="utf-8-sig",newline="") as f:
+        writer=csv.DictWriter(f,columns,extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(records)
+    temp.replace(path)
+
+def build_consolidated_indexes(properties,progress):
+    """Rebuild useful full-roster exports from public permits, prior sourced URLs and new discoveries."""
+    seed=[]
+    file=ROOT/"prior_sourced_contacts.tsv"
+    if file.exists():
+        with file.open(encoding="utf-8-sig",newline="") as f:
+            seed=list(csv.DictReader(f,delimiter="\t"))
+    discovered=[]
+    file=ROOT/"listing_evidence.csv"
+    if file.exists():
+        with file.open(encoding="utf-8-sig",newline="") as f:
+            discovered=list(csv.DictReader(f))
+    contacts=[]
+    links=[]
+    for key,p in properties.items():
+        if p["permit_phone"]:
+            contacts.append({"license_id":key,"business_name":p["name"],
+                "permit_status":p["status"],"public_phone":p["permit_phone"],
+                "public_email":"","channel":"LOCALDATA official permit",
+                "source_url":"https://file.localdata.go.kr/file/download/foreigner_city_homestays/info",
+                "evidence_grade":"permit_public_business_phone",
+                "limitations":"Current telephone connection and present operator identity not verified"})
+    for r in seed:
+        key=r.get("license_id","")
+        if key not in properties:continue
+        links.append({"license_id":key,"business_name":properties[key]["name"],
+            "source_platform":r["source_platform"],"url":r["source_url"],
+            "evidence_grade":r["evidence_grade"],"source_kind":"previously_reviewed"})
+        if r.get("public_business_phone",""):
+            contacts.append({"license_id":key,"business_name":properties[key]["name"],
+                "permit_status":properties[key]["status"],
+                "public_phone":r["public_business_phone"],"public_email":"",
+                "channel":r["source_platform"],"source_url":r["source_url"],
+                "evidence_grade":r["evidence_grade"],"limitations":r["limitations"]})
+    for r in discovered:
+        key=r.get("license_id","")
+        if key not in properties:continue
+        links.append({"license_id":key,"business_name":properties[key]["name"],
+            "source_platform":r["platform"],"url":r["listing_url"],
+            "evidence_grade":r["match_grade"],"source_kind":"automated_candidate"})
+        if (r.get("public_business_phone") or r.get("public_business_email")) and r.get("match_grade")=="name_and_road":
+            contacts.append({"license_id":key,"business_name":properties[key]["name"],
+                "permit_status":properties[key]["status"],
+                "public_phone":r.get("public_business_phone",""),
+                "public_email":r.get("public_business_email",""),
+                "channel":r["platform"],"source_url":r["listing_url"],
+                "evidence_grade":"automated_name_and_road",
+                "limitations":"Public webpage evidence; actual telephone connection and operator identity unverified"})
+    uniq_contact=[];seen=set()
+    for row in contacts:
+        k=(row["license_id"],row["public_phone"],row["public_email"],row["source_url"])
+        if k not in seen:seen.add(k);uniq_contact.append(row)
+    uniq_link=[];seen=set()
+    for row in links:
+        k=(row["license_id"],row["url"])
+        if k not in seen:seen.add(k);uniq_link.append(row)
+    write_complete_csv(ROOT/"all_public_contact_evidence.csv",uniq_contact,
+        ["license_id","business_name","permit_status","public_phone","public_email","channel",
+        "source_url","evidence_grade","limitations"])
+    write_complete_csv(ROOT/"all_listing_links.csv",uniq_link,
+        ["license_id","business_name","source_platform","url","evidence_grade","source_kind"])
+    phones_by={}; links_by={}
+    for row in uniq_contact:
+        if row["public_phone"]:phones_by.setdefault(row["license_id"],set()).update(
+            x.strip() for x in row["public_phone"].split("|") if x.strip())
+    for row in uniq_link:links_by.setdefault(row["license_id"],set()).add(row["url"])
+    summary=[]
+    for key,p in sorted(properties.items()):
+        state=progress.get(key,{})
+        summary.append({"license_id":key,"business_name":p["name"],"permit_status":p["status"],
+            "closed_date":p["closed_date"],"permit_address":p["address"],"facility_area_sqm":p["area"],
+            "known_public_phone_count":len(phones_by.get(key,set())),
+            "listing_link_count":len(links_by.get(key,set())),
+            "search_stage_completed":int(state.get("stage_idx",0)),
+            "last_search_at":state.get("last_attempt",""),
+            "exclusive_area_verified":"no","operator_owner_verified":"no",
+            "phone_connection_verified":"no"})
+    write_complete_csv(ROOT/"all_properties_contact_summary.csv",summary,
+        ["license_id","business_name","permit_status","closed_date","permit_address",
+        "facility_area_sqm","known_public_phone_count","listing_link_count",
+        "search_stage_completed","last_search_at","exclusive_area_verified",
+        "operator_owner_verified","phone_connection_verified"])
+    return {"records":len(summary),"prior_source_records":len(seed),
+            "public_contact_source_rows":len(uniq_contact),
+            "unique_properties_with_public_phone":len(phones_by),
+            "listing_link_rows":len(uniq_link),
+            "unique_properties_with_listing_link":len(links_by)}
+
 def run(args):
     assert len(FAMILIES)==len(set(name for name,_ in FAMILIES))
     assert len(PLATFORMS)==len(set(p[0] for p in PLATFORMS))
@@ -380,12 +477,15 @@ def run(args):
     state["last_run"]={"selected":len(selected),"advanced":COUNTS["properties_stages_completed"],
                        "new_evidence":len(evidence),"new_public_contacts":sum(bool(r["public_business_phone"] or r["public_business_email"]) for r in evidence),
                        "counts":dict(COUNTS)}
+    index_counts=build_consolidated_indexes(rows,progress)
+    state["consolidated_index"]=index_counts
     atomic_json(ROOT/"state.json",state)
     manifest={"run_time":STAMP(),"official_rows":len(rows),"active":sum(r["status"]=="active" for r in rows.values()),
       "closed":sum(r["status"]=="closed" for r in rows.values()),
       "missing_public_address":sum(not r["address"] for r in rows.values()),"platform_count":len(PLATFORMS),
       "platforms":[{"id":x[0],"label":x[1],"category":x[2],"domains":x[3]} for x in PLATFORMS],
       "stages":len(FAMILIES),"last_run":state["last_run"],
+      "consolidated_index":index_counts,
       "critical":"Search hits are NOT verified accommodation listings. Only 'name_and_road' evidence supports an address match; contacts are NOT call-verified. The permit area is NOT exclusive area.",
       "scraping_policy":"public search/robots permitted pages only; no authentication, messages, CAPTCHAs or bypass."}
     atomic_json(ROOT/"manifest.json",manifest)
