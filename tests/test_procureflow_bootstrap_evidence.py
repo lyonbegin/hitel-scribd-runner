@@ -81,6 +81,8 @@ class BootstrapEvidenceTest(unittest.TestCase):
         source = (Path(__file__).resolve().parents[1] / "tools/procureflow/probe_websquare_bootstrap.py").read_text(encoding="utf-8")
         ast.parse(source)
         self.assertIn('"path":urlsplit(req.url).path[:240]', source)
+        self.assertIn('"reason": "non_readonly_method_blocked_before_network"', source)
+        self.assertIn('"server_http_status": None', source)
         self.assertIn('"resource_type":req.resource_type', source)
         self.assertIn('"client_guard_blocked":', source)
         self.assertNotIn('"post_data":', source)
@@ -105,6 +107,18 @@ class BootstrapEvidenceTest(unittest.TestCase):
         self.assertEqual(item["confirmed_client_guard_post_count"],1)
         self.assertEqual(item["ambiguous_post_failure_count"],0)
         self.assertEqual(item["reason"],"client_blocked_post_not_server_failure")
+
+    def test_explicit_guard_without_requestfailed_is_not_server_response(self):
+        row = {"requested_url": "https://www.g2b.go.kr/",
+               "client_guard_decisions": [{"method": "POST", "path": "/bootstrap",
+                   "reason": "non_readonly_method_blocked_before_network", "server_http_status": None}],
+               "responses": []}
+        item = classify({"g2b": [row]})[0]
+        self.assertEqual(item["explicit_guard_post_count"], 1)
+        self.assertEqual(item["confirmed_client_guard_post_count"], 1)
+        self.assertEqual(item["observed_post_count"], 0)
+        self.assertEqual(item["reason"], "client_blocked_post_not_server_failure")
+        self.assertEqual(item["classification"], "NOT_VERIFIED")
 
     def test_successful_http_200_post_is_not_data_validation(self):
         row={"requested_url":"https://www.g2b.go.kr/","http_status":200,
