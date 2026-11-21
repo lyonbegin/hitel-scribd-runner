@@ -156,7 +156,8 @@ def read_remote_for_batch(verified):
     return remote
 
 
-def maybe_cancel_definitely_stuck(client: GithubClient, run, artifact):
+def maybe_cancel_definitely_stuck(client: GithubClient, run, artifact,
+                                  threshold_seconds=STALE_COMPLETED_THRESHOLD_SECONDS):
     """Never terminate generation just because no new GitHub log has appeared."""
     run_id = int(run["id"])
     status = run["status"]
@@ -172,7 +173,7 @@ def maybe_cancel_definitely_stuck(client: GithubClient, run, artifact):
     if not classify or classify.get("status") != "in_progress":
         return "not_in_ai_classification"
     started = classify.get("started_at")
-    if not started or seconds_since(started) < STALE_COMPLETED_THRESHOLD_SECONDS:
+    if not started or seconds_since(started) < threshold_seconds:
         return "generating_or_observing_answer"
     # Only look inside durable previous verified checkpoint AFTER a long
     # classification. Nothing is submitted to ChatGPT by the watchdog.
