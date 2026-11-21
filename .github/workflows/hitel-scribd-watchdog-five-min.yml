@@ -10,6 +10,13 @@ on:
     branches: [main]
     paths: [.github/workflows/hitel-scribd-watchdog-five-min.yml]
   workflow_dispatch:
+  # GitHub's cron scheduler may be delayed. A finished classifier also
+  # triggers a watchdog probe, including failure/timeout/cancellation.
+  workflow_run:
+    workflows:
+      - HITEL Scribd 18109 - native Web2API completion verified
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -36,6 +43,12 @@ jobs:
           python3 -m py_compile tools/zocbo/hitel_scribd_watchdog.py tools/zocbo/hitel_dispatch_next_verified.py
           python3 tools/zocbo/test_hitel_scribd_watchdog.py
           python3 tools/zocbo/test_hitel_dispatch_next_verified.py
+      - name: Give a just-completed classifier time to index its child run
+        if: github.event_name == 'workflow_run'
+        run: |
+          # A prior successful job may have dispatched its successor just
+          # before completion. Avoid racing delayed GitHub run indexing.
+          sleep 140
       - name: Read current GitHub Actions and latest verified checkpoint; resume if safe
         env:
           GH_TOKEN: ${{ github.token }}
