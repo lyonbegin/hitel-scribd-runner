@@ -1286,3 +1286,8 @@
 3000000__CDFI2262212019000013,경복궁 서촌 크리스천 홈(Christian Home),platforms_05,bing_rss,10,0,0,,2026-11-21T11:12:56+00:00
 3000000__CDFI2262212019000015,Lily's house,platforms_05,bing_rss,10,0,0,,2026-11-21T11:12:58+00:00
 3000000__CDFI2262212019000016,마음을 담는 집(Heart warming Nest),platforms_05,bing_rss,10,0,0,,2026-11-21T11:12:59+00:00
+3000000__CDFI2262212019000018,동대문 하우스(DDM House),platforms_05,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T11:13:02+00:00
+3000000__CDFI2262212020000001,이화동273(Ihwa273),platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403;duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T11:13:05+00:00
+3000000__CDFI2262212020000002,알로하나(Alohana),platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403;duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T11:13:07+00:00
+3000000__CDFI2262212020000003,홍스 게스트하우스(Hong's guest house),platforms_05,bing_rss,10,0,0,,2026-11-21T11:13:08+00:00
+3000000__CDFI2262212020000004,스테이칠하우스(Stay Chill House),platforms_05,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T11:13:10+00:00
