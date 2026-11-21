@@ -1691,3 +1691,8 @@
 3000000__CDFI2262212025000064,오하이서울,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:51:52+00:00
 3000000__CDFI2262212025000066,쁘띠 서촌,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:52:00+00:00
 3000000__CDFI2262212025000067,크레센도,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:52:08+00:00
+3000000__CDFI2262212025000068,거북이집(Turtle stay),platforms_06,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:52:18+00:00
+3000000__CDFI2262212025000069,아르카종로(ARCA JONGNO),platforms_06,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:52:27+00:00
+3000000__CDFI2262212025000072,무띠,platforms_06,bing_rss,10,0,0,,2026-11-21T11:52:28+00:00
+3000000__CDFI2262212025000152,그린하우스3,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:52:36+00:00
+3000000__CDFI2262212025000154,MIN STAY(민 스테이),general,bing_rss,10,0,0,,2026-11-21T11:52:37+00:00
