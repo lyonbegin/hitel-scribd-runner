@@ -76,6 +76,15 @@ class BootstrapEvidenceTest(unittest.TestCase):
         }
         self.assertEqual(missing_targets(reports), [])
 
+    def test_probe_records_query_free_failed_post_metadata(self):
+        import ast
+        source = (Path(__file__).resolve().parents[1] / "tools/procureflow/probe_websquare_bootstrap.py").read_text(encoding="utf-8")
+        ast.parse(source)
+        self.assertIn('"path":urlsplit(req.url).path[:240]', source)
+        self.assertIn('"resource_type":req.resource_type', source)
+        self.assertIn('"client_guard_blocked":', source)
+        self.assertNotIn('"post_data":', source)
+
     def test_client_blocked_post_is_not_server_http_failure(self):
         row={"requested_url":"https://data.g2b.go.kr/","http_status":200,
              "dom":{"bodyChildren":0,"websquare":"object"},
