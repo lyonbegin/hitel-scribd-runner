@@ -10931,3 +10931,8 @@
 3070000__CDFI2262212025000001,용하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:36:18+00:00
 3070000__CDFI2262212025000002,코지 하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:36:27+00:00
 3070000__CDFI2262212025000003,어룡하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:36:35+00:00
+3070000__CDFI2262212025000004,응담하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:36:45+00:00
+3070000__CDFI2262212025000005,수하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:36:54+00:00
+3070000__CDFI2262212025000006,Stay 정릉,general,bing_rss,10,0,0,,2026-11-21T23:36:55+00:00
+3070000__CDFI2262212025000007,쉐누 시그니처,general,bing_rss,10,0,0,,2026-11-21T23:36:56+00:00
+3070000__CDFI2262212025000008,쁘띠 두두,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:37:04+00:00
