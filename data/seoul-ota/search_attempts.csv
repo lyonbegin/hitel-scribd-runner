@@ -2146,3 +2146,8 @@
 3000000__CDFI2262212025000159,초록스테이 종로,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:28:36+00:00
 3000000__CDFI2262212025000160,달하우스,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:28:44+00:00
 3000000__CDFI2262212025000162,달혜화,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:28:53+00:00
+3000000__CDFI2262212025000163,창신맨션,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:29:02+00:00
+3000000__CDFI2262212025000164,소윤재,platforms_02,bing_rss,10,0,0,,2026-11-21T12:29:04+00:00
+3000000__CDFI2262212025000165,4 SEASONS TERRACE,platforms_02,bing_rss,10,0,0,,2026-11-21T12:29:05+00:00
+3000000__CDFI2262212025000166,다올(DAOL),platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:29:20+00:00
+3000000__CDFI2262212025000167,거북이집2,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T12:29:29+00:00
