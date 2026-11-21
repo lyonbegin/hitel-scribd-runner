@@ -34,7 +34,7 @@ def run(site, out):
                                    "location_host":urlsplit(res.headers.get("location","")).hostname,
                                    "mime":res.headers.get("content-type","").split(";")[0]})
             page.on("response", on_response)
-            page.on("requestfailed", lambda req: failed_requests.append({"url":req.url.split("?")[0][:240], "method":req.method, "failure":req.failure, "client_guard_blocked": req.method not in ("GET", "HEAD", "OPTIONS") and "ERR_BLOCKED_BY_CLIENT" in str(req.failure).upper()}))
+            page.on("requestfailed", lambda req: failed_requests.append({"url":req.url.split("?")[0][:240], "host":urlsplit(req.url).hostname, "path":urlsplit(req.url).path[:240], "resource_type":req.resource_type, "method":req.method, "failure":req.failure, "client_guard_blocked": req.method not in ("GET", "HEAD", "OPTIONS") and "ERR_BLOCKED_BY_CLIENT" in str(req.failure).upper()}))
             page.on("pageerror", lambda exc: errors.append(str(exc)[:300]))
             page.on("console", lambda msg: errors.append("console:"+msg.text[:300]) if msg.type=="error" else None)
             status = None
