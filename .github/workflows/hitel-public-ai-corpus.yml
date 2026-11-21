@@ -1,4 +1,5 @@
 name: HITEL Scribd 18109 - native Web2API completion verified
+run-name: HITEL Scribd AI handoff ${{ inputs.handoff_token || 'direct' }}
 # Transport: production HITEL /integrations/v1/public/chat used by E2E-proven test page.
 # Keep 340 previously verified records. Never mark an AI or transport failure as processed.
 # Missing or uncertain replies are never implicitly reposted.
@@ -17,6 +18,11 @@ on:
         type: choice
         options: [smoke, full]
         default: full
+      handoff_token:
+        description: 'Unique parent run identity for safe HTTP 500 recovery'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -29,11 +35,52 @@ concurrency:
 jobs:
   worker_ready:
     runs-on: ubuntu-24.04
+    outputs:
+      skip_handoff: ${{ steps.claim_handoff.outputs.skip }}
     # This waits for the existing signed Chrome worker without consuming the
     # classifier job's separately allotted observation time.
     timeout-minutes: 300
     steps:
+      - name: Refuse a duplicate handoff before touching Chrome or AI
+        id: claim_handoff
+        if: github.event_name == 'workflow_dispatch' && inputs.handoff_token != ''
+        shell: bash
+        env:
+          GH_TOKEN: \${{ github.token }}
+          HANDOFF_TOKEN: \${{ inputs.handoff_token }}
+        run: |
+          python3 - <<'PY'
+          import json,os,re,urllib.request
+          token=os.environ["HANDOFF_TOKEN"]
+          if not re.fullmatch(r"from-[0-9]+",token):
+              raise SystemExit("INVALID_VERIFIED_BATCH_HANDOFF_TOKEN")
+          repo=os.environ["GITHUB_REPOSITORY"]
+          url=("https://api.github.com/repos/"+repo+
+               "/actions/workflows/hitel-public-ai-corpus.yml/runs"
+               "?event=workflow_dispatch&per_page=100")
+          req=urllib.request.Request(url,headers={
+              "Authorization":"Bearer "+os.environ["GH_TOKEN"],
+              "Accept":"application/vnd.github+json",
+              "X-GitHub-Api-Version":"2022-11-28",
+          })
+          with urllib.request.urlopen(req,timeout=25) as response:
+              runs=json.load(response)["workflow_runs"]
+          title="HITEL Scribd AI handoff "+token
+          ids=[int(r["id"]) for r in runs if
+               r.get("event")=="workflow_dispatch"
+               and r.get("head_branch")=="main"
+               and r.get("display_title")==title]
+          if not ids:
+              raise SystemExit("HANDOFF_OWNER_NOT_VISIBLE_FAIL_CLOSED")
+          owner=min(ids)
+          is_duplicate=owner!=int(os.environ["GITHUB_RUN_ID"])
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write("skip="+str(is_duplicate).lower()+"\n")
+          print("HANDOFF_OWNER_RUN",owner,"THIS_RUN",os.environ["GITHUB_RUN_ID"],
+                "SKIP_DUPLICATE",is_duplicate,flush=True)
+          PY
       - name: Verify currently connected corrected Web2API worker, without pinning its run ID
+        if: steps.claim_handoff.outputs.skip != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -72,6 +119,7 @@ jobs:
 
   ai:
     needs: worker_ready
+    if: needs.worker_ready.outputs.skip_handoff != 'true'
     runs-on: ubuntu-24.04
     # GitHub host safety bound above the API server's own 15000s observer
     # and the 240-minute Chrome worker session, not a 10-minute model timeout.
@@ -88,6 +136,7 @@ jobs:
           python3 -m py_compile tools/zocbo/hitel_scribd_http_continue.py
           python3 tools/zocbo/test_hitel_scribd_http_continue.py
           python3 tools/zocbo/test_hitel_scribd_ws_stalled_retry.py
+          python3 tools/zocbo/test_hitel_dispatch_next_verified.py
       - name: Rebuild and verify the exact original 18109 source
         shell: bash
         run: |
@@ -219,5 +268,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh workflow run hitel-public-ai-corpus.yml --ref main -f mode=full
-          echo NEXT_VERIFIED_ONLY_RECOVERY_DISPATCHED >> "$GITHUB_STEP_SUMMARY"
+          python3 tools/zocbo/hitel_dispatch_next_verified.py
+          echo NEXT_VERIFIED_ONLY_HANDOFF_VERIFIED_OR_ACCEPTED >> "$GITHUB_STEP_SUMMARY"

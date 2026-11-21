@@ -1,0 +1,42 @@
+name: Scribd next-run HTTP 500 dispatch guard - isolated regression
+on:
+  push:
+    branches: [fix/scribd-dispatch-http500-safe-handoff-20261121]
+    paths:
+      - .github/workflows/scribd-dispatch-guard-20261121.yml
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Checkout classifier implementation
+        uses: actions/checkout@v4
+        with:
+          ref: feature/hitel-public-ai-batches-20261119
+      - name: Compile dispatcher and run no-network failure/recovery tests
+        run: |
+          python3 -m py_compile tools/zocbo/hitel_dispatch_next_verified.py
+          python3 tools/zocbo/test_hitel_dispatch_next_verified.py
+      - name: Verify workflow YAML remains parseable and dispatch remains gated
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m pip install -q PyYAML
+          python3 - <<'PY'
+          import urllib.request,yaml
+          ref="fix/scribd-dispatch-http500-safe-handoff-20261121"
+          url=("https://raw.githubusercontent.com/lyonbegin/hitel-scribd-runner/"
+                +ref+"/.github/workflows/hitel-public-ai-corpus.yml")
+          request=urllib.request.Request(url,headers={"User-Agent":"Scribd-HITEL-regression"})
+          with urllib.request.urlopen(request,timeout=20) as response:
+              source=response.read().decode()
+          doc=yaml.safe_load(source)
+          assert doc["jobs"]["worker_ready"]["outputs"]["skip_handoff"]
+          assert "run-name:" in source and "handoff_token" in source
+          assert "python3 tools/zocbo/hitel_dispatch_next_verified.py" in source
+          assert "gh workflow run hitel-public-ai-corpus.yml" not in source
+          assert "if: steps.classify.outcome == 'success'" in source
+          print("PASS_SCRIBD_DISPATCH_500_RECOVERY_WORKFLOW_INTEGRITY",flush=True)
+          PY
