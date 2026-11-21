@@ -10656,3 +10656,8 @@
 3060000__CDFI2262212025000016,Blanc suite(블랑스위트),general,bing_rss,10,0,0,,2026-11-21T23:14:45+00:00
 3060000__CDFI2262212025000017,SHIM STAY,general,bing_rss,10,0,0,,2026-11-21T23:14:46+00:00
 3060000__CDFI2262212025000018,끌림스테이,general,bing_rss,10,0,0,,2026-11-21T23:14:47+00:00
+3060000__CDFI2262212025000019,고요리 스테이(Goyori Stay),general,bing_rss,10,0,0,,2026-11-21T23:14:50+00:00
+3060000__CDFI2262212025000020,빌라 드 사가,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:14:58+00:00
+3060000__CDFI2262212025000021,스테이 숨,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:15:06+00:00
+3060000__CDFI2262212025000022,룸메이트 스칼렛 603(Scarlet Room Mate 603),general,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:15:15+00:00
+3060000__CDFI2262212026000001,WOOSOO604,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:15:23+00:00
