@@ -20,11 +20,26 @@ def run(site, out):
     with sync_playwright() as pw:
         browser = pw.chromium.launch(channel="chrome", headless=False)
         context = browser.new_context(locale="ko-KR", timezone_id="Asia/Seoul", service_workers="allow")
-        # Block all state-changing requests, including incidental SSO submissions.
-        context.route("**/*", lambda route: route.continue_() if route.request.method in ("GET", "HEAD", "OPTIONS") else route.abort("blockedbyclient"))
+        # Explicitly log the guard's decision, not an inferred server HTTP status.
+        # Keep only origin/path/method/resource type; never store query, body or headers.
+        guard_decisions = []
+        def readonly_guard(route):
+            req = route.request
+            if req.method in ("GET", "HEAD", "OPTIONS"):
+                return route.continue_()
+            u = urlsplit(req.url)
+            guard_decisions.append({
+                "host": u.hostname, "path": u.path[:240],
+                "method": req.method, "resource_type": req.resource_type,
+                "reason": "non_readonly_method_blocked_before_network",
+                "server_http_status": None,
+            })
+            return route.abort("blockedbyclient")
+        context.route("**/*", readonly_guard)
         for idx, url in enumerate(URLS[site]):
             page = context.new_page()
             events, errors, failed_requests = [], [], []
+            guard_start = len(guard_decisions)
             def on_response(res):
                 u = urlsplit(res.url)
                 if u.hostname and (u.hostname.endswith("g2b.go.kr")):
@@ -83,6 +98,8 @@ def run(site, out):
             report.append({"requested_url":url,"final_url":page.url,"http_status":status,
                            "dom":dom,"errors":errors[:40],"responses":events[-180:],
                            "response_total":len(events),"request_failures":failed_requests[:40],
+                           "client_guard_decisions":guard_decisions[guard_start:][:80],
+                           "client_guard_decision_count":len(guard_decisions)-guard_start,
                            "get_302":[e for e in events if e["status"]==302][-20:],
                            "non_static":[e for e in events if e["type"] in ("xhr","fetch","document")][-60:]})
             page.close()
