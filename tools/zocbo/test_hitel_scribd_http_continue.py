@@ -22,6 +22,71 @@ class HttpOnceOnlyTests(unittest.TestCase):
         runner.save(path,state)
         return path,state
 
+    @staticmethod
+    def _model_identity_batch():
+        batch=[{"번호":n,"문서 ID":str(700000000+n)}
+               for n in range(1921,1941)]
+        batch[1933-1921]["문서 ID"]="712752016"
+        batch[1934-1921]["문서 ID"]="712805770"
+        reply={"rows":[{
+            "no":r["번호"],"id":r["문서 ID"],
+            "school":"대상외","grade":"해당없음",
+            "semester":"해당없음","subject":"해당없음",
+            "edition":"해당없음","download":"제외",
+            "reason":"교육과정 교재가 아닌 기타 문서"
+        } for r in batch]}
+        return batch,reply
+
+    def test_actual_1934_duplicate_id_fixed_only_from_verified_source(self):
+        batch,reply=self._model_identity_batch()
+        reply["rows"][1934-1921]["id"]="712752016"
+        original=json.dumps(reply,ensure_ascii=False)
+        audit=[]
+        parsed=runner.validated_rows(original,batch,audit)
+        self.assertEqual(len(parsed),20)
+        self.assertEqual(parsed[1933-1921]["id"],"712752016")
+        self.assertEqual(parsed[1934-1921]["id"],"712805770")
+        self.assertEqual(audit[0]["no"],1934)
+        self.assertEqual(audit[0]["model_id"],"712752016")
+        self.assertEqual(audit[0]["verified_source_id"],"712805770")
+        self.assertEqual(len(audit),1)
+        self.assertEqual(json.loads(original)["rows"][1934-1921]["id"],
+                         "712752016")
+
+    def test_foreign_future_id_is_not_repaired(self):
+        batch,reply=self._model_identity_batch()
+        reply["rows"][1934-1921]["id"]="999999999"
+        with self.assertRaisesRegex(ValueError,"future document IDs"):
+            runner.validated_rows(json.dumps(reply),batch,[])
+
+    def test_unique_but_swapped_ids_are_not_automatically_repaired(self):
+        batch,reply=self._model_identity_batch()
+        a,b=reply["rows"][12],reply["rows"][13]
+        a["id"],b["id"]=b["id"],a["id"]
+        with self.assertRaisesRegex(ValueError,"future document IDs"):
+            runner.validated_rows(json.dumps(reply),batch,[])
+
+    def test_duplicate_source_numbers_are_rejected(self):
+        batch,reply=self._model_identity_batch()
+        reply["rows"][13]["no"]=reply["rows"][12]["no"]
+        reply["rows"][13]["id"]=reply["rows"][12]["id"]
+        with self.assertRaises(ValueError):
+            runner.validated_rows(json.dumps(reply),batch,[])
+
+    def test_two_wrong_ids_are_rejected(self):
+        batch,reply=self._model_identity_batch()
+        reply["rows"][13]["id"]=reply["rows"][12]["id"]
+        reply["rows"][15]["id"]=reply["rows"][14]["id"]
+        with self.assertRaisesRegex(ValueError,"future document IDs"):
+            runner.validated_rows(json.dumps(reply),batch,[])
+
+    def test_exact_source_ids_produce_no_repair_audit(self):
+        batch,reply=self._model_identity_batch()
+        audit=[]
+        parsed=runner.validated_rows(json.dumps(reply),batch,audit)
+        self.assertEqual(len(parsed),20)
+        self.assertEqual(audit,[])
+
     def test_one_post_and_checkpoint_then_resume_with_no_second_post(self):
         with tempfile.TemporaryDirectory() as d:
             path,state=self.state(d)
