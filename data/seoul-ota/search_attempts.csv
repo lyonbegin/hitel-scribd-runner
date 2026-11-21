@@ -6326,3 +6326,8 @@
 3020000__CDFI2262212023000057,로지칙스,platforms_04,bing_rss,10,0,0,,2026-11-21T17:43:12+00:00
 3020000__CDFI2262212023000060,House Bong,platforms_04,bing_rss,10,0,0,,2026-11-21T17:43:13+00:00
 3020000__CDFI2262212023000061,Maison,platforms_04,bing_rss,10,0,0,,2026-11-21T17:43:14+00:00
+3020000__CDFI2262212023000062,라온403,platforms_04,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T17:43:18+00:00
+3020000__CDFI2262212023000063,스테이 안단테,platforms_04,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T17:43:20+00:00
+3020000__CDFI2262212023000064,Crystal House,platforms_04,bing_rss,10,0,0,,2026-11-21T17:43:22+00:00
+3020000__CDFI2262212023000065,모먼트 원효,platforms_04,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T17:43:24+00:00
+3020000__CDFI2262212023000066,이정표(milestone),platforms_04,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T17:43:26+00:00
