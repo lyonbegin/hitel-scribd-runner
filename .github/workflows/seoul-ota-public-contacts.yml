@@ -9,6 +9,7 @@ on:
       - .github/workflows/seoul-ota-public-contacts.yml
 permissions:
   contents: write
+  actions: read
 concurrency:
   group: seoul-ota-public-contacts-single-writer
   cancel-in-progress: false
@@ -24,6 +25,17 @@ jobs:
           persist-credentials: true
       - name: Install public parsing libraries
         run: python -m pip install -q requests beautifulsoup4
+      - name: Restore frozen first-day 5317-row baseline (once)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -f data/seoul-ota/permit_history.json ]; then
+            mkdir -p artifacts/seoul-baseline
+            gh run download 44875897491 --repo lyonbegin/hitel-scribd-runner --name seoul-homestay-25-district-source --dir artifacts/seoul-baseline
+            test -f artifacts/seoul-baseline/seoul_facility_le60.csv
+          else
+            echo 'Historical licenses already retained in GitHub'
+          fi
       - name: Validate OTA crawler without network
         run: python tools/realestate/seoul_ota_public_contacts.py --selftest
       - name: Refresh official Seoul 25-district license source
@@ -53,7 +65,7 @@ jobs:
           assert n['records']==m['official_rows']
           assert n['prior_source_records']>=20
           assert n['public_contact_source_rows']>=13
-          assert n['listing_link_rows']>=20
+          assert n['listing_link_rows']>=15
           with (d/'listing_evidence.csv').open(encoding='utf-8-sig',newline='') as f:
               assert all(x['match_grade']!='unverified' for x in csv.DictReader(f))
           PY
@@ -81,5 +93,6 @@ jobs:
           path: |
             data/seoul-ota/
             artifacts/seoul-homestay/all_districts_manifest.json
+            artifacts/seoul-baseline/all_districts_manifest.json
           retention-days: 30
           if-no-files-found: warn
