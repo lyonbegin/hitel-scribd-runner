@@ -107,7 +107,10 @@ def run(site, out):
     (out/"bootstrap_report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
     print("BOOTSTRAP_REPORT",json.dumps([{"url":r["requested_url"],"status":r["http_status"],
         "dom":r["dom"],"response_total":r["response_total"],"get_302":r["get_302"],
-        "non_static":r["non_static"],"errors":r["errors"]} for r in report],ensure_ascii=False),flush=True)
+        "non_static":r["non_static"],"errors":r["errors"],
+        "client_guard_decision_count":r["client_guard_decision_count"],
+        "client_guard_decisions":r["client_guard_decisions"],
+        "failed_request_count":len(r["request_failures"])} for r in report],ensure_ascii=False),flush=True)
 
 if __name__ == "__main__":
     p=argparse.ArgumentParser()
