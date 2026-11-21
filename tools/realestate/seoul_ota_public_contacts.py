@@ -79,6 +79,9 @@ PLATFORMS = [
  ("spacecloud","스페이스클라우드","space_rental",["spacecloud.kr"]),
  ("blueground","블루그라운드","short_let",["theblueground.com"]),
  ("coupangtravel","쿠팡트래블","korean_ota",["coupang.com"]),
+ ("plottlife","플라트라이프","short_let",["life.plott.co.kr"]),
+ ("actingfarm","액팅팜","local_stay",["actingfarm.com"]),
+ ("springhouse","봄집","short_let",["springhouse.co.kr"]),
 ]
 DOMAIN_MAP = [(d.lower(), pid, label, kind) for pid,label,kind,ds in PLATFORMS for d in ds]
 # Five stages ensure coverage of the entire registry without an exponential site-by-site scan.
@@ -87,7 +90,7 @@ FAMILIES = [
  ("global_primary", ["airbnb.com","booking.com","agoda.com","trip.com","hotels.com","expedia.com"]),
  ("global_secondary", ["hostelworld.com","vrbo.com","kayak.com","hotelscombined.com","tripadvisor.com","trivago.com","traveloka.com"]),
  ("korean_ota", ["wehome.me","yanolja.com","yeogi.com","stayfolio.com","myrealtrip.com","tripbtoz.com","tourvis.com","stay.visitseoul.net"]),
- ("short_let_maps", ["33m2.co.kr","liveanywhere.me","mrmention.co.kr","str.zigbang.com","dandanhomes.com","homes.global","naver.com","kakao.com","google.com","spacecloud.kr"]),
+ ("short_let_maps", ["33m2.co.kr","liveanywhere.me","mrmention.co.kr","str.zigbang.com","dandanhomes.com","homes.global","life.plott.co.kr","naver.com","kakao.com","google.com","spacecloud.kr"]),
  ("other_channels", ["hotelnjoy.com","hotelpass.com","allmytour.com","ddnayo.com","webtour.com","rakuten.com","jalan.net","priceline.com","klook.com"]),
 ]
 PHONE = re.compile(r"(?<!\d)(?:\+82[\s().-]*|0)(?:2|70|80|1[016789]|[3-6]\d)[\s().-]*\d{3,4}[\s().-]*\d{4}(?!\d)")
