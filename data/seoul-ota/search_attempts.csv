@@ -10666,3 +10666,8 @@
 3060000__CDFI2262212026000011,아브르(Harve),general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:15:49+00:00
 3060000__CDFI2262212026000013,코지 스테이 서울,general,bing_rss,10,0,0,,2026-11-21T23:15:51+00:00
 3060000__CDFI2262212026000014,루미네스트 서울,general,bing_rss,10,0,0,,2026-11-21T23:15:52+00:00
+3060000__CDFI2262212026000015,웰링 스테이(Welling Stay),general,bing_rss,10,0,0,,2026-11-21T23:15:55+00:00
+3060000__CDFI2262212026000016,온유스테이,general,bing_rss,10,0,0,,2026-11-21T23:15:56+00:00
+3060000__CDFI2262212026000017,서울눅(SEOUL NOOK),general,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:16:04+00:00
+3060000__CDFI2262212026000018,스테이리움,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:16:13+00:00
+3060000__CDFI2262212026000019,zion house(시온 하우스),general,bing_rss,10,0,0,,2026-11-21T23:16:14+00:00
