@@ -196,6 +196,49 @@ def maybe_cancel_definitely_stuck(client: GithubClient, run, artifact):
     return "safe_cancelled_verified_remote"
 
 
+def retire_shadowed_preflight(client: GithubClient, run, artifact):
+    """Cancel ONLY a provably superseded wait-only run that never sent AI.
+
+    GitHub can leave an old worker_ready wait alive after newer runs have
+    already verified and archived later batches. That zombie would otherwise
+    be counted as 'active' forever, blocking recovery after a later failure.
+    Require a checkpoint CREATED AFTER this run, age >10 min, the AI job
+    never started, and exactly the worker_ready wait still active.
+    No cancellation of any job with an AI phase started, no matter how old.
+    """
+    if run.get("status") != "in_progress":
+        return False
+    if seconds_since(run["created_at"]) < 10 * 60:
+        return False
+    if seconds_since(artifact["created_at"]) >= seconds_since(run["created_at"]):
+        return False
+    if artifact.get("workflow_run", {}).get("id") == run["id"]:
+        return False
+    jobs = github_listing(client,
+                          "actions/runs/%d/jobs?per_page=100" % run["id"],
+                          "STALE_WAIT_ONLY_JOB_STEPS")
+    all_jobs = jobs.get("jobs", [])
+    ai = next((j for j in all_jobs if j.get("name") == "ai"), None)
+    if ai is not None:
+        # Even 'queued' AI could have begun asynchronously; fail closed.
+        return False
+    ready = next((j for j in all_jobs if j.get("name") == "worker_ready"), None)
+    if not ready or ready.get("status") != "in_progress":
+        return False
+    stages = ready.get("steps", [])
+    active = [step.get("name") for step in stages
+              if step.get("status") == "in_progress"]
+    if active != ["Verify currently connected corrected Web2API worker, without pinning its run ID"]:
+        return False
+    code, _ = client.request("POST", "actions/runs/%d/cancel" % run["id"])
+    if code not in (202, 409):
+        raise RuntimeError("SHADOWED_PREFLIGHT_CANCEL_HTTP_" + str(code))
+    print("WATCHDOG_SAFE_CANCEL_SHADOWED_NO_AI_RUN", run["id"],
+          "NEWER_CHECKPOINT", artifact["workflow_run"]["id"],
+          "HTTP", code, flush=True)
+    return True
+
+
 def monitor(client: GithubClient):
     runs = relevant_runs(client)
     if not runs:
@@ -213,6 +256,8 @@ def monitor(client: GithubClient):
               flush=True)
         if newest["status"] == "in_progress":
             artifact = latest_artifact(client)
+            if retire_shadowed_preflight(client, newest, artifact):
+                return "shadowed_wait_only_run_cancel_requested"
             decision = maybe_cancel_definitely_stuck(client, newest, artifact)
             print("WATCHDOG_ACTIVE_DECISION", decision, flush=True)
         return "active_safe"
