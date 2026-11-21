@@ -1,0 +1,42 @@
+name: HITEL Scribd verified checkpoint watchdog - every 5 minutes
+
+# A separate runner checks status every five minutes. The schedule may be
+# delayed by GitHub; no action on the UI or a human session is required.
+# NEVER consider five minutes of model generation to be a stalled job.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+# One watchdog at a time. It does not interrupt the classifier's own
+# non-cancelling concurrency group.
+concurrency:
+  group: hitel-scribd-18109-watchdog-five-min
+  cancel-in-progress: false
+
+jobs:
+  monitor-and-recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout the original verified corpus and watchdog
+        uses: actions/checkout@v4
+        with:
+          ref: feature/hitel-public-ai-batches-20261119
+      - name: Confirm watchdog safety tests before remote checks
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/zocbo/hitel_scribd_watchdog.py tools/zocbo/hitel_dispatch_next_verified.py
+          python3 tools/zocbo/test_hitel_scribd_watchdog.py
+          python3 tools/zocbo/test_hitel_dispatch_next_verified.py
+      - name: Read current GitHub Actions and latest verified checkpoint; resume if safe
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python3 tools/zocbo/hitel_scribd_watchdog.py
