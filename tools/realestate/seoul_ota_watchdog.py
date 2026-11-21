@@ -23,7 +23,9 @@ NOW=lambda:dt.datetime.now(dt.timezone.utc)
 REPORT=Path("artifacts/seoul-ota-watchdog/report.json")
 STALE_SECONDS=int(os.getenv("OTA_STALE_SECONDS","480"))
 QUEUE_STALE_SECONDS=900
-NO_HEARTBEAT_GRACE_SECONDS=540
+# An older worker launched before checkpoint support may legitimately take ~15m.
+# New workers with their own heartbeat use the shorter inactivity threshold.
+NO_HEARTBEAT_GRACE_SECONDS=1080
 EVENTS=[]
 SEEN_STALE={}
 LAST_DISPATCH_AT=None
@@ -76,8 +78,8 @@ def decide_worker(active,heartbeat,now):
         return "queued"
     if start_age is None:return "unknown_start"
     if heartbeat.get("_read_error"):return "monitor_read_error"
-    if start_age<=NO_HEARTBEAT_GRACE_SECONDS:return "startup_grace"
     if str(heartbeat.get("run_id"))!=str(active["id"]):
+        if start_age<=NO_HEARTBEAT_GRACE_SECONDS:return "startup_grace"
         return "stale_missing_heartbeat"
     silence=age_seconds(heartbeat.get("updated_at"),now)
     if silence is None:return "stale_invalid_heartbeat"
