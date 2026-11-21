@@ -85,13 +85,11 @@ PLATFORMS = [
 ]
 DOMAIN_MAP = [(d.lower(), pid, label, kind) for pid,label,kind,ds in PLATFORMS for d in ds]
 # Five stages ensure coverage of the entire registry without an exponential site-by-site scan.
-FAMILIES = [
- ("general", []),
- ("global_primary", ["airbnb.com","booking.com","agoda.com","trip.com","hotels.com","expedia.com"]),
- ("global_secondary", ["hostelworld.com","vrbo.com","kayak.com","hotelscombined.com","tripadvisor.com","trivago.com","traveloka.com"]),
- ("korean_ota", ["wehome.me","yanolja.com","yeogi.com","stayfolio.com","myrealtrip.com","tripbtoz.com","tourvis.com","stay.visitseoul.net"]),
- ("short_let_maps", ["33m2.co.kr","liveanywhere.me","mrmention.co.kr","str.zigbang.com","dandanhomes.com","homes.global","life.plott.co.kr","naver.com","kakao.com","google.com","spacecloud.kr"]),
- ("other_channels", ["hotelnjoy.com","hotelpass.com","allmytour.com","ddnayo.com","webtour.com","rakuten.com","jalan.net","priceline.com","klook.com"]),
+# Every registered channel's principal domain is included in exactly one site family.
+# An extra general search can discover further mirror/regional domain variants.
+FAMILIES = [("general",[])] + [
+    (f"platforms_{i//8+1:02}",[p[3][0] for p in PLATFORMS[i:i+8]])
+    for i in range(0,len(PLATFORMS),8)
 ]
 PHONE = re.compile(r"(?<!\d)(?:\+82[\s().-]*|0)(?:2|70|80|1[016789]|[3-6]\d)[\s().-]*\d{3,4}[\s().-]*\d{4}(?!\d)")
 EMAIL = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
@@ -208,7 +206,7 @@ def append_rows(path,rows,cols):
 def search_terms(r,stage):
     name=short_name(r["name"])
     alternate=re.search(r"\(([^()]+)\)",r["name"])
-    if stage.startswith("global") and alternate and re.search(r"[A-Za-z]",alternate.group(1)):
+    if stage in {"platforms_01","platforms_02"} and alternate and re.search(r"[A-Za-z]",alternate.group(1)):
         name=alternate.group(1).strip()
     addr=r["address"]
     road=address_key(addr)
@@ -430,6 +428,7 @@ def build_consolidated_indexes(properties,progress):
 
 def run(args):
     assert len(FAMILIES)==len(set(name for name,_ in FAMILIES))
+    assert set(d for _,domains in FAMILIES for d in domains)==set(p[3][0] for p in PLATFORMS)
     assert len(PLATFORMS)==len(set(p[0] for p in PLATFORMS))
     rows=load_records()
     ROOT.mkdir(parents=True,exist_ok=True)
@@ -544,6 +543,7 @@ def selftest():
     assert PHONE.search("전화 070-8809-0955")
     assert clean_url("https://duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.booking.com%2Fhotel%2Fkr%2Fsample.html")=="https://www.booking.com/hotel/kr/sample.html"
     assert match_grade({"name":"루디아 공예 게스트하우스(Lydia craft Guesthouse)","address":"서울특별시 종로구 사직로9가길 25-6"},"Lydia craft Guesthouse","서울특별시 종로구 사직로9가길 25-6","")=="name_and_road"
+    assert set(d for _,domains in FAMILIES for d in domains)==set(p[3][0] for p in PLATFORMS)
     assert len(PLATFORMS)>=40
     print("SELFTEST_OK platforms="+str(len(PLATFORMS))+" stages="+str(len(FAMILIES)))
 
