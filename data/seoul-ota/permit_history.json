@@ -63850,5 +63850,29 @@
     "permit_phone": "",
     "source_current": "yes",
     "baseline_preserved": "no"
+  },
+  "3020000__CDFI2262212026000253": {
+    "license_id": "3020000__CDFI2262212026000253",
+    "name": "호두 하우스",
+    "address": "서울특별시 용산구 한강대로72길 21-5 (남영동)",
+    "status": "active",
+    "raw_status": "영업/정상",
+    "closed_date": "",
+    "area": "52.89",
+    "permit_phone": "",
+    "source_current": "yes",
+    "baseline_preserved": "no"
+  },
+  "3040000__CDFI2262212026000173": {
+    "license_id": "3040000__CDFI2262212026000173",
+    "name": "THE BRICK 615",
+    "address": "서울특별시 광진구 자양로37길 10-14, 101호 (구의동)",
+    "status": "active",
+    "raw_status": "영업/정상",
+    "closed_date": "",
+    "area": "29.83",
+    "permit_phone": "",
+    "source_current": "yes",
+    "baseline_preserved": "no"
   }
 }
