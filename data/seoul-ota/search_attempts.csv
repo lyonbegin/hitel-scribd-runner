@@ -7701,3 +7701,8 @@
 3020000__CDFI2262212026000058,메종 이태원,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:23:57+00:00
 3020000__CDFI2262212026000059,우주민박 003,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:24:05+00:00
 3020000__CDFI2262212026000060,스테이 그리움,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:24:13+00:00
+3020000__CDFI2262212026000065,원보이,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:24:23+00:00
+3020000__CDFI2262212026000068,마리모 스테이 서울,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:24:32+00:00
+3020000__CDFI2262212026000069,서울 플로우 스테이,platforms_03,bing_rss,10,0,0,,2026-11-21T19:24:33+00:00
+3020000__CDFI2262212026000071,마노아,platforms_03,bing_rss,10,0,0,,2026-11-21T19:24:35+00:00
+3020000__CDFI2262212026000072,스테이 하나 용산,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T19:24:43+00:00
