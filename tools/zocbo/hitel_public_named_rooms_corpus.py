@@ -168,6 +168,33 @@ def validated_rows(reply,batch,identity_repair_audit=None):
             candidates.append(normalized)
         elif (len(rows)==len(batch)
               and {no for no,_ in actual}==set(source_ids)
+              and len({no for no,_ in actual})==len(rows)
+              and sum(raw_id!=source_ids[no] for no,raw_id in actual)==1
+              and any(
+                  raw_id not in expected_ids
+                  and raw_id.isdecimal() and source_ids[no].isdecimal()
+                  and len(raw_id)==len(source_ids[no])
+                  and sum(a!=b for a,b in zip(raw_id,source_ids[no]))==1
+                  for no,raw_id in actual if raw_id!=source_ids[no])):
+            # A single decimal digit was miscopied for exactly one of the
+            # twenty already-numbered source rows. Every other row has the
+            # exact hash-pinned Scribd ID; preserve the raw model reply SHA,
+            # record the changed value and normalize only the source ID.
+            wrong=[(no,raw_id,source_ids[no])
+                   for no,raw_id in actual if raw_id!=source_ids[no]]
+            no,incorrect,correct=wrong[0]
+            normalized=[{**row,"id":source_ids[int(row["no"])]}
+                        for row in rows]
+            if identity_repair_audit is not None:
+                identity_repair_audit.append({
+                    "no":no,"model_id":incorrect,
+                    "verified_source_id":correct,
+                    "reason":"exact row numbers, 19 exact IDs and one digit transcription; source SHA pinned"})
+            print("AI_ONE_DIGIT_SOURCE_ID_TRANSCRIPTION_AUDITED",no,
+                  "MODEL_ID",incorrect,"SOURCE_ID",correct,flush=True)
+            candidates.append(normalized)
+        elif (len(rows)==len(batch)
+              and {no for no,_ in actual}==set(source_ids)
               and len({no for no,_ in actual})==len(rows)):
             # The AI sometimes copies an adjacent document's ID even though
             # its row number and classification are correct. Preserve the
