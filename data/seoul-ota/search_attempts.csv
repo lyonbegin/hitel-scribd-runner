@@ -10786,3 +10786,8 @@
 3050000__CDFI2262212025000017,Nook Hoegi,platforms_01,bing_rss,10,0,0,,2026-11-21T23:24:59+00:00
 3050000__CDFI2262212025000018,코지스테이,platforms_01,bing_rss,10,0,0,,2026-11-21T23:25:01+00:00
 3050000__CDFI2262212025000019,갤러리 4,platforms_01,no_results,0,0,0,,2026-11-21T23:25:02+00:00
+3050000__CDFI2262212025000020,여유재,platforms_01,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T23:25:06+00:00
+3050000__CDFI2262212025000021,더 테라스 서울,platforms_01,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T23:25:08+00:00
+3050000__CDFI2262212025000022,마네스 하우스,platforms_01,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T23:25:09+00:00
+3050000__CDFI2262212025000023,온재 스테이 동대문,platforms_01,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T23:25:11+00:00
+3050000__CDFI2262212025000026,스테이 코지엘,platforms_01,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T23:25:13+00:00
