@@ -31,7 +31,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: hitel-scribd-ai-18109-transport
+  group: hitel-scribd-ai-18109-transport-v2
   cancel-in-progress: false
 
 jobs:
@@ -93,7 +93,7 @@ jobs:
           # classifier continues. Never cancel a worker or resend a chat.
           while true; do
             WORKER_RUN="$(gh api 'repos/lyonbegin/procureflow/actions/runs?per_page=20&status=in_progress' \
-              --jq '[.workflow_runs[] | select(.name == "HITEL - Start Chrome API worker (manual) / Verify owner pairing" and .head_branch == "main") | .id] | first // empty')"
+              --jq '[.workflow_runs[] | select(.path == ".github/workflows/hitel-integration-bridge-live-qa.yml" and .head_branch == "main") | .id] | first // empty')"
             if [[ -n "$WORKER_RUN" ]]; then
               ACTIVE_STEP="$(gh api "repos/lyonbegin/procureflow/actions/runs/$WORKER_RUN/jobs" \
                 --jq '[.jobs[].steps[]? | select(.name == "Keep connected worker running for the selected session") | .status] | first // ""')"
