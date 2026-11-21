@@ -157,6 +157,58 @@ class HttpOnceOnlyTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError,"OIDC_PRODUCER_NOT_AVAILABLE"):
                     runner.isolated_chat_once(state,"prompt")
 
+    def test_exact_2181_oidc_push_403_can_retry_once_only_on_signed_dispatch(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/"http"/"02181-02200.json"
+            digest="c58ef9aed39a78d6ed52838df6a2d4b5a1974f6441939df40ac8175790f18fb1"
+            state={"key":"02181-02200","digest":digest,
+                   "source_ids":[{"no":i,"id":str(750000000+i)}
+                                 for i in range(2181,2201)],
+                   "request_id":"scribd18109-02181-02200-"+digest[:32],
+                   "room_name":"HITEL-SCRIBD-18109-PROVEN-HTTP-20261121-02181-02200",
+                   "task_id":"scribd-18109","status":"prepared",
+                   "submit_attempted":True}
+            runner.save(path,state)
+            accepted={"request_id":state["request_id"],
+                      "room_id":"room_"+"a"*32,"job_id":"job_"+"b"*32,
+                      "accepted":True}
+            with patch.dict("os.environ",{"GITHUB_EVENT_NAME":"workflow_dispatch"}):
+                with patch.object(runner,"fetch_existing",return_value=None):
+                    with patch.object(runner,"isolated_chat_once",
+                                      return_value=(202,accepted)) as post:
+                        out=runner.ensure_one_http_job(path,state,"prompt")
+            self.assertEqual(out["job_id"],accepted["job_id"])
+            post.assert_called_once()
+            audit=path.parent/"producer_rejections"/"02181-02200.json"
+            self.assertTrue(audit.exists())
+            self.assertTrue(json.loads(audit.read_text())["single_recovery_only"])
+            # If a later POST failed with an uncertain outcome, the audit
+            # marker blocks any second submission even when GET is 404.
+            state.pop("job_id",None)
+            with patch.dict("os.environ",{"GITHUB_EVENT_NAME":"workflow_dispatch"}):
+                with patch.object(runner,"fetch_existing",return_value=None):
+                    with patch.object(runner,"isolated_chat_once") as post:
+                        with self.assertRaisesRegex(RuntimeError,"ALREADY_RECOVERED"):
+                            runner.ensure_one_http_job(path,state,"prompt")
+                        post.assert_not_called()
+
+    def test_2181_push_event_may_not_recover_prior_403(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/"http"/"02181-02200.json"
+            digest="c58ef9aed39a78d6ed52838df6a2d4b5a1974f6441939df40ac8175790f18fb1"
+            state={"key":"02181-02200","digest":digest,
+                   "source_ids":[{"no":i} for i in range(2181,2201)],
+                   "request_id":"scribd18109-02181-02200-"+digest[:32],
+                   "room_name":"HITEL-SCRIBD-18109-PROVEN-HTTP-20261121-02181-02200",
+                   "task_id":"scribd-18109","submit_attempted":True}
+            runner.save(path,state)
+            with patch.dict("os.environ",{"GITHUB_EVENT_NAME":"push"}):
+                with patch.object(runner,"fetch_existing",return_value=None):
+                    with patch.object(runner,"isolated_chat_once") as post:
+                        with self.assertRaisesRegex(RuntimeError,"REFUSE_DUPLICATE_SEND"):
+                            runner.ensure_one_http_job(path,state,"prompt")
+                        post.assert_not_called()
+
     def test_one_post_and_checkpoint_then_resume_with_no_second_post(self):
         with tempfile.TemporaryDirectory() as d:
             path,state=self.state(d)
