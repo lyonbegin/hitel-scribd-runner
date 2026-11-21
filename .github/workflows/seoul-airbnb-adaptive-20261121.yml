@@ -41,7 +41,7 @@ jobs:
               thread.s.headers.update({'User-Agent':'Mozilla/5.0','Accept-Language':'ko-KR,ko;q=0.9,en;q=0.8'})
             a,b,c,d=bounds
             params={'search_by_map':'true','ne_lat':round(b,7),'ne_lng':round(d,7),'sw_lat':round(a,7),'sw_lng':round(c,7),'query':'Seoul, South Korea'}
-            url='https://www.airbnb.com/s/Seoul--South-Korea/homes'
+            url='https://ko.airbnb.com/s/Seoul--South-Korea/homes'
             last_error=''
             for retry in range(3):
               try:
