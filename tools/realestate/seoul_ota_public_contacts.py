@@ -137,26 +137,54 @@ def clean_url(href):
     return urllib.parse.urlunparse((p.scheme,p.netloc,p.path,"",p.query,""))
 
 def load_records():
-    with SOURCE.open(encoding="utf-8-sig",newline="") as f:
-        rows=list(csv.DictReader(f))
-    good={}
-    for r in rows:
-        status=r.get("영업상태명","")
-        if status != "폐업" and "영업" not in status:continue
-        code=r.get("개방자치단체코드","")
-        num=r.get("관리번호","")
-        name=r.get("사업장명","").strip()
-        address=r.get("도로명주소","").strip() or r.get("지번주소","").strip()
-        if not (code and num and name):continue
-        key=code+"__"+num
-        good[key]={"license_id":key,"name":name,"address":address,
-                   "status":"closed" if status=="폐업" else "active",
-                   "closed_date":r.get("폐업일자",""),
-                   "area":r.get("시설면적",""),
-                   "permit_phone":r.get("전화번호","").strip()}
-    if len(rows)<5000 or len(good)<4500:
-        raise RuntimeError("Incomplete official input; refusing to advance scan cursor")
-    return good
+    """Union of archived 2026-11-21 baseline, previously stored history and latest 25-district CSV.
+    Historical permits are never silently deleted when the public upstream index changes.
+    """
+    if not SOURCE.exists():raise RuntimeError("Latest official permits not available")
+    history_path=ROOT/"permit_history.json"
+    try:
+        history=json.loads(history_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        history={}
+    def read_permits(path):
+        with path.open(encoding="utf-8-sig",newline="") as f:
+            raw=list(csv.DictReader(f))
+        result={}
+        for r in raw:
+            code=r.get("개방자치단체코드","").strip()
+            num=r.get("관리번호","").strip()
+            name=r.get("사업장명","").strip()
+            if not (code and num and name):continue
+            status=r.get("영업상태명","")
+            key=code+"__"+num
+            result[key]={"license_id":key,"name":name,
+                "address":r.get("도로명주소","").strip() or r.get("지번주소","").strip(),
+                "status":"closed" if status=="폐업" else ("active" if status=="영업/정상" else "other_inactive"),
+                "raw_status":status,"closed_date":r.get("폐업일자",""),
+                "area":r.get("시설면적",""),
+                "permit_phone":r.get("전화번호","").strip()}
+        return result,len(raw)
+    baseline_path=pathlib.Path("artifacts/seoul-baseline/seoul_facility_le60.csv")
+    baseline={}
+    if baseline_path.exists():
+        baseline,_=read_permits(baseline_path)
+    latest,source_total=read_permits(SOURCE)
+    for key,r in baseline.items():
+        if r["status"] in {"active","closed"} and key not in history:
+            history[key]=dict(r,source_current="no",baseline_preserved="yes")
+    for key,r in latest.items():
+        if r["status"] in {"active","closed"}:
+            history[key]=dict(r,source_current="yes",baseline_preserved=("yes" if key in baseline else history.get(key,{}).get("baseline_preserved","no")))
+        elif key in history:
+            history[key]["status"]="other_inactive"
+            history[key]["raw_status"]=r["raw_status"]
+            history[key]["source_current"]="yes"
+    for key,r in history.items():
+        if key not in latest:r["source_current"]="no"
+    if source_total<5000 or len(history)<5000:
+        raise RuntimeError("Incomplete official permit data; refusing to replace historical archive")
+    atomic_json(history_path,history)
+    return history
 
 def load_json(path,default):
     try:return json.loads(path.read_text(encoding="utf-8"))
@@ -266,8 +294,11 @@ def match_grade(record,title,snippet,page_text):
     # Name-only may be a DIFFERENT business. Only exact street + name is a strong match.
     hay=normalize(" ".join([title,snippet,page_text]))
     n=normalize(short_name(record["name"]))
+    aliases=[n]
+    alias=re.search(r"\(([^()]+)\)",record["name"])
+    if alias:aliases.append(normalize(alias.group(1)))
     a=address_key(record["address"])
-    name_ok=bool(n and len(n)>=4 and n in hay)
+    name_ok=any(len(x)>=4 and x in hay for x in aliases)
     addr_ok=bool(a and a in hay)
     if name_ok and addr_ok:return "name_and_road"
     if name_ok:return "name_only_unverified"
@@ -332,8 +363,9 @@ def build_consolidated_indexes(properties,progress):
     for r in seed:
         key=r.get("license_id","")
         if key not in properties:continue
-        links.append({"license_id":key,"business_name":properties[key]["name"],
-            "source_platform":r["source_platform"],"url":r["source_url"],
+        if r["source_platform"]!="강남구청 공식명부":
+            links.append({"license_id":key,"business_name":properties[key]["name"],
+                "source_platform":r["source_platform"],"url":r["source_url"],
             "evidence_grade":r["evidence_grade"],"source_kind":"previously_reviewed"})
         if r.get("public_business_phone",""):
             contacts.append({"license_id":key,"business_name":properties[key]["name"],
@@ -380,6 +412,7 @@ def build_consolidated_indexes(properties,progress):
             "closed_date":p["closed_date"],"permit_address":p["address"],"facility_area_sqm":p["area"],
             "known_public_phone_count":len(phones_by.get(key,set())),
             "listing_link_count":len(links_by.get(key,set())),
+            "source_in_latest_snapshot":p.get("source_current","unknown"),
             "search_stage_completed":int(state.get("stage_idx",0)),
             "last_search_at":state.get("last_attempt",""),
             "exclusive_area_verified":"no","operator_owner_verified":"no",
@@ -387,7 +420,7 @@ def build_consolidated_indexes(properties,progress):
     write_complete_csv(ROOT/"all_properties_contact_summary.csv",summary,
         ["license_id","business_name","permit_status","closed_date","permit_address",
         "facility_area_sqm","known_public_phone_count","listing_link_count",
-        "search_stage_completed","last_search_at","exclusive_area_verified",
+        "source_in_latest_snapshot","search_stage_completed","last_search_at","exclusive_area_verified",
         "operator_owner_verified","phone_connection_verified"])
     return {"records":len(summary),"prior_source_records":len(seed),
             "public_contact_source_rows":len(uniq_contact),
@@ -402,8 +435,14 @@ def run(args):
     ROOT.mkdir(parents=True,exist_ok=True)
     state=load_json(ROOT/"state.json",{"version":1,"progress":{},"first_started_at":STAMP()})
     progress=state.get("progress",{})
-    ids=sorted(rows,key=lambda k:(int(progress.get(k,{}).get("stage_idx",0)),
-                                  progress.get(k,{}).get("last_attempt",""),k))
+    # Finish all six platform families for already-started properties before
+    # opening another batch. This produces actionable, complete per-property audits.
+    def priority(k):
+        stage=int(progress.get(k,{}).get("stage_idx",0))
+        if 0<stage<len(FAMILIES):return (0,stage,progress.get(k,{}).get("last_attempt",""),k)
+        if stage==0:return (1,0,"",k)
+        return (2,stage,progress.get(k,{}).get("last_attempt",""),k)
+    ids=sorted(rows,key=priority)
     selected=ids[:args.batch_size]
     seen=set()
     if (ROOT/"listing_evidence.csv").exists():
@@ -482,7 +521,9 @@ def run(args):
     atomic_json(ROOT/"state.json",state)
     manifest={"run_time":STAMP(),"official_rows":len(rows),"active":sum(r["status"]=="active" for r in rows.values()),
       "closed":sum(r["status"]=="closed" for r in rows.values()),
-      "missing_public_address":sum(not r["address"] for r in rows.values()),"platform_count":len(PLATFORMS),
+      "missing_public_address":sum(not r["address"] for r in rows.values()),
+      "historical_not_in_latest":sum(r.get("source_current")=="no" for r in rows.values()),
+      "platform_count":len(PLATFORMS),
       "platforms":[{"id":x[0],"label":x[1],"category":x[2],"domains":x[3]} for x in PLATFORMS],
       "stages":len(FAMILIES),"last_run":state["last_run"],
       "consolidated_index":index_counts,
@@ -502,6 +543,7 @@ def selftest():
     assert domain_info("https://homes.global/ko/brands/stay")[0]=="homes"
     assert PHONE.search("전화 070-8809-0955")
     assert clean_url("https://duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.booking.com%2Fhotel%2Fkr%2Fsample.html")=="https://www.booking.com/hotel/kr/sample.html"
+    assert match_grade({"name":"루디아 공예 게스트하우스(Lydia craft Guesthouse)","address":"서울특별시 종로구 사직로9가길 25-6"},"Lydia craft Guesthouse","서울특별시 종로구 사직로9가길 25-6","")=="name_and_road"
     assert len(PLATFORMS)>=40
     print("SELFTEST_OK platforms="+str(len(PLATFORMS))+" stages="+str(len(FAMILIES)))
 
