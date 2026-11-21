@@ -73,10 +73,12 @@ PLATFORMS = [
  ("33m2","삼삼엠투","short_let",["33m2.co.kr"]),
  ("liveanywhere","리브애니웨어","short_let",["liveanywhere.me"]),
  ("mrmention","미스터멘션","short_let",["mrmention.co.kr"]),
- ("dandan","단단홈즈","short_let",["dandan.homes","dandanhomes.com"]),
- ("homestay","홈즈스테이 / 홈즈","short_let",["homestay.com","homescompany.kr"]),
- ("zipbang","직방","short_let",["zigbang.com"]),
+ ("dandan","단단홈즈","short_let",["dandanhomes.com"]),
+ ("homes","HOMES / 홈즈스테이 (운영사)","managed_stay",["homes.global","homes-stay.com"]),
+ ("zipbang","직방 단기임대","short_let",["str.zigbang.com","zigbang.com"]),
  ("spacecloud","스페이스클라우드","space_rental",["spacecloud.kr"]),
+ ("blueground","블루그라운드","short_let",["theblueground.com"]),
+ ("coupangtravel","쿠팡트래블","korean_ota",["coupang.com"]),
 ]
 DOMAIN_MAP = [(d.lower(), pid, label, kind) for pid,label,kind,ds in PLATFORMS for d in ds]
 # Five stages ensure coverage of the entire registry without an exponential site-by-site scan.
@@ -85,10 +87,10 @@ FAMILIES = [
  ("global_primary", ["airbnb.com","booking.com","agoda.com","trip.com","hotels.com","expedia.com"]),
  ("global_secondary", ["hostelworld.com","vrbo.com","kayak.com","hotelscombined.com","tripadvisor.com","trivago.com","traveloka.com"]),
  ("korean_ota", ["wehome.me","yanolja.com","yeogi.com","stayfolio.com","myrealtrip.com","tripbtoz.com","tourvis.com","stay.visitseoul.net"]),
- ("short_let_maps", ["33m2.co.kr","liveanywhere.me","mrmention.co.kr","zigbang.com","naver.com","kakao.com","google.com","spacecloud.kr"]),
+ ("short_let_maps", ["33m2.co.kr","liveanywhere.me","mrmention.co.kr","str.zigbang.com","dandanhomes.com","homes.global","naver.com","kakao.com","google.com","spacecloud.kr"]),
  ("other_channels", ["hotelnjoy.com","hotelpass.com","allmytour.com","ddnayo.com","webtour.com","rakuten.com","jalan.net","priceline.com","klook.com"]),
 ]
-PHONE = re.compile(r"(?<!\d)(?:\+82[\s().-]*|0)(?:2|1[016789]|[3-6]\d)[\s().-]*\d{3,4}[\s().-]*\d{4}(?!\d)")
+PHONE = re.compile(r"(?<!\d)(?:\+82[\s().-]*|0)(?:2|70|80|1[016789]|[3-6]\d)[\s().-]*\d{3,4}[\s().-]*\d{4}(?!\d)")
 EMAIL = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
 BLACKLIST_PHRASES = {"customer service","contact support","고객센터","고객 지원","예약고객센터","고객센터 전화"}
 SESSION = requests.Session()
@@ -111,6 +113,8 @@ def address_key(address):
 def domain_info(url):
     p = urllib.parse.urlparse(url)
     netloc = (p.hostname or "").lower().strip(".")
+    if netloc in {"blog.naver.com","m.blog.naver.com"}:return None
+    if "/Attraction_Review" in p.path:return None
     for domain,pid,label,kind in sorted(DOMAIN_MAP,key=lambda x:-len(x[0])):
         if netloc == domain or netloc.endswith("."+domain):
             return pid,label,kind
@@ -137,7 +141,7 @@ def load_records():
         num=r.get("관리번호","")
         name=r.get("사업장명","").strip()
         address=r.get("도로명주소","").strip() or r.get("지번주소","").strip()
-        if not (code and num and name and address):continue
+        if not (code and num and name):continue
         key=code+"__"+num
         good[key]={"license_id":key,"name":name,"address":address,
                    "status":"closed" if status=="폐업" else "active",
@@ -169,12 +173,15 @@ def append_rows(path,rows,cols):
 
 def search_terms(r,stage):
     name=short_name(r["name"])
+    alternate=re.search(r"\(([^()]+)\)",r["name"])
+    if stage.startswith("global") and alternate and re.search(r"[A-Za-z]",alternate.group(1)):
+        name=alternate.group(1).strip()
     addr=r["address"]
     road=address_key(addr)
     road_human=re.search(r"([가-힣0-9]+(?:로|길)[가-힣0-9-]*\s*\d+(?:-\d+)?)",addr)
     district=(re.search(r"서울특별시\s+([가-힣]+구)",addr) or [None,"서울"])[1]
     if stage=="general":
-        return f'"{name}" "{district}" 숙소 게스트하우스'
+        return f'"{name}" 서울'
     domains=dict(FAMILIES)[stage]
     # A constrained OR query; search results are not counted as a listing unless a target URL is found.
     sides=" OR ".join("site:"+d for d in domains)
@@ -306,6 +313,14 @@ def run(args):
         stage=FAMILIES[stage_idx % len(FAMILIES)][0]
         query=search_terms(rec,stage)
         results,engine,errs=get_search_results(query,args.max_results)
+        # Korean registered names may have an English OTA listing title.
+        if not results:
+            alias=re.search(r"\(([^()]+)\)",rec["name"])
+            if alias and re.search(r"[A-Za-z]",alias.group(1)):
+                retry,engine2,errs2=get_search_results(f'"{alias.group(1).strip()}" Seoul',args.max_results)
+                errs.extend(errs2)
+                if retry:
+                    results,engine=retry,engine2
         hits=0;good=0
         if engine=="unavailable":
             attempts.append({"license_id":key,"business_name":rec["name"],"stage":stage,
@@ -322,6 +337,9 @@ def run(args):
             pid,label,kind=d
             text,err=page_content(url)
             grade=match_grade(rec,title,snippet,text)
+            if grade=="unverified":
+                COUNTS["irrelevant_result_rejected"]+=1
+                continue
             phone,email=published_contacts(text,title,snippet,grade)
             status="public_contact_address_matched" if (phone or email) else "listing_candidate_only"
             evidence.append({"license_id":key,"business_name":rec["name"],
@@ -356,7 +374,8 @@ def run(args):
                        "counts":dict(COUNTS)}
     atomic_json(ROOT/"state.json",state)
     manifest={"run_time":STAMP(),"official_rows":len(rows),"active":sum(r["status"]=="active" for r in rows.values()),
-      "closed":sum(r["status"]=="closed" for r in rows.values()),"platform_count":len(PLATFORMS),
+      "closed":sum(r["status"]=="closed" for r in rows.values()),
+      "missing_public_address":sum(not r["address"] for r in rows.values()),"platform_count":len(PLATFORMS),
       "platforms":[{"id":x[0],"label":x[1],"category":x[2],"domains":x[3]} for x in PLATFORMS],
       "stages":len(FAMILIES),"last_run":state["last_run"],
       "critical":"Search hits are NOT verified accommodation listings. Only 'name_and_road' evidence supports an address match; contacts are NOT call-verified. The permit area is NOT exclusive area.",
@@ -372,6 +391,8 @@ def selftest():
     assert domain_info("https://notbooking.com/hotel/kr/abc.html") is None
     assert match_grade({"name":"샘154하우스","address":"서울특별시 종로구 필운대로5길 15"},"샘154하우스","서울 종로구 필운대로5길 15","")=="name_and_road"
     assert published_contacts("전화번호 010-3249-0106 문의처", "", "", "name_only_unverified")==("","")
+    assert domain_info("https://homes.global/ko/brands/stay")[0]=="homes"
+    assert PHONE.search("전화 070-8809-0955")
     assert len(PLATFORMS)>=40
     print("SELFTEST_OK platforms="+str(len(PLATFORMS))+" stages="+str(len(FAMILIES)))
 
