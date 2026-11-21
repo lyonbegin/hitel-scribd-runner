@@ -1,0 +1,100 @@
+name: Seoul full lodging registry historic licensed properties
+on:
+  push:
+    branches: ["research/seoul-airbnb-registry-20261121"]
+    paths: [".github/workflows/seoul-airbnb-full-registry-20261121.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Download official CSV or retrieve every page of open licensed-lodging API
+        shell: bash
+        run: |
+          mkdir -p out
+          python - <<'PY'
+          import requests, json, csv, io, time, collections, os
+          from pathlib import Path
+          p=Path('out');s=requests.Session()
+          s.headers.update({'User-Agent':'Mozilla/5.0 (compatible; PropertyResearch/1.0)','Accept':'application/json,text/csv,*/*'})
+          audit={'sources':[],'errors':[],'pages':[]}
+          source='official_csv'
+          official='https://file.localdata.go.kr/file/foreigner_city_homestays/info'
+          try:
+            s.get(official,timeout=12)
+            r=s.get('https://file.localdata.go.kr/file/download/foreigner_city_homestays/info',headers={'Referer':official},timeout=60)
+            audit['sources'].append({'source':'LOCALDATA original urbanstay csv','http':r.status_code,'size':len(r.content),'mime':r.headers.get('content-type')})
+            if r.ok and len(r.content)>10000 and b',' in r.content[:2000]:
+              (p/'official_urbanstay_national_original.csv').write_bytes(r.content)
+            else:
+              source='kstay_api'
+          except Exception as e:
+            source='kstay_api';audit['errors'].append({'official_url':official,'error':str(e)[:240]})
+          # Use independent paginated public licensing registry to collect every Seoul historical record.
+          url='https://k-stay.ai/api/listings'
+          records=[];page=1;per=250;expected=None;last_sig=None
+          while page<=120:
+            params={'sido':'서울특별시','page':page,'per_page':per}
+            for attempt in range(3):
+              try:
+                res=s.get(url,params=params,timeout=55)
+                res.raise_for_status();payload=res.json();break
+              except Exception as e:
+                if attempt==2:raise
+                time.sleep(2*(attempt+1))
+            items=payload.get('data') or []
+            expected=int(payload.get('total') or expected or 0)
+            sig=(items[0].get('id'),items[-1].get('id')) if items else None
+            print('KSTAY_PAGE',page,'ROWS',len(items),'TOTAL',expected,'FIRST_LAST',sig,flush=True)
+            audit['pages'].append({'page':page,'count':len(items)})
+            if not items:break
+            if sig==last_sig:
+              audit['errors'].append({'error':'repeated page','page':page});break
+            last_sig=sig
+            records.extend(items)
+            if len(records)>=expected or len(items)<per:break
+            page+=1;time.sleep(0.1)
+          keys=set();uniq=[]
+          for r in records:
+            k=(r.get('category'),r.get('mgt_no') or r.get('id'),r.get('road_address') or r.get('parcel_address'))
+            if k not in keys:keys.add(k);uniq.append(r)
+          fields=['id','category','mgt_no','biz_name','license_date','status_name','detail_status','close_date','road_address','parcel_address','rooms','building_use','area_sqm','sido','sigungu','dong','update_at','source']
+          def transform(row):
+            raw=row.get('raw_json')
+            try: raw=json.loads(raw) if isinstance(raw,str) else (raw or {})
+            except:raw={}
+            return {'id':row.get('id'),'category':row.get('category'),'mgt_no':row.get('mgt_no'),'biz_name':row.get('biz_name'),
+              'license_date':row.get('license_date'),'status_name':row.get('status_name'),'detail_status':row.get('detail_status'),'close_date':row.get('close_date'),
+              'road_address':row.get('road_address'),'parcel_address':row.get('parcel_address'),'rooms':row.get('rooms'),
+              'building_use':raw.get('건물용도명',''),'area_sqm':raw.get('시설면적') or raw.get('건축연면적') or '',
+              'sido':row.get('sido'),'sigungu':row.get('sigungu'),'dong':row.get('dong'),
+              'update_at':row.get('update_at'),'source':'K-STAY publicly accessible API; underlying LOCALDATA'}
+          def write_csv(name,rs):
+            with (p/name).open('w',encoding='utf-8-sig',newline='') as f:
+              w=csv.DictWriter(f,fieldnames=fields);w.writeheader();w.writerows([transform(r) for r in rs])
+          write_csv('seoul_registered_all_categories.csv',uniq)
+          urban=[r for r in uniq if r.get('category')=='foreigner_city_homestays']
+          hanok=[r for r in uniq if r.get('category')=='hanok_experience']
+          ceased=[r for r in uniq if str(r.get('status_name') or '')!='영업/정상']
+          write_csv('seoul_urban_homestay_all_status.csv',urban)
+          write_csv('seoul_hanok_experience_all_status.csv',hanok)
+          write_csv('seoul_nonactive_lodging_history.csv',ceased)
+          group=collections.Counter((r.get('category'),r.get('status_name')) for r in uniq)
+          audit.update({'retrieval':'kstay_api','expected_total':expected,'fetched_rows':len(records),'unique_rows':len(uniq),
+            'urban_all_status':len(urban),'hanok_all_status':len(hanok),'nonactive_all_category':len(ceased),
+            'pagination_complete':len(records)>=expected if expected else False,'by_category_and_status':[{ 'category':k[0], 'status':k[1], 'count':v} for k,v in group.items()]})
+          (p/'audit.json').write_text(json.dumps(audit,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('VERIFIED_SUMMARY',json.dumps({k:audit[k] for k in ('expected_total','fetched_rows','unique_rows','urban_all_status','hanok_all_status','nonactive_all_category','pagination_complete')},ensure_ascii=False),flush=True)
+          if len(uniq)<1000 or not audit['pagination_complete']:raise SystemExit('ERROR: Complete Seoul registry not verified; see logs')
+          PY
+      - name: Upload complete registry CSV files and provenance logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoul-licensed-lodging-full-historical-20261121
+          path: out/
+          retention-days: 14
+          if-no-files-found: warn
