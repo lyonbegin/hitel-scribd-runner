@@ -2621,3 +2621,8 @@
 3000000__CDFI2262212026000151,"느마루, 종로",platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:07:35+00:00
 3000000__CDFI2262212026000152,유어홈 서울,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:07:43+00:00
 3000000__CDFI2262212026000153,스테이 아트리움 동대문,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:07:51+00:00
+3000000__CDFI2262212026000154,PALACE MOMENT,platforms_03,bing_rss,1,0,0,,2026-11-21T13:07:54+00:00
+3000000__CDFI2262212026000156,클라우드,platforms_03,bing_rss,10,0,0,,2026-11-21T13:07:56+00:00
+3000000__CDFI2262212026000157,안국 캐빈(ANGUK CABIN),platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:08:11+00:00
+3000000__CDFI2262212026000158,혜화 온 스테이,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T13:08:19+00:00
+3000000__CDFI2262212026000160,STAY WON Slow Seochon,platforms_03,bing_rss,7,0,0,,2026-11-21T13:08:21+00:00
