@@ -11106,3 +11106,8 @@
 3050000__CDFI2262212026000006,79스테이,platforms_02,bing_rss,10,0,0,,2026-11-21T23:48:31+00:00
 3050000__CDFI2262212026000007,어반한옥,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:48:40+00:00
 3050000__CDFI2262212026000008,오라하우스,platforms_02,bing_rss,10,0,0,,2026-11-21T23:48:41+00:00
+3050000__CDFI2262212026000009,스테이 아늑,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:48:51+00:00
+3050000__CDFI2262212026000012,동대문 스테이,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:48:59+00:00
+3050000__CDFI2262212026000013,슬로우 스테이,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:49:08+00:00
+3050000__CDFI2262212026000022,브리드 맨션(BREATH MANSION),platforms_02,bing_rss,7,0,0,,2026-11-21T23:49:09+00:00
+3050000__CDFI2262212026000023,이음스테이 청량,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:49:17+00:00
