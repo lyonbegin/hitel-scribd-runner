@@ -7633,7 +7633,7 @@
   },
   "3010000__CDFI2262212026000113": {
     "license_id": "3010000__CDFI2262212026000113",
-    "name": "스테이 호야",
+    "name": "호 스테이",
     "address": "서울특별시 중구 마장로15길 2-14, 3층 (황학동)",
     "status": "active",
     "raw_status": "영업/정상",
@@ -49333,7 +49333,7 @@
   },
   "3150000__CDFI2262212026000060": {
     "license_id": "3150000__CDFI2262212026000060",
-    "name": "스테이 증미(Stay Jeungmi)",
+    "name": "Stay Clover",
     "address": "서울특별시 강서구 공항대로53나길 6-24, 102호 (등촌동)",
     "status": "active",
     "raw_status": "영업/정상",
@@ -63860,7 +63860,7 @@
     "closed_date": "",
     "area": "52.89",
     "permit_phone": "",
-    "source_current": "no",
+    "source_current": "yes",
     "baseline_preserved": "no"
   },
   "3040000__CDFI2262212026000173": {
@@ -63872,7 +63872,7 @@
     "closed_date": "",
     "area": "29.83",
     "permit_phone": "",
-    "source_current": "no",
+    "source_current": "yes",
     "baseline_preserved": "no"
   },
   "3010000__CDFI2262212026000114": {
@@ -63884,7 +63884,7 @@
     "closed_date": "",
     "area": "45.2",
     "permit_phone": "",
-    "source_current": "yes",
+    "source_current": "no",
     "baseline_preserved": "no"
   },
   "3200000__CDFI2262212026000243": {
@@ -63931,6 +63931,30 @@
     "raw_status": "영업/정상",
     "closed_date": "",
     "area": "35",
+    "permit_phone": "",
+    "source_current": "yes",
+    "baseline_preserved": "no"
+  },
+  "3220000__CDFI2262212026000292": {
+    "license_id": "3220000__CDFI2262212026000292",
+    "name": "801 서울",
+    "address": "서울특별시 강남구 강남대로58길 34, 경덕빌딩 801호 (도곡동)",
+    "status": "active",
+    "raw_status": "영업/정상",
+    "closed_date": "",
+    "area": "59",
+    "permit_phone": "",
+    "source_current": "yes",
+    "baseline_preserved": "no"
+  },
+  "3220000__CDFI2262212026000293": {
+    "license_id": "3220000__CDFI2262212026000293",
+    "name": "Lee 하우스",
+    "address": "서울특별시 강남구 테헤란로55길 45, 302호 (역삼동)",
+    "status": "active",
+    "raw_status": "영업/정상",
+    "closed_date": "",
+    "area": "29.99",
     "permit_phone": "",
     "source_current": "yes",
     "baseline_preserved": "no"
