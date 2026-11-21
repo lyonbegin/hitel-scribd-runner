@@ -31,7 +31,10 @@ def recover():
     current=state_count(ROOT/"state.json")
     print("RECOVERY_CURRENT_STAGE_TOTAL",current,flush=True)
     try:
-        runs=api(f"repos/{REPO}/actions/runs?per_page=35")["workflow_runs"]
+        try:
+            runs=api(f"repos/{REPO}/actions/workflows/{WORKFLOW}/runs?per_page=35")["workflow_runs"]
+        except Exception:
+            runs=api(f"repos/{REPO}/actions/runs?per_page=100")["workflow_runs"]
     except Exception as e:
         print("RECOVERY_RUN_LIST_FAILED",repr(e),flush=True)
         return False
