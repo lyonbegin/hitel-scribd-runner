@@ -51,7 +51,7 @@ jobs:
               raise SystemExit('SOURCE_INCOMPLETE: refusing partial input')
           PY
       - name: Discover public OTA and short-let listing evidence
-        run: python tools/realestate/seoul_ota_public_contacts.py --batch-size 80 --max-results 10 --delay 1.2
+        run: python tools/realestate/seoul_ota_public_contacts.py --batch-size 12 --max-results 10 --delay 1.2
       - name: Validate complete 5k-property contact index
         run: |
           python - <<'PY'
