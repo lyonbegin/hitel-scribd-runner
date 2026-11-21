@@ -5391,3 +5391,8 @@
 3020000__CDFI2262212024000027,ZEA House,general,bing_rss,10,0,0,,2026-11-21T16:45:20+00:00
 3020000__CDFI2262212024000029,오브제니,general,bing_rss,10,0,0,,2026-11-21T16:45:22+00:00
 3020000__CDFI2262212024000030,윤스테이,general,bing_rss,10,0,0,,2026-11-21T16:45:23+00:00
+3020000__CDFI2262212024000031,모스마라,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:45:33+00:00
+3020000__CDFI2262212024000032,코벤트 가든,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:45:41+00:00
+3020000__CDFI2262212024000035,까사 드 엘린,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:45:49+00:00
+3020000__CDFI2262212024000038,까사 서울,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:45:57+00:00
+3020000__CDFI2262212024000039,문라이트 스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:46:06+00:00
