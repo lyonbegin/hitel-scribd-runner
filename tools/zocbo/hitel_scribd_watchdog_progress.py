@@ -240,7 +240,8 @@ def respond_safely(client,sample,active,artifact):
             and all(remote.get(k) is True for k in REMOTE_COMPLETED_FLAGS)):
         # The original 35-minute guard is lowered to 10 minutes ONLY after
         # two spaced check records and immutable source identity validation.
-        return base.maybe_cancel_definitely_stuck(client,active,artifact)
+        return base.maybe_cancel_definitely_stuck(
+            client,active,artifact,threshold_seconds=STAGNATION_SECONDS)
     if remote.get("status") in ("running","queued"):
         return "remote_model_or_worker_active_do_not_duplicate"
     if remote.get("status") in ("stalled","unknown","failed") and (
