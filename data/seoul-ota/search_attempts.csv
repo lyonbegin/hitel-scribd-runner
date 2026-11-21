@@ -1446,3 +1446,8 @@
 3000000__CDFI2262212025000072,무띠,platforms_05,bing_rss,10,0,0,,2026-11-21T11:27:09+00:00
 3000000__CDFI2262212012000005,봉 하우스(Bong House),platforms_06,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:27:17+00:00
 3000000__CDFI2262212013000006,기와하우스(GIWA HOUSE),platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:27:33+00:00
+3000000__CDFI2262212013000007,리리하우스(LILI-HOUSE),platforms_06,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:27:43+00:00
+3000000__CDFI2262212013000011,와이 게스트 하우스(Y Guest House),platforms_06,bing_rss,10,0,0,,2026-11-21T11:27:44+00:00
+3000000__CDFI2262212013000012,리리하우스(LI LI HOUSE),platforms_06,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:27:52+00:00
+3000000__CDFI2262212014000003,카사 자밀라(Casa Jamila),platforms_06,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:28:01+00:00
+3000000__CDFI2262212014000010,로즈 앤 캔디(Rose and Candy),platforms_06,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T11:28:09+00:00
