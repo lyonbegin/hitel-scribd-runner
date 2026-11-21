@@ -1,4 +1,5 @@
 name: Seoul OTA guardian - revive stopped watchdog
+run-name: "Guardian restoration check / ${{ github.event_name }}"
 on:
   # GitHub scheduled events are best effort; this is a fallback, not the only trigger.
   schedule:
