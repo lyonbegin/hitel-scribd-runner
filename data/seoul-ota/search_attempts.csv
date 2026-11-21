@@ -9611,3 +9611,8 @@
 3040000__CDFI2262212025000077,Stay Jun-ha,platforms_03,bing_rss,10,0,0,,2026-11-21T21:39:50+00:00
 3040000__CDFI2262212025000078,코지플로우스테이,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T21:39:58+00:00
 3040000__CDFI2262212025000079,원 스테이,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T21:40:06+00:00
+3040000__CDFI2262212025000080,보이드 서울,platforms_03,bing_rss,10,0,0,,2026-11-21T21:40:09+00:00
+3040000__CDFI2262212025000081,우드스테이,platforms_03,bing_rss,10,0,0,,2026-11-21T21:40:11+00:00
+3040000__CDFI2262212025000082,홈바이보니(Home by Boni),platforms_03,bing_rss,10,0,0,,2026-11-21T21:40:12+00:00
+3040000__CDFI2262212025000083,아늑스테이,platforms_03,bing_rss,10,0,0,,2026-11-21T21:40:13+00:00
+3040000__CDFI2262212025000085,우즈 스테이(Would you Stay),platforms_03,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T21:40:22+00:00
