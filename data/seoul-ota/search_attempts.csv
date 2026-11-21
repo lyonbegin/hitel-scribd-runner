@@ -10961,3 +10961,8 @@
 3070000__CDFI2262212026000007,오네 스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:39:29+00:00
 3070000__CDFI2262212026000008,눅북,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:39:38+00:00
 3070000__CDFI2262212026000009,성신빌,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T23:39:46+00:00
+3070000__CDFI2262212024000009,라온 하우스,platforms_01,no_results,0,0,0,,2026-11-21T23:42:24+00:00
+3070000__CDFI2262212024000010,스테이 우드브룩,platforms_01,bing_rss,10,0,0,,2026-11-21T23:42:25+00:00
+3070000__CDFI2262212024000012,On Stay,platforms_01,bing_rss,10,0,0,,2026-11-21T23:42:27+00:00
+3070000__CDFI2262212024000013,스테이연,platforms_01,no_results,0,0,0,,2026-11-21T23:42:28+00:00
+3070000__CDFI2262212024000017,Moon House,platforms_01,bing_rss,7,0,0,,2026-11-21T23:42:30+00:00
