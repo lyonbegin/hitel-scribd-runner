@@ -4831,3 +4831,8 @@
 3010000__CDFI2262212026000029,하나 스테이,platforms_05,bing_rss,7,0,0,,2026-11-21T16:05:34+00:00
 3010000__CDFI2262212026000032,디디피 코지 스테이,platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T16:05:35+00:00
 3010000__CDFI2262212026000033,신당 스테이,platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T16:05:37+00:00
+3010000__CDFI2262212026000034,피올라 스테이 동대문,platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-21T16:05:41+00:00
+3010000__CDFI2262212026000035,까사 보니따,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectionError:('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",2026-11-21T16:05:42+00:00
+3010000__CDFI2262212026000037,스테이 원,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:05:51+00:00
+3010000__CDFI2262212026000038,서로 스테이,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:05:59+00:00
+3010000__CDFI2262212026000039,어반 코지 스테이,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-21T16:06:07+00:00
