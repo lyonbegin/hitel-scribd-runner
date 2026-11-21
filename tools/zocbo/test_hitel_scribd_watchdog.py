@@ -115,6 +115,60 @@ class WatchdogSafety(unittest.TestCase):
         self.assertEqual([x[0] for x in client.calls],["GET","POST"])
         self.assertIn("/cancel",client.calls[-1][1])
 
+    def test_shadowed_ancient_preflight_without_ai_may_be_retired(self):
+        candidate=run("in_progress",45,id=101)
+        artifact={"created_at":since(3),
+                  "workflow_run":{"id":104,"head_branch":"main"}}
+        jobs={"jobs":[{"name":"worker_ready","status":"in_progress",
+              "steps":[{"name":"Verify currently connected corrected Web2API worker, without pinning its run ID",
+                        "status":"in_progress"}]}]}
+        client=Fake([(200,jobs),(202,None)])
+        self.assertTrue(mod.retire_shadowed_preflight(client,candidate,artifact))
+        self.assertEqual([c[0] for c in client.calls],["GET","POST"])
+        self.assertIn("/cancel",client.calls[-1][1])
+
+    def test_newer_artifact_missing_preserves_wait_only_run(self):
+        candidate=run("in_progress",45,id=101)
+        artifact={"created_at":since(50),
+                  "workflow_run":{"id":90,"head_branch":"main"}}
+        client=Fake([])
+        self.assertFalse(mod.retire_shadowed_preflight(client,candidate,artifact))
+        self.assertEqual(client.calls,[])
+
+    def test_preflight_with_any_ai_job_is_untouchable(self):
+        candidate=run("in_progress",45,id=101)
+        artifact={"created_at":since(3),
+                  "workflow_run":{"id":104,"head_branch":"main"}}
+        jobs={"jobs":[{"name":"worker_ready","status":"in_progress",
+              "steps":[{"name":"Verify currently connected corrected Web2API worker, without pinning its run ID",
+                        "status":"in_progress"}]},
+             {"name":"ai","status":"queued"}]}
+        client=Fake([(200,jobs)])
+        self.assertFalse(mod.retire_shadowed_preflight(client,candidate,artifact))
+        self.assertEqual([c[0] for c in client.calls],["GET"])
+
+    def test_preflight_younger_than_ten_minutes_is_preserved(self):
+        candidate=run("in_progress",4,id=101)
+        artifact={"created_at":since(1),
+                  "workflow_run":{"id":104,"head_branch":"main"}}
+        client=Fake([])
+        self.assertFalse(mod.retire_shadowed_preflight(client,candidate,artifact))
+        self.assertEqual(client.calls,[])
+
+    def test_active_zombie_cancels_only_when_new_checkpoint_proves_superseded(self):
+        candidate=run("in_progress",45,id=101)
+        artifact={"created_at":since(3),
+                  "workflow_run":{"id":104,"head_branch":"main"}}
+        client=Fake([(200,{"workflow_runs":[candidate]}),
+                     (200,{"jobs":[{"name":"worker_ready","status":"in_progress",
+                       "steps":[{"name":"Verify currently connected corrected Web2API worker, without pinning its run ID",
+                                 "status":"in_progress"}]}]}),
+                     (202,None)])
+        with patch.object(mod,"latest_artifact",return_value=artifact):
+            result=mod.monitor(client)
+        self.assertEqual(result,"shadowed_wait_only_run_cancel_requested")
+        self.assertEqual([c[0] for c in client.calls],["GET","GET","POST"])
+
     def test_run_listing_failure_never_dispatches(self):
         client=Fake([(500,None)])
         with patch.object(mod,"handoff") as post:
