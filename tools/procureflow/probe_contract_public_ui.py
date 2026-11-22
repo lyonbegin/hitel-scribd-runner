@@ -22,6 +22,9 @@ SITES = {
 }
 PUBLIC_SHOP_SEARCH = re.compile(r"상품검색|물품검색|상품조회|상품정보|종합쇼핑몰")
 PUBLIC_DELIVERY = re.compile(r"납품요구|납품실적|납품현황")
+# Observed public shop UI (run 44943535368) labels its search navigation "상세검색".
+# Opening that navigation is not a product order or a search submission.
+PUBLIC_SHOP_NAVIGATION = re.compile(r"^(?:상세검색|상품검색|물품검색|상품조회|상품정보)$")
 PUBLIC_CONTRACT = re.compile(
     r"계약정보|계약실적검색|계약현황|계약조회|수의계약현황|계약결과|계약실적|계약정보조회"
 )
@@ -287,7 +290,7 @@ def main():
                 # request, which may be a buyer-only transaction.
                 report["shop_public_search_candidates"] = [
                     c for c in start.get("visible_controls", [])
-                    if PUBLIC_SHOP_SEARCH.search(c.get("text", ""))
+                    if PUBLIC_SHOP_NAVIGATION.fullmatch(c.get("text", "").strip())
                     and not EXCLUDE_CLICK.search(c.get("text", ""))
                     and not PUBLIC_DELIVERY.search(c.get("text", ""))
                 ][:30]
