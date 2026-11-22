@@ -1,0 +1,49 @@
+name: Pause only HITEL stock and Scribd research
+on:
+  push:
+    branches: [ops/pause-hitel-research-20261122]
+    paths: [.github/workflows/pause-hitel-research-20261122.yml]
+permissions:
+  actions: write
+  contents: read
+jobs:
+  stop-exact-research:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Disable exact research workflows and cancel their runs without deleting data
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORKFLOWS=(hitel-scribd-watchdog-five-min.yml hitel-public-ai-corpus.yml)
+          for W in "${WORKFLOWS[@]}"; do
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$W" --jq '{id,path,state}'
+            gh workflow disable "$W" --repo "$GITHUB_REPOSITORY"
+            STATE="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$W" --jq .state)"
+            [[ "$STATE" == disabled_manually ]]
+            echo "PAUSE_VERIFIED $W $STATE"
+          done
+          for attempt in $(seq 1 30); do
+            remaining=0
+            for W in "${WORKFLOWS[@]}"; do
+              ids="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/workflows/$W/runs?per_page=100" --jq '.workflow_runs[]|select(.status!="completed")|.id')"
+              for id in $ids; do
+                remaining=$((remaining+1))
+                run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id")"
+                jq -e --arg p ".github/workflows/$W" '.path==$p' <<<"$run" >/dev/null
+                if jq -e '.status!="completed"' <<<"$run" >/dev/null; then
+                  gh run cancel "$id" --repo "$GITHUB_REPOSITORY" || true
+                  echo "CANCEL_REQUESTED $W $id"
+                fi
+              done
+            done
+            if [[ "$remaining" == 0 ]]; then
+              echo "PASS_ALL_SCOPED_RESEARCH_RUNS_STOPPED_CHECKPOINTS_UNTOUCHED"
+              exit 0
+            fi
+            sleep 8
+          done
+          echo "FAIL_SCOPED_RESEARCH_STILL_RUNNING"
+          exit 1
