@@ -13151,3 +13151,8 @@
 3120000__CDFI2262212024000002,보라해 스테이 (Purple Sun Stay),platforms_03,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:22:52+00:00
 3120000__CDFI2262212024000005,하루키노이에,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:23:00+00:00
 3120000__CDFI2262212024000006,사라바 하우스(Saraba house),platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:23:15+00:00
+3120000__CDFI2262212024000008,XAVATARI(사바타리),platforms_03,bing_rss,10,0,0,,2026-11-22T02:23:18+00:00
+3120000__CDFI2262212024000009,미라클하우스(Miracle House),platforms_03,bing_rss,10,0,0,,2026-11-22T02:23:21+00:00
+3120000__CDFI2262212024000010,ELIE STAY,platforms_03,bing_rss,10,0,0,,2026-11-22T02:23:22+00:00
+3120000__CDFI2262212024000011,코지 코너스(cozy corners),platforms_03,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:23:31+00:00
+3120000__CDFI2262212024000013,제이하우스 신촌(J HOUSE SINCHON),platforms_03,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:23:39+00:00
