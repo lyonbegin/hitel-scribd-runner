@@ -13546,3 +13546,8 @@
 3080000__CDFI2262212025000008,스테이 모모(Stay MoMo),platforms_05,bing_rss,10,0,0,,2026-11-22T02:57:45+00:00
 3080000__CDFI2262212025000009,스테이 코코(Stay CoCo),platforms_05,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T02:57:47+00:00
 3080000__CDFI2262212025000010,캔디하우스(CANDY HOUSE),platforms_05,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T02:57:49+00:00
+3080000__CDFI2262212025000011,드림포레스트 하우스(Dream Forest House),platforms_05,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T02:57:53+00:00
+3080000__CDFI2262212025000012,라따뚜이 하우스(Ratatouille House),platforms_05,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T02:57:55+00:00
+3080000__CDFI2262212026000007,로뎀트리스테이,platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T02:57:57+00:00
+3080000__CDFI2262212026000009,다온스테이(DAON STAY),platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403;duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T02:57:59+00:00
+3080000__CDFI2262212026000010,아리스테이 서울(Ari Stay Seoul),platforms_05,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T02:58:01+00:00
