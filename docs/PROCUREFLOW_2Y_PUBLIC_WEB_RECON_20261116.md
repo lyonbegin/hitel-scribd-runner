@@ -107,3 +107,12 @@
 - 회귀시험 `tests/test_procureflow_ui_guard_accounting.py`를 추가하고 연구 워크플로의 GitHub-hosted 검사 단계에 연결하였다. 변경 커밋은 `06e9e987`, `262d1b2d`, `2056bc52`이다. **변경 이후 Actions 통과 및 실제 계약 응답 수집은 아직 확인되지 않았다.**
 - POST 허용 정책은 변경하지 않았고 인증 우회, 운영 수집기, 기존 930,379개 공고, 187쌍 Release, 선택 복구 워크플로 및 self-hosted PC Runner도 변경하지 않았다. 기존 `no_bidder_rows_unverified`는 그대로 미검증으로 유지한다.
 - 이 수정은 진단 계수의 정확성만 개선한다. 계약·112R/113R·MAS·납품요구의 실데이터 목록·상세·페이징·JOIN 검증은 여전히 미완료이다.
+
+
+## 2026-11-22 09시대 — 최신 실행의 증빙 재검증 (원본 재수집 없음)
+
+- GitHub-hosted 공개 웹 실행 [#44943535368](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/44943535368)의 실제 작업 4개가 모두 `completed/success`임을 연결된 GitHub 작업 API로 확인하였다. 이는 진단 코드·테스트 실행 성공이지 계약 원본 수집 성공이 아니다.
+- `inspect-public-g2b` 작업의 실제 로그에서 6개 시험군 `3+3+5+11+6+19=47`개가 통과했고, `PUBLIC_WEB_EVIDENCE_ONLY` 결과의 원본 응답 재해시가 나라장터 1개, 데이터허브 15개, 쇼핑몰 4개로 총 20개 통과했다. 세 사이트 모두 `verified_list_records=0`, `verified_detail_records=0`, `verified_page_transitions=0`, `verified_join_rows=0`, `status=NOT_VERIFIED`이다. 공개 초기화 응답을 계약·112R/113R·MAS·납품요구 목록으로 승격하지 않는다.
+- 아티팩트 3개가 보존됨: UI `14723185198` (475,505바이트, GitHub 기록 SHA256 `9a74d4c62f3f1ecccb0b70c3464c4bd994dbe6363fc64a131663b96efb6cb9e3`), 부트스트랩 `14722223478` (201,176바이트, `e3afb063484b22f50c43044136c2a3bd574947f501faf3b04410b7b2829a1689`), 공개 JS `14721849230` (2,515바이트, `73b824ff3f52392b5c26c52b71bf261ee97038cc3d160e66e20dad41a35231b3`). 이는 GitHub 메타데이터/업로드 로그의 ZIP 해시이며 **이번 점검에서 ZIP 3개를 별도 다운로드해 재해시한 결과가 아니다.**
+- [선택 복구 #43868699164](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/43868699164)의 두 작업은 성공 종료이나, 169번 샤드 `verified_complete=3385/5000`, `no_opening_data=1512`, `no_bidder_rows_unverified=103`, `complete=false`라는 최신 확인 가능한 원본 상태를 뒤집지 않는다. 170~172번 샤드 완료는 이 실행만으로 증명되지 않는다. `HTTP 200 + successBidInfo=[]`를 확정 무응찰로 재분류하지 않는다.
+- 공개 조회 실제 목록 1건·상세 1건·페이지 전환 1회·공식키 JOIN 및 원본 URL/바이트 SHA256의 결합 증빙이 확보될 때까지 독립 테이블 실데이터 적재와 전체 완료 판정을 금지한다. 기존 공고 930,379건, 187쌍 원본 Release, 운영/복구 워크플로, self-hosted PC Runner는 변경하지 않았다.
