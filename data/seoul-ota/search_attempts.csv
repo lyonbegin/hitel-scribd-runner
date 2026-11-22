@@ -12706,3 +12706,8 @@
 3120000__CDFI2262212025000048,Belonia,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:53:41+00:00
 3120000__CDFI2262212025000049,스테이 씨 (Stay Sea),general,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:53:50+00:00
 3120000__CDFI2262212025000050,Good Luck Stay,general,bing_rss,10,0,0,,2026-11-22T01:53:51+00:00
+3120000__CDFI2262212025000052,하우스 팁 신촌,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:54:01+00:00
+3120000__CDFI2262212025000053,A Feel Good Stay,general,bing_rss,10,0,0,,2026-11-22T01:54:02+00:00
+3120000__CDFI2262212025000055,담다 하우스(Damda House),general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:54:18+00:00
+3120000__CDFI2262212025000056,하루 쉼 하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:54:26+00:00
+3120000__CDFI2262212025000057,두두 하우스(DuDu House),general,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:54:34+00:00
