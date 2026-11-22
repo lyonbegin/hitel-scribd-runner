@@ -1,0 +1,29 @@
+name: Scribd existing checkpoint common clean restart
+on:
+  push:
+    branches: [ops/scribd-common-recovery-launch-20261122]
+    paths: [.github/workflows/scribd-common-recovery-launch-20261122.yml]
+permissions:
+  contents: read
+  actions: write
+jobs:
+  resume-checkpoint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Resume latest verified corpus checkpoint using signed common recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=https://hitel-integration-api-production.up.railway.app/integrations/v1/public
+          curl -fsS --max-time 10 "$ROOT/isolated/tasks/scribd-18109/status" | jq -e '.task_id=="scribd-18109" and has("worker_live_jobs_count")'
+          curl -fsS --max-time 10 "$ROOT/jobs/job_703588b6cab449ab998a22666a58cf41" | jq -e '.request_id|startswith("scribd18109-04881-04900-")'
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=hitel-ai-18109-ws-recovery-checkpoint&per_page=100" | jq -e 'any(.artifacts[];.expired==false)'
+          if ! gh api "repos/$GITHUB_REPOSITORY/actions/workflows/hitel-public-ai-corpus.yml/runs?per_page=30" | jq -e 'any(.workflow_runs[];.status!="completed")' >/dev/null; then
+            gh workflow run hitel-public-ai-corpus.yml --repo "$GITHUB_REPOSITORY" --ref main -f mode=full -f handoff_token="common-clean-$GITHUB_RUN_ID"
+            echo SCRIBD_LATEST_CHECKPOINT_RESTART_DISPATCH_ACCEPTED
+          else
+            echo SCRIBD_EXISTING_PRODUCER_PRESERVED
+          fi
