@@ -13061,3 +13061,8 @@
 3090000__CDFI2262212024000005,집캉스 202(Staycation 202),platforms_03,bing_rss,10,0,0,,2026-11-22T02:17:02+00:00
 3090000__CDFI2262212024000006,집캉스 302(Staycation 302),platforms_03,bing_rss,10,0,0,,2026-11-22T02:17:03+00:00
 3090000__CDFI2262212024000007,소울메이트,platforms_03,bing_rss,10,0,0,,2026-11-22T02:17:05+00:00
+3090000__CDFI2262212024000008,띵상스테이(ddingsang stay),platforms_03,bing_rss,10,0,0,,2026-11-22T02:17:07+00:00
+3090000__CDFI2262212025000002,투어플러스,platforms_03,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T02:17:09+00:00
+3090000__CDFI2262212025000003,미스터방(Mr.Bang),platforms_03,bing_rss,7,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T02:17:11+00:00
+3090000__CDFI2262212025000004,이룸 홈(Erum Home),platforms_03,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403;duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T02:17:14+00:00
+3090000__CDFI2262212025000007,셀베이션,platforms_03,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T02:17:15+00:00
