@@ -11941,3 +11941,8 @@
 3070000__CDFI2262212024000001,나빛스테이,platforms_05,bing_rss,10,0,0,,2026-11-22T00:55:32+00:00
 3070000__CDFI2262212024000002,보나하우스,platforms_05,bing_rss,10,0,0,,2026-11-22T00:55:33+00:00
 3070000__CDFI2262212024000003,디앤아이,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:55:41+00:00
+3070000__CDFI2262212024000005,심통,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:55:51+00:00
+3070000__CDFI2262212024000007,온스테이,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:56:00+00:00
+3070000__CDFI2262212024000008,하루 인 서울,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:56:08+00:00
+3020000__CDFI2262212026000253,호두 하우스,platforms_06,bing_rss,10,0,0,,2026-11-22T00:56:09+00:00
+3040000__CDFI2262212026000141,Re:stay2(리스테이2),platforms_06,bing_rss,10,0,0,,2026-11-22T00:56:11+00:00
