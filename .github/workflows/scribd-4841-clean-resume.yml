@@ -1,0 +1,44 @@
+name: Scribd clean resume after isolated worker termination
+on:
+  push:
+    branches: [ops/scribd-4841-clean-resume-20261122]
+    paths: [.github/workflows/scribd-4841-clean-resume.yml]
+permissions:
+  contents: read
+  actions: write
+jobs:
+  resume-only-first-missing:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BASE: https://hitel-integration-api-production.up.railway.app/integrations/v1/public
+      JOB_ID: job_a6e8ac09ef2e491da81f3ecaf37bb095
+      PREDECESSOR: "44972097838"
+    steps:
+      - name: Wait for confirmed Scribd-only worker disconnect and resume through original audited classifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 50); do
+            runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/hitel-public-ai-corpus.yml/runs?per_page=25")"
+            if jq -e --argjson old "$PREDECESSOR" 'any(.workflow_runs[]; .id > $old and (.status!="completed" or .conclusion=="success"))' <<< "$runs" >/dev/null; then
+              echo PRESERVE_EXISTING_NEWER_CLASSIFIER_NO_DUPLICATE
+              exit 0
+            fi
+            J="$(curl -fsS --max-time 12 "$BASE/jobs/$JOB_ID")"
+            if jq -e '.status=="completed" or .result_ready==true or .chatgpt_send_confirmed==true or .assistant_reply_observed==true' <<< "$J" >/dev/null; then
+              echo PRESERVE_OBSERVED_OR_COMPLETED_ANSWER_NO_REPLAY
+              exit 0
+            fi
+            jq -e --arg id "$JOB_ID" '.job_id==$id and (.request_id|startswith("scribd18109-04841-04860-")) and (.status=="stalled" or .status=="unknown") and (.error_code=="UPSTREAM_DELIVERY_UNKNOWN" or .error_code=="WORKER_CONNECTION_LOST") and .result_ready==false' <<< "$J" >/dev/null
+            T="$(curl -fsS --max-time 12 "$BASE/isolated/tasks/scribd-18109/status")"
+            if jq -e '.task_id=="scribd-18109" and .worker_connected==false and .worker_heartbeat_recent==false and .queued_jobs_count==0' <<< "$T" >/dev/null; then
+              gh workflow run hitel-public-ai-corpus.yml --repo "$GITHUB_REPOSITORY" --ref main -f mode=full -f "handoff_token=watchdog-$PREDECESSOR"
+              echo PASS_SCRIBD_CLEAN_RESUME_DISPATCHED_FROM_VERIFIED_CHECKPOINT
+              exit 0
+            fi
+            sleep 5
+          done
+          echo FAIL_WORKER_DISCONNECT_NOT_CONFIRMED_NO_NEW_REQUEST
+          exit 1
