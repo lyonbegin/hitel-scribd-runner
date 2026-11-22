@@ -10,10 +10,10 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from playwright.sync_api import sync_playwright, TimeoutError as PwTimeout
 try:
-    from .public_readonly_raw import retain_public_json
+    from .public_readonly_raw import retain_public_json, classify_public_json
 except ImportError:
     # Direct execution as a script places this directory on sys.path.
-    from public_readonly_raw import retain_public_json
+    from public_readonly_raw import retain_public_json, classify_public_json
 
 SITES = {
     "g2b": "https://www.g2b.go.kr/",
@@ -166,6 +166,7 @@ def main():
                     payload = response.body()
                     proof["body_bytes"] = len(payload)
                     proof["body_sha256"] = hashlib.sha256(payload).hexdigest()
+                    proof["semantic_verification"] = classify_public_json(payload, info["mime"], response.status)
                     proof.update(retain_public_json(payload, info["mime"], output, len(report["read_only_response_proofs"])))
                 except Exception as exc:
                     proof["body_hash_error"] = type(exc).__name__
