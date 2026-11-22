@@ -11821,3 +11821,8 @@
 3050000__CDFI2262212024000025,O-O STAY,platforms_05,bing_rss,10,0,0,,2026-11-22T00:42:21+00:00
 3050000__CDFI2262212024000026,공림,platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T00:42:23+00:00
 3050000__CDFI2262212024000027,고대어반스위트,platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T00:42:25+00:00
+3050000__CDFI2262212024000029,까사스테이,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectionError:('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",2026-11-22T00:42:28+00:00
+3050000__CDFI2262212024000030,옐로우문 스테이,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:42:36+00:00
+3050000__CDFI2262212024000032,그루브하우스,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:42:45+00:00
+3050000__CDFI2262212024000033,라탄하우스,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:42:53+00:00
+3050000__CDFI2262212024000034,조이플스테이,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:43:01+00:00
