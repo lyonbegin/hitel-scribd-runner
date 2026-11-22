@@ -13191,3 +13191,8 @@
 3120000__CDFI2262212024000063,시니네(Shin's Home),platforms_03,bing_rss,7,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:27:56+00:00
 3120000__CDFI2262212024000066,숩스테이(Soob Stay),platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:28:11+00:00
 3120000__CDFI2262212024000067,스테이 트리(Stay Tree),platforms_03,bing_rss,10,0,0,,2026-11-22T02:28:12+00:00
+3120000__CDFI2262212024000068,블랙니트하우스(Blackneat House),platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:28:29+00:00
+3120000__CDFI2262212024000069,은은한 곳(Soft Place),platforms_03,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:28:38+00:00
+3120000__CDFI2262212024000070,홍대 모던 하우스(HONGDAE MODERN HOUSE),platforms_03,bing_rss,10,0,0,,2026-11-22T02:28:39+00:00
+3070000__CDFI2262212026000010,성북동 화가의 집,platforms_04,bing_rss,10,0,0,,2026-11-22T02:28:40+00:00
+3070000__CDFI2262212026000011,스테이 서이,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:28:49+00:00
