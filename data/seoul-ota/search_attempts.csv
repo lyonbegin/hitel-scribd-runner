@@ -11396,3 +11396,8 @@
 3060000__CDFI2262212026000001,WOOSOO604,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:10:22+00:00
 3060000__CDFI2262212026000002,Stay Onyu,platforms_03,bing_rss,7,0,0,,2026-11-22T00:10:23+00:00
 3060000__CDFI2262212026000006,궁스테이2,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:10:32+00:00
+3060000__CDFI2262212026000011,아브르(Harve),platforms_03,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:10:42+00:00
+3060000__CDFI2262212026000013,코지 스테이 서울,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:10:50+00:00
+3060000__CDFI2262212026000014,루미네스트 서울,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:10:58+00:00
+3060000__CDFI2262212026000015,웰링 스테이(Welling Stay),platforms_03,bing_rss,7,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:11:07+00:00
+3060000__CDFI2262212026000016,온유스테이,platforms_03,bing_rss,10,0,0,,2026-11-22T00:11:08+00:00
