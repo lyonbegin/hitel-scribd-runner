@@ -83,6 +83,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest discover -s tests -p test_procureflow_ui_guard_accounting.py
+          python -m unittest discover -s tests -p test_procureflow_public_response_semantics.py
           python -m unittest discover -s tests -p test_procureflow_public_readonly_raw.py
           python -m unittest discover -s tests -p test_procureflow_contract_response_gate.py
           python -m unittest discover -s tests -p test_procureflow_public_ui_data_proof.py
