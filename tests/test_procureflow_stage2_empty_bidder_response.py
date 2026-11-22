@@ -2,6 +2,10 @@
 import importlib.util
 import json
 import unittest
+import hashlib
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parents[1] / "tools/procureflow/audit_stage2_empty_bidder_response.py"
@@ -45,6 +49,23 @@ class Stage2EmptyResponseTests(unittest.TestCase):
                 self.assertEqual(result["status"], "unverified")
                 self.assertFalse(result["verified_zero_bidders"])
                 self.assertEqual(result["response_sha256"], __import__("hashlib").sha256(raw).hexdigest())
+
+    def test_cli_rejects_original_byte_hash_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            raw_path = Path(tmp) / "response.json"
+            out_path = Path(tmp) / "audit.json"
+            raw = b'{"result":{"successBidInfo":[]}}'
+            raw_path.write_bytes(raw)
+            base = [sys.executable, str(SOURCE), "--response", str(raw_path), "--http-status", "200", "--out", str(out_path), "--expected-sha256"]
+            good = subprocess.run(base + [hashlib.sha256(raw).hexdigest()], capture_output=True, text=True)
+            self.assertEqual(good.returncode, 0, good.stderr)
+            self.assertTrue(json.loads(out_path.read_text())["original_sha256_matches"])
+            bad = subprocess.run(base + ["0" * 64], capture_output=True, text=True)
+            self.assertEqual(bad.returncode, 2)
+            audit = json.loads(out_path.read_text())
+            self.assertEqual(audit["reason"], "ORIGINAL_RESPONSE_SHA256_MISMATCH")
+            self.assertFalse(audit["original_sha256_matches"])
+            self.assertFalse(audit["verified_zero_bidders"])
 
     def test_non_200_does_not_become_zero(self):
         result = module.classify(503, b'{"result":{"successBidInfo":[]}}')
