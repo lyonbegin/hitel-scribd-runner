@@ -12111,3 +12111,8 @@
 3050000__CDFI2262212026000013,슬로우 스테이,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:07:13+00:00
 3050000__CDFI2262212026000022,브리드 맨션(BREATH MANSION),platforms_06,bing_rss,7,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:07:22+00:00
 3050000__CDFI2262212026000023,이음스테이 청량,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:07:30+00:00
+3050000__CDFI2262212026000024,리빈안암,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:07:40+00:00
+3050000__CDFI2262212026000025,다온스테이,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:07:48+00:00
+3050000__CDFI2262212026000026,Amity House,platforms_06,bing_rss,10,0,0,,2026-11-22T01:07:49+00:00
+3050000__CDFI2262212026000027,비앤비 우평7,platforms_06,bing_rss,10,0,0,,2026-11-22T01:07:51+00:00
+3050000__CDFI2262212026000028,결스테이,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:07:59+00:00
