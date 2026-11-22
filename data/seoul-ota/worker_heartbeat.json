@@ -1,8 +1,8 @@
 {
   "run_id": "44973755291",
   "phase": "running",
-  "updated_at": "2026-11-22T01:59:11+00:00",
-  "total_stages_completed": 12787,
+  "updated_at": "2026-11-22T01:59:20+00:00",
+  "total_stages_completed": 12792,
   "properties_touched": 2000,
   "worker_ref": "research/seoul-homestay-public-20261121",
   "new_public_contacts_in_run": 0
