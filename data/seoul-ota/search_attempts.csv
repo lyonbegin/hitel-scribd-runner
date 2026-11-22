@@ -12401,3 +12401,8 @@
 3120000__CDFI2262212019000009,무슈달린 게스트하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:30:26+00:00
 3120000__CDFI2262212019000010,콤마 스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:30:35+00:00
 3120000__CDFI2262212019000011,보더베어하우스(Bo the bear house),general,bing_rss,10,0,0,,2026-11-22T01:30:36+00:00
+3120000__CDFI2262212021000001,홍은별채,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:30:46+00:00
+3120000__CDFI2262212021000005,핑크룸(Pink room),general,bing_rss,7,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:30:54+00:00
+3120000__CDFI2262212021000008,다니엘 하우스(DANIEL HOUSE),general,bing_rss,7,0,0,,2026-11-22T01:30:55+00:00
+3120000__CDFI2262212022000001,사과민박(Apple minbak),general,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:31:04+00:00
+3120000__CDFI2262212022000003,Y202(와이이공이),general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:31:12+00:00
