@@ -12956,3 +12956,8 @@
 3070000__CDFI2262212026000023,미아 서울,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:10:22+00:00
 3070000__CDFI2262212026000024,천천스테이,platforms_03,bing_rss,10,0,0,,2026-11-22T02:10:24+00:00
 3070000__CDFI2262212026000025,산책길 스테이,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:10:32+00:00
+3070000__CDFI2262212026000027,스테이 한성,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:10:42+00:00
+3070000__CDFI2262212026000028,필로스201,platforms_03,bing_rss,10,0,0,,2026-11-22T02:10:43+00:00
+3070000__CDFI2262212026000031,마루101,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:10:52+00:00
+3070000__CDFI2262212026000032,마루201,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:11:00+00:00
+3070000__CDFI2262212026000033,마루301,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:11:09+00:00
