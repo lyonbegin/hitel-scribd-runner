@@ -1,98 +1,13 @@
 name: Seoul public OTA + short-let contact evidence (rolling)
+# PAUSED at user request: platform-by-platform source verification required first.
+# Previous runnable version preserved in Git history (2b1f6e500326439cad874df8bbcd5d31ce2cda87).
 on:
-  schedule:
-    - cron: "19 */4 * * *"
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/seoul-ota-public-contacts.yml
 permissions:
-  contents: write
-  actions: read
-concurrency:
-  group: seoul-ota-public-contacts-single-writer
-  cancel-in-progress: false
+  contents: read
 jobs:
-  collect:
+  paused:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 1
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: research/seoul-homestay-public-20261121
-          fetch-depth: 0
-          persist-credentials: true
-      - name: Install public parsing libraries
-        run: python -m pip install -q requests beautifulsoup4
-      - name: Restore frozen first-day 5317-row baseline (once)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ ! -f data/seoul-ota/permit_history.json ]; then
-            mkdir -p artifacts/seoul-baseline
-            gh run download 44875897491 --repo lyonbegin/hitel-scribd-runner --name seoul-homestay-25-district-source --dir artifacts/seoul-baseline
-            test -f artifacts/seoul-baseline/seoul_facility_le60.csv
-          else
-            echo 'Historical licenses already retained in GitHub'
-          fi
-      - name: Restore most recent higher-progress checkpoint from saved run artifacts
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 tools/realestate/seoul_ota_recover.py
-      - name: Validate OTA crawler without network
-        run: python tools/realestate/seoul_ota_public_contacts.py --selftest
-      - name: Refresh official Seoul 25-district license source
-        run: python tools/realestate/seoul_homestay_collect_all.py
-      - name: Reject incomplete official source
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          m=json.loads(Path('artifacts/seoul-homestay/all_districts_manifest.json').read_text())
-          print('districts:',m['fetched_districts'],'total:',m['count'],'<=60m2:',m['facility_le60'])
-          if m['fetched_districts'] != 25 or m['count'] < 9000 or m['facility_le60'] < 5000:
-              raise SystemExit('SOURCE_INCOMPLETE: refusing partial input')
-          PY
-      - name: Discover public OTA and short-let listing evidence
-        run: python tools/realestate/seoul_ota_public_contacts.py --batch-size 250 --max-results 10 --delay 1.2
-      - name: Validate complete 5k-property contact index
-        run: |
-          python - <<'PY'
-          import csv,json
-          from pathlib import Path
-          d=Path('data/seoul-ota')
-          m=json.loads((d/'manifest.json').read_text())
-          n=m['consolidated_index']
-          print('SOURCED_INDEX',json.dumps(n,ensure_ascii=False))
-          assert m['official_rows']>=5317
-          assert n['records']==m['official_rows']
-          assert n['prior_source_records']>=20
-          assert n['public_contact_source_rows']>=13
-          assert n['listing_link_rows']>=15
-          with (d/'listing_evidence.csv').open(encoding='utf-8-sig',newline='') as f:
-              assert all(x['match_grade']!='unverified' for x in csv.DictReader(f))
-          PY
-      - name: Publish final safe checkpoint even on partial failure
-        if: always()
-        env:
-          COLLECT_JOB_STATUS: ${{ job.status }}
-        run: |
-          if [ -f data/seoul-ota/state.json ]; then
-            if [ "$COLLECT_JOB_STATUS" = "success" ]; then
-              python3 tools/realestate/seoul_ota_checkpoint.py --phase complete
-            else
-              python3 tools/realestate/seoul_ota_checkpoint.py --phase running
-            fi
-          fi
-      - name: Preserve run diagnostics and evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: seoul-public-ota-contact-audit
-          path: |
-            data/seoul-ota/
-            artifacts/seoul-homestay/all_districts_manifest.json
-            artifacts/seoul-baseline/all_districts_manifest.json
-          retention-days: 30
-          if-no-files-found: warn
+      - run: echo "Legacy OTA pipeline paused; no collection, cancellation or dispatch performed."
