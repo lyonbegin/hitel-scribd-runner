@@ -63860,7 +63860,7 @@
     "closed_date": "",
     "area": "52.89",
     "permit_phone": "",
-    "source_current": "no",
+    "source_current": "yes",
     "baseline_preserved": "no"
   },
   "3040000__CDFI2262212026000173": {
@@ -63872,7 +63872,7 @@
     "closed_date": "",
     "area": "29.83",
     "permit_phone": "",
-    "source_current": "yes",
+    "source_current": "no",
     "baseline_preserved": "no"
   },
   "3010000__CDFI2262212026000114": {
@@ -63896,7 +63896,7 @@
     "closed_date": "",
     "area": "24",
     "permit_phone": "",
-    "source_current": "yes",
+    "source_current": "no",
     "baseline_preserved": "no"
   },
   "3200000__CDFI2262212026000244": {
@@ -63908,7 +63908,7 @@
     "closed_date": "",
     "area": "39.6",
     "permit_phone": "",
-    "source_current": "yes",
+    "source_current": "no",
     "baseline_preserved": "no"
   },
   "3200000__CDFI2262212026000246": {
@@ -63920,7 +63920,7 @@
     "closed_date": "",
     "area": "40.32",
     "permit_phone": "",
-    "source_current": "yes",
+    "source_current": "no",
     "baseline_preserved": "no"
   },
   "3200000__CDFI2262212026000247": {
@@ -63932,7 +63932,7 @@
     "closed_date": "",
     "area": "35",
     "permit_phone": "",
-    "source_current": "yes",
+    "source_current": "no",
     "baseline_preserved": "no"
   },
   "3220000__CDFI2262212026000292": {
