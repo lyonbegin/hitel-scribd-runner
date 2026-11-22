@@ -12711,3 +12711,8 @@
 3120000__CDFI2262212025000055,담다 하우스(Damda House),general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:54:18+00:00
 3120000__CDFI2262212025000056,하루 쉼 하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:54:26+00:00
 3120000__CDFI2262212025000057,두두 하우스(DuDu House),general,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:54:34+00:00
+3120000__CDFI2262212024000071,홍대 빈티지 스테이(HONGDAE VINTAGE STAY),platforms_01,bing_rss,10,0,0,,2026-11-22T01:57:01+00:00
+3120000__CDFI2262212024000072,시오(SIO),platforms_01,bing_rss,10,0,0,,2026-11-22T01:57:02+00:00
+3120000__CDFI2262212024000073,휘게 인 신촌(HYGGE IN SINCHON),platforms_01,bing_rss,10,0,0,,2026-11-22T01:57:03+00:00
+3120000__CDFI2262212024000074,휴 공간(Hue house),platforms_01,bing_rss,10,0,0,,2026-11-22T01:57:05+00:00
+3120000__CDFI2262212024000075,아리하우스(Ari House),platforms_01,bing_rss,10,0,0,,2026-11-22T01:57:06+00:00
