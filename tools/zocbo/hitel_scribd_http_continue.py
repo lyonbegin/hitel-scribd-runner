@@ -279,13 +279,14 @@ def await_http_reply(statefile:Path,state:dict):
             if (task_code==200 and task.get("task_id")=="scribd-18109"
                     and task.get("worker_connected") is True
                     and task.get("worker_heartbeat_recent") is True
+                    and "worker_live_jobs_count" not in task
                     and task.get("worker_active_jobs_count",0)>0):
                 print("ISOLATED_TASK_ACTIVE_LEGACY_STATUS_FALSE_STALL_GET_ONLY",
                       state["job_id"],flush=True)
                 time.sleep(10)
                 continue
         if (state.get("task_id")=="scribd-18109" and
-                os.environ.get("HITEL_COMMON_CLEAN_RESTART")=="1" and
+                os.environ.get("HITEL_COMMON_CLEAN_RESTART","1")=="1" and
                 remote.get("error_code")=="WORKER_CONNECTION_LOST"):
             try:
                 recovering=recover_common_worker(statefile,state,remote)
@@ -501,7 +502,7 @@ def run_one(rows:list[dict],out:Path) -> int:
                "status":"prepared","submit_attempted":False}
         save(statefile,state)
     original_file,original=statefile,state
-    if os.environ.get("HITEL_COMMON_CLEAN_RESTART")=="1" and state.get("task_id")=="scribd-18109":
+    if os.environ.get("HITEL_COMMON_CLEAN_RESTART","1")=="1" and state.get("task_id")=="scribd-18109":
         # Continue an already-reserved historical attempt, but never create
         # another legacy attempt: the server owns fresh-run authorization.
         for seq in range(1,MAX_SIGNED_TASK_RESTARTS+1):
