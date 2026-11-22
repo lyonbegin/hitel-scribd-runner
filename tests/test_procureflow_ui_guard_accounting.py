@@ -37,6 +37,19 @@ class PublicUIGuardAccountingTests(unittest.TestCase):
         finally:
             sys.path.remove(tool_dir)
 
+    def test_public_shop_navigation_is_narrow_and_not_transactional(self):
+        import re
+        source = SOURCE.read_text(encoding="utf-8")
+        ast.parse(source)
+        match = re.search(r'PUBLIC_SHOP_NAVIGATION = re.compile\(r"([^"]+)"\)', source)
+        self.assertIsNotNone(match)
+        pattern = re.compile(match.group(1))
+        for label in ("상세검색", "상품검색", "물품검색", "상품조회"):
+            self.assertIsNotNone(pattern.fullmatch(label))
+        for label in ("검색", "납품요구", "구매", "주문", "계약체결", "상세검색 후 구매"):
+            self.assertIsNone(pattern.fullmatch(label))
+        self.assertIn('PUBLIC_SHOP_NAVIGATION.fullmatch(c.get("text", "").strip())', source)
+
     def test_all_post_response_paths_are_counted(self):
         source = SOURCE.read_text(encoding="utf-8")
         ast.parse(source)
