@@ -1,0 +1,36 @@
+name: Seoul OTA stop legacy pipeline
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/seoul-ota-stop-legacy.yml]
+  workflow_dispatch:
+permissions:
+  actions: write
+  contents: read
+jobs:
+  stop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Stop only legacy Seoul OTA runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, os, subprocess, time
+          repo=os.environ["GITHUB_REPOSITORY"]
+          allowed={"seoul-ota-public-contacts.yml","seoul-ota-watchdog.yml","seoul-ota-guardian.yml"}
+          for attempt in range(4):
+              raw=subprocess.check_output(["gh","api",f"repos/{repo}/actions/runs?per_page=100"],text=True)
+              live=[r for r in json.loads(raw)["workflow_runs"] if r.get("path","").split("/")[-1] in allowed and r["status"]!="completed"]
+              print("LEGACY_ACTIVE",[(r["id"],r["path"],r["status"]) for r in live],flush=True)
+              if not live:
+                  print("LEGACY_STOP_CONFIRMED",flush=True)
+                  break
+              for r in live:
+                  p=subprocess.run(["gh","run","cancel",str(r["id"]),"--repo",repo],capture_output=True,text=True)
+                  print("CANCEL",r["id"],p.returncode,p.stdout,p.stderr,flush=True)
+              time.sleep(6)
+          else:
+              raise SystemExit("Legacy workflow still active")
+          PY
