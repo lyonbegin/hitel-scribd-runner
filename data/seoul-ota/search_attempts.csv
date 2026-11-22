@@ -12691,3 +12691,8 @@
 3120000__CDFI2262212025000028,레인보우 하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:52:06+00:00
 3120000__CDFI2262212025000029,JJ 하우스,general,bing_rss,10,0,0,,2026-11-22T01:52:07+00:00
 3120000__CDFI2262212025000032,테라스 422,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:52:15+00:00
+3120000__CDFI2262212025000033,플레이스 422,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:52:25+00:00
+3120000__CDFI2262212025000035,스테이 인 서대문 알,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:52:34+00:00
+3120000__CDFI2262212025000036,라벨라 하우스,general,bing_rss,10,0,0,,2026-11-22T01:52:35+00:00
+3120000__CDFI2262212025000038,스테이 청연 (Stay Cheong Yeon),general,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:52:43+00:00
+3120000__CDFI2262212025000039,디어 스테이 (Dear Stay),general,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:52:52+00:00
