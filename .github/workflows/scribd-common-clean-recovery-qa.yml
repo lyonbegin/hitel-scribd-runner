@@ -1,0 +1,20 @@
+name: scribd common clean recovery QA
+on:
+  push:
+    branches: [fix/scribd-clean-worker-recovery-20261122]
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact task recovery and checkpoint invariants
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/zocbo/hitel_scribd_http_continue.py
+          python3 tools/zocbo/test_hitel_scribd_http_continue.py
+          python3 tools/zocbo/test_hitel_scribd_ws_stalled_retry.py
+          python3 tools/zocbo/test_hitel_dispatch_next_verified.py
+          python3 tools/zocbo/test_hitel_common_clean_recovery.py -v
