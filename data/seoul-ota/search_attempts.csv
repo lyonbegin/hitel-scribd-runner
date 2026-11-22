@@ -12861,3 +12861,8 @@
 3110000__CDFI2262212024000002,Ella Guesthouse,platforms_02,bing_rss,10,0,0,,2026-11-22T02:01:54+00:00
 3110000__CDFI2262212024000004,아우르 연,platforms_02,bing_rss,10,0,0,,2026-11-22T02:01:55+00:00
 3110000__CDFI2262212024000007,세러니티 인 서울,platforms_02,bing_rss,10,0,0,,2026-11-22T02:01:56+00:00
+3110000__CDFI2262212025000002,로디하우스,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:02:07+00:00
+3110000__CDFI2262212025000003,수채화,platforms_02,bing_rss,10,0,0,,2026-11-22T02:02:08+00:00
+3110000__CDFI2262212025000007,유자스테이,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:02:16+00:00
+3110000__CDFI3261142012000007,Global Eunpyeong Homestay(글로벌 은평 홈스테이),platforms_02,bing_rss,10,0,0,,2026-11-22T02:02:18+00:00
+3120000__CDFI2262212013000002,캣츠마미즈하우스,platforms_02,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:02:26+00:00
