@@ -12321,3 +12321,8 @@
 3080000__CDFI2262212026000011,마르코하우스(Marco house),general,bing_rss,10,0,0,,2026-11-22T01:22:54+00:00
 3080000__CDFI2262212026000013,미아 가든 스테이(Mia Garden Stay),general,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T01:22:56+00:00
 3080000__CDFI2262212026000014,해피리움(happyleeum),general,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403;duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T01:22:59+00:00
+3080000__CDFI2262212026000015,미아리집(MIARI House),general,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403;duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T01:23:03+00:00
+3080000__CDFI2262212026000016,로뎀트리스테이2nd,general,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T01:23:04+00:00
+3080000__CDFI2262212026000017,오드하우스(ODD HOUSE),general,bing_rss,10,0,0,"duckduckgo_lite:ConnectionError:('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",2026-11-22T01:23:06+00:00
+3090000__CDFI2262212024000003,휴플랜 게스트하우스,general,bing_rss,10,0,0,,2026-11-22T01:23:07+00:00
+3090000__CDFI2262212024000005,집캉스 202(Staycation 202),general,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:23:16+00:00
