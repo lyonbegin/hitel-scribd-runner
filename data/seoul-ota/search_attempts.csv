@@ -12681,3 +12681,8 @@
 3120000__CDFI2262212025000016,해피 하우스,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:51:07+00:00
 3120000__CDFI2262212025000017,홍대 STAY,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:51:15+00:00
 3120000__CDFI2262212025000018,동화 STAY,general,bing_rss,10,0,0,,2026-11-22T01:51:17+00:00
+3120000__CDFI2262212025000019,Kenny's House,general,bing_rss,10,0,0,,2026-11-22T01:51:20+00:00
+3120000__CDFI2262212025000020,라포레 홍,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:51:28+00:00
+3120000__CDFI2262212025000023,K-stay Hongdae,general,bing_rss,10,0,0,,2026-11-22T01:51:30+00:00
+3120000__CDFI2262212025000024,뉴봄스테이,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:51:38+00:00
+3120000__CDFI2262212025000025,스테이 여유,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:51:46+00:00
