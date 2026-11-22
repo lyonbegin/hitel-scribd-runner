@@ -11331,3 +11331,8 @@
 3050000__CDFI2262212024000037,어반스테이 동대문,platforms_03,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T00:03:22+00:00
 3050000__CDFI2262212024000038,세라비앤비,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectionError:('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",2026-11-22T00:03:23+00:00
 3050000__CDFI2262212025000001,하루 스테이,platforms_03,bing_rss,10,0,0,,2026-11-22T00:03:24+00:00
+3050000__CDFI2262212025000003,이문 스테이,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:03:34+00:00
+3050000__CDFI2262212025000004,샤일로 스테이,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:03:42+00:00
+3050000__CDFI2262212025000005,까사 드 다올,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:03:50+00:00
+3050000__CDFI2262212025000008,제기 로프트,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:03:59+00:00
+3050000__CDFI2262212025000010,쿠키집,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:04:07+00:00
