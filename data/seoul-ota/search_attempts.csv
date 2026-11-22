@@ -11641,3 +11641,8 @@
 3060000__CDFI2262212025000018,끌림스테이,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:29:45+00:00
 3060000__CDFI2262212025000019,고요리 스테이(Goyori Stay),platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:30:01+00:00
 3060000__CDFI2262212025000020,빌라 드 사가,platforms_04,bing_rss,10,0,0,,2026-11-22T00:30:02+00:00
+3060000__CDFI2262212025000021,스테이 숨,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:30:12+00:00
+3060000__CDFI2262212025000022,룸메이트 스칼렛 603(Scarlet Room Mate 603),platforms_04,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:30:20+00:00
+3060000__CDFI2262212026000001,WOOSOO604,platforms_04,bing_rss,10,0,0,,2026-11-22T00:30:22+00:00
+3060000__CDFI2262212026000002,Stay Onyu,platforms_04,bing_rss,7,0,0,,2026-11-22T00:30:23+00:00
+3060000__CDFI2262212026000006,궁스테이2,platforms_04,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:30:31+00:00
