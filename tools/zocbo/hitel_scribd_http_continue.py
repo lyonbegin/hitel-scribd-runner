@@ -85,7 +85,7 @@ def fetch_existing(request_id: str):
     return obj
 
 
-def isolated_chat_once(state: dict, text: str):
+def isolated_chat_once(state: dict, text: str, recovery=None):
     """Task-bound POST via exact GitHub Actions producer OIDC, never shared /chat.
 
     Tokens are short-lived and never persisted, printed or sent to GitHub
@@ -106,10 +106,10 @@ def isolated_chat_once(state: dict, text: str):
         oidc=json.load(response).get("value")
     if not isinstance(oidc,str) or len(oidc)<50:
         raise RuntimeError("GITHUB_OIDC_PRODUCER_TOKEN_MISSING")
-    raw=json.dumps({"request_id":state["request_id"],
-                    "room_name":state["room_name"],"text":text},
-                   ensure_ascii=False).encode("utf-8")
-    endpoint=BASE+API+"/isolated/tasks/scribd-18109/chat"
+    payload=({"request_id":state["request_id"],"room_name":state["room_name"],"text":text}
+             if recovery is None else recovery)
+    raw=json.dumps(payload,ensure_ascii=False).encode("utf-8")
+    endpoint=BASE+API+"/isolated/tasks/scribd-18109/"+("chat" if recovery is None else "recover")
     req=urllib.request.Request(endpoint,data=raw,method="POST",
            headers={"Content-Type":"application/json",
                     "Accept":"application/json",
@@ -212,12 +212,49 @@ def ensure_one_http_job(statefile: Path, state: dict, text: str) -> dict:
     return state
 
 
+def recover_common_worker(statefile,state,remote):
+    """Use the centrally fenced fresh-VM reset; never create another batch."""
+    request_id=state.get("active_request_id",state["request_id"])
+    if (state.get("task_id")!="scribd-18109" or
+        remote.get("job_id")!=state.get("job_id") or remote.get("request_id")!=request_id or
+        remote.get("room_id")!=state.get("room_id") or
+        remote.get("status") not in ("stalled","unknown","failed") or
+        remote.get("error_code")!="WORKER_CONNECTION_LOST" or
+        remote.get("result_ready") is not False):
+        return False
+    state["status"]="clean_restart_pending"
+    save(statefile,state)
+    code,result=isolated_chat_once(state,"",recovery={
+        "previous_job_id":state["job_id"],"previous_request_id":request_id})
+    if code!=202 or result.get("task_id")!="scribd-18109":
+        raise RuntimeError("SCRIBD_CLEAN_RESTART_WRONG_TASK")
+    if result.get("pending") is True and result.get("accepted") is False:
+        if result.get("previous_job_id")!=state["job_id"]:
+            raise RuntimeError("SCRIBD_CLEAN_RESTART_WRONG_PENDING_JOB")
+        return True
+    if (result.get("accepted") is not True or
+        not str(result.get("request_id","")).startswith("hitel-clean-scribd-18109-") or
+        not str(result.get("job_id","")).startswith("job_") or
+        not str(result.get("room_id","")).startswith("room_") or
+        result["job_id"]==state["job_id"]):
+        raise RuntimeError("SCRIBD_CLEAN_RESTART_WRONG_RECEIPT")
+    state.setdefault("recovery_audit",[]).append({"previous_job_id":state["job_id"],
+        "previous_request_id":request_id,"previous_room_id":state["room_id"],
+        "previous_delivery_unknown":True})
+    state.update({"job_id":result["job_id"],"room_id":result["room_id"],
+                  "active_request_id":result["request_id"],"status":"accepted"})
+    save(statefile,state)
+    print("SCRIBD_CLEAN_RESTART_SAME_BATCH",state["key"],state["job_id"],flush=True)
+    return True
+
+
 def await_http_reply(statefile:Path,state:dict):
     """GET only: worker can rotate, and a lost reply never causes a new POST."""
     while True:
         code,remote=call(API+"/jobs/"+state["job_id"])
-        if (code!=200 or any(remote.get(k)!=state.get(k) for k in
-           ("job_id","request_id","room_id"))):
+        if (code!=200 or remote.get("job_id")!=state.get("job_id") or
+            remote.get("room_id")!=state.get("room_id") or
+            remote.get("request_id")!=state.get("active_request_id",state["request_id"])):
             raise ValueError("HTTP_RESULT_JOB_IDENTITY_MISMATCH")
         status=remote.get("status")
         if status=="completed":
@@ -245,6 +282,19 @@ def await_http_reply(statefile:Path,state:dict):
                     and task.get("worker_active_jobs_count",0)>0):
                 print("ISOLATED_TASK_ACTIVE_LEGACY_STATUS_FALSE_STALL_GET_ONLY",
                       state["job_id"],flush=True)
+                time.sleep(10)
+                continue
+        if (state.get("task_id")=="scribd-18109" and
+                os.environ.get("HITEL_COMMON_CLEAN_RESTART")=="1" and
+                remote.get("error_code")=="WORKER_CONNECTION_LOST"):
+            try:
+                recovering=recover_common_worker(statefile,state,remote)
+            except (urllib.error.URLError,TimeoutError) as exc:
+                if isinstance(exc,urllib.error.HTTPError) and exc.code not in (500,502,503,504):
+                    raise
+                time.sleep(10)
+                continue
+            if recovering:
                 time.sleep(10)
                 continue
         if status in ("queued","running"):
@@ -451,18 +501,35 @@ def run_one(rows:list[dict],out:Path) -> int:
                "status":"prepared","submit_attempted":False}
         save(statefile,state)
     original_file,original=statefile,state
-    statefile,state=recovery_after_verified_worker_disconnect(
-        out,key,digest,ids,statefile,state,request_id,room_name)
-    for _ in range(MAX_SIGNED_TASK_RESTARTS+1):
-        nextfile,nextstate=recover_signed_task_only_after_terminal_disconnect(
-            out,key,digest,ids,original_file,original,statefile,state,
-            request_id,room_name)
-        if nextfile==statefile or nextstate.get("status")!="unverified":
-            statefile,state=nextfile,nextstate
-            break
-        statefile,state=nextfile,nextstate
+    if os.environ.get("HITEL_COMMON_CLEAN_RESTART")=="1" and state.get("task_id")=="scribd-18109":
+        # Continue an already-reserved historical attempt, but never create
+        # another legacy attempt: the server owns fresh-run authorization.
+        for seq in range(1,MAX_SIGNED_TASK_RESTARTS+1):
+            filename=key+".json" if seq==1 else key+f"-recovery{seq}.json"
+            candidate=out/"http"/"worker_recoveries"/filename
+            if not candidate.exists():
+                break
+            saved=json.loads(candidate.read_text("utf-8"))
+            if (saved.get("key")!=key or saved.get("digest")!=digest or
+                saved.get("source_ids")!=ids or saved.get("task_id")!="scribd-18109" or
+                saved.get("request_id")!=request_id+f"-recovery{seq}" or
+                saved.get("room_name")!=room_name+f"-RECOVERY{seq}" or
+                saved.get("recovery_from_job")!=state.get("job_id")):
+                raise RuntimeError("EXISTING_RECOVERY_CHECKPOINT_SCOPE_MISMATCH")
+            statefile,state=candidate,saved
     else:
-        raise RuntimeError("SIGNED_RECOVERY_CHAIN_FAILED_CLOSED")
+        statefile,state=recovery_after_verified_worker_disconnect(
+            out,key,digest,ids,statefile,state,request_id,room_name)
+        for _ in range(MAX_SIGNED_TASK_RESTARTS+1):
+            nextfile,nextstate=recover_signed_task_only_after_terminal_disconnect(
+                out,key,digest,ids,original_file,original,statefile,state,
+                request_id,room_name)
+            if nextfile==statefile or nextstate.get("status")!="unverified":
+                statefile,state=nextfile,nextstate
+                break
+            statefile,state=nextfile,nextstate
+        else:
+            raise RuntimeError("SIGNED_RECOVERY_CHAIN_FAILED_CLOSED")
     state=ensure_one_http_job(statefile,state,question)
     answer,remote=await_http_reply(statefile,state)
     identity_repair_audit=[]
@@ -472,6 +539,7 @@ def run_one(rows:list[dict],out:Path) -> int:
         raise ValueError("REFUSE_OVERWRITE_VERIFIED_RESULTS")
     save(dest,{"rows":parsed,"job_id":state["job_id"],"room_id":state["room_id"],
                "request_id":request_id,
+               "actual_request_id":state.get("active_request_id",state["request_id"]),
                "transport":("HITEL_TASK_ISOLATED_HTTP_OIDC"
                             if state.get("task_id")=="scribd-18109"
                             else "HITEL_PUBLIC_HTTP_PROVEN_E2E"),
