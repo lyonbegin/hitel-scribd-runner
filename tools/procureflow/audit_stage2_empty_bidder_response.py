@@ -63,12 +63,23 @@ def main():
     parser.add_argument("--response", type=Path, required=True)
     parser.add_argument("--http-status", type=int, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--expected-sha256", help="Optional independently recorded SHA256 of original response bytes")
     args = parser.parse_args()
     raw = args.response.read_bytes()
     result = classify(args.http_status, raw)
+    if args.expected_sha256 is not None:
+        expected = args.expected_sha256.strip().lower()
+        if len(expected) != 64 or any(ch not in "0123456789abcdef" for ch in expected):
+            parser.error("--expected-sha256 must be 64 hexadecimal characters")
+        result["original_sha256_matches"] = result["response_sha256"] == expected
+        if not result["original_sha256_matches"]:
+            result["status"] = "unverified"
+            result["reason"] = "ORIGINAL_RESPONSE_SHA256_MISMATCH"
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, ensure_ascii=False))
+    if result.get("original_sha256_matches") is False:
+        raise SystemExit(2)
 
 
 if __name__ == "__main__":
