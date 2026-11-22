@@ -1,45 +1,13 @@
 name: Seoul OTA guardian - revive stopped watchdog
-run-name: "Guardian restoration check / ${{ github.event_name }}"
+# PAUSED at user request: platform-by-platform source verification required first.
+# Previous runnable version preserved in Git history (f5359b0770da89dce40390c3178f8b5e19e39ba7).
 on:
-  # GitHub scheduled events are best effort; this is a fallback, not the only trigger.
-  schedule:
-    - cron: "4,14,24,34,44,54 * * * *"
-  workflow_run:
-    workflows:
-      - Seoul OTA watchdog - independent monitoring and safe restart
-      - Seoul public OTA + short-let contact evidence (rolling)
-    types: [completed]
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/seoul-ota-guardian.yml
 permissions:
-  actions: write
   contents: read
-concurrency:
-  group: seoul-ota-one-guardian
-  cancel-in-progress: false
 jobs:
-  rescue:
+  paused:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 1
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          persist-credentials: false
-      - name: Verify guardian restart decisions
-        run: python3 tools/realestate/seoul_ota_guardian.py --selftest
-      - name: Check watchdog existence and restart if it is missing or stuck
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 tools/realestate/seoul_ota_guardian.py --mode rescue
-      - name: Preserve watchdog restoration proof
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: seoul-ota-guardian-diagnostics
-          path: artifacts/seoul-ota-watchdog/guardian.json
-          retention-days: 30
-          if-no-files-found: warn
+      - run: echo "Legacy OTA pipeline paused; no collection, cancellation or dispatch performed."
