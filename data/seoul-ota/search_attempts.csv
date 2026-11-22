@@ -11711,3 +11711,8 @@
 3040000__CDFI2262212026000157,미소 스테이 2,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:37:00+00:00
 3040000__CDFI2262212026000158,아뜰리에 다올,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:37:08+00:00
 3040000__CDFI2262212026000159,수미래 하우스,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:37:16+00:00
+3070000__CDFI2262212024000009,라온 하우스,platforms_04,bing_rss,10,0,0,,2026-11-22T00:39:09+00:00
+3070000__CDFI2262212024000010,스테이 우드브룩,platforms_04,no_results,0,0,0,,2026-11-22T00:39:10+00:00
+3070000__CDFI2262212024000012,On Stay,platforms_04,bing_rss,10,0,0,,2026-11-22T00:39:12+00:00
+3070000__CDFI2262212024000013,스테이연,platforms_04,no_results,0,0,0,,2026-11-22T00:39:13+00:00
+3070000__CDFI2262212024000017,Moon House,platforms_04,bing_rss,10,0,0,,2026-11-22T00:39:15+00:00
