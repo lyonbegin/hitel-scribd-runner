@@ -12211,3 +12211,8 @@
 3070000__CDFI2262212026000031,마루101,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:17:09+00:00
 3070000__CDFI2262212026000032,마루201,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:17:17+00:00
 3070000__CDFI2262212026000033,마루301,general,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:17:25+00:00
+3070000__CDFI2262212026000010,성북동 화가의 집,platforms_01,no_results,0,0,0,,2026-11-22T01:19:52+00:00
+3070000__CDFI2262212026000011,스테이 서이,platforms_01,bing_rss,10,0,0,,2026-11-22T01:19:54+00:00
+3070000__CDFI2262212026000012,복복당,platforms_01,bing_rss,10,0,0,,2026-11-22T01:19:55+00:00
+3070000__CDFI2262212026000013,고즈넉,platforms_01,no_results,0,0,0,,2026-11-22T01:19:56+00:00
+3070000__CDFI2262212026000015,어반가든 스테이,platforms_01,no_results,0,0,0,,2026-11-22T01:19:58+00:00
