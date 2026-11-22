@@ -12151,3 +12151,8 @@
 3060000__CDFI2262212026000014,루미네스트 서울,platforms_06,bing_rss,10,0,0,,2026-11-22T01:11:26+00:00
 3060000__CDFI2262212026000015,웰링 스테이(Welling Stay),platforms_06,bing_rss,7,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:11:35+00:00
 3060000__CDFI2262212026000016,온유스테이,platforms_06,bing_rss,10,0,0,,2026-11-22T01:11:36+00:00
+3060000__CDFI2262212026000017,서울눅(SEOUL NOOK),platforms_06,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:11:46+00:00
+3060000__CDFI2262212026000018,스테이리움,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:11:54+00:00
+3060000__CDFI2262212026000019,zion house(시온 하우스),platforms_06,bing_rss,10,0,0,,2026-11-22T01:11:55+00:00
+3060000__CDFI2262212026000020,궁스테이,platforms_06,bing_rss,10,0,0,,2026-11-22T01:11:57+00:00
+3060000__CDFI2262212026000021,Stay Joy Seoul,platforms_06,bing_rss,10,0,0,,2026-11-22T01:11:58+00:00
