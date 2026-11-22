@@ -116,3 +116,10 @@
 - 아티팩트 3개가 보존됨: UI `14723185198` (475,505바이트, GitHub 기록 SHA256 `9a74d4c62f3f1ecccb0b70c3464c4bd994dbe6363fc64a131663b96efb6cb9e3`), 부트스트랩 `14722223478` (201,176바이트, `e3afb063484b22f50c43044136c2a3bd574947f501faf3b04410b7b2829a1689`), 공개 JS `14721849230` (2,515바이트, `73b824ff3f52392b5c26c52b71bf261ee97038cc3d160e66e20dad41a35231b3`). 이는 GitHub 메타데이터/업로드 로그의 ZIP 해시이며 **이번 점검에서 ZIP 3개를 별도 다운로드해 재해시한 결과가 아니다.**
 - [선택 복구 #43868699164](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/43868699164)의 두 작업은 성공 종료이나, 169번 샤드 `verified_complete=3385/5000`, `no_opening_data=1512`, `no_bidder_rows_unverified=103`, `complete=false`라는 최신 확인 가능한 원본 상태를 뒤집지 않는다. 170~172번 샤드 완료는 이 실행만으로 증명되지 않는다. `HTTP 200 + successBidInfo=[]`를 확정 무응찰로 재분류하지 않는다.
 - 공개 조회 실제 목록 1건·상세 1건·페이지 전환 1회·공식키 JOIN 및 원본 URL/바이트 SHA256의 결합 증빙이 확보될 때까지 독립 테이블 실데이터 적재와 전체 완료 판정을 금지한다. 기존 공고 930,379건, 187쌍 원본 Release, 운영/복구 워크플로, self-hosted PC Runner는 변경하지 않았다.
+
+
+## 2026-11-23 — HTTP 200 빈 투찰행 증빙 분류 보강
+
+- 공개 읽기 전용 HTTP 응답의 원본 SHA256 증빙에 `semantic_verification`을 추가하였다. `result.successBidInfo=[]`인 HTTP 200 JSON은 `NO_BIDDER_ROWS_UNVERIFIED`로 분류하며, HTTP 오류·비JSON·파싱 오류·그 외 JSON도 자동으로 계약/낙찰 검증 완료로 승격하지 않는다.
+- 수정: `tools/procureflow/public_readonly_raw.py`, `tools/procureflow/probe_contract_public_ui.py`; 회귀시험: `tests/test_procureflow_public_response_semantics.py`; 연구용 GitHub-hosted 워크플로에 시험을 연결하였다. 커밋: `3acf6b8b`, `33e62c33`, `0f51f44e`, `ca362444`.
+- 이번 변경은 **분류·진단 코드만** 수정하였다. 후속 GitHub Actions 시험 통과, 실제 계약 목록·상세·페이징·JOIN 또는 ZIP 원본의 신규 검증은 아직 확인되지 않았다. 기존 930,379개 공고 인덱스, 187쌍 원본 Release, Stage2 복구 워크플로 및 PC Runner는 수정하지 않았다. 169~172번의 완료 판정과 나머지 샤드 재수집도 실행하지 않았다.
