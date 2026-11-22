@@ -12161,3 +12161,8 @@
 3060000__CDFI2262212026000024,소연이네(SOYEON),platforms_06,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:12:10+00:00
 3060000__CDFI2262212026000025,노웨어 01,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:12:19+00:00
 3060000__CDFI2262212026000026,온네스트(Onest),platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:12:34+00:00
+3060000__CDFI2262212026000027,리리 스테이(RiRi Stay),platforms_06,bing_rss,10,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:12:44+00:00
+3060000__CDFI2262212026000028,유 스테이(YOO STAY),platforms_06,bing_rss,10,0,0,,2026-11-22T01:12:45+00:00
+3070000__CDFI2262212012000002,Yam Guest House,platforms_06,bing_rss,10,0,0,,2026-11-22T01:12:47+00:00
+3070000__CDFI2262212013000003,까사페페,platforms_06,bing_rss,10,0,0,,2026-11-22T01:12:48+00:00
+3070000__CDFI2262212013000004,다솜,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T01:12:57+00:00
