@@ -22,7 +22,7 @@ jobs:
           curl -fsS --max-time 10 "$ROOT/jobs/job_703588b6cab449ab998a22666a58cf41" | jq -e '.request_id|startswith("scribd18109-04881-04900-")'
           gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=hitel-ai-18109-ws-recovery-checkpoint&per_page=100" | jq -e 'any(.artifacts[];.expired==false)'
           if ! gh api "repos/$GITHUB_REPOSITORY/actions/workflows/hitel-public-ai-corpus.yml/runs?per_page=30" | jq -e 'any(.workflow_runs[];.status!="completed")' >/dev/null; then
-            gh workflow run hitel-public-ai-corpus.yml --repo "$GITHUB_REPOSITORY" --ref main -f mode=full -f handoff_token="common-clean-$GITHUB_RUN_ID"
+            gh workflow run hitel-public-ai-corpus.yml --repo "$GITHUB_REPOSITORY" --ref main -f mode=full -f handoff_token="watchdog-$GITHUB_RUN_ID"
             echo SCRIBD_LATEST_CHECKPOINT_RESTART_DISPATCH_ACCEPTED
           else
             echo SCRIBD_EXISTING_PRODUCER_PRESERVED
