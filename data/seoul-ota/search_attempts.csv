@@ -13701,3 +13701,8 @@
 3070000__CDFI2262212026000015,어반가든 스테이,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T03:13:26+00:00
 3070000__CDFI2262212026000016,하이드인 성북,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T03:13:34+00:00
 3070000__CDFI2262212026000017,수스테이,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T03:13:43+00:00
+3070000__CDFI2262212026000018,살롱 휴,platforms_06,bing_rss,10,0,0,,2026-11-22T03:13:45+00:00
+3070000__CDFI2262212026000020,엘제이 컴퍼니,platforms_06,bing_rss,10,0,0,,2026-11-22T03:13:47+00:00
+3070000__CDFI2262212026000023,미아 서울,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T03:13:55+00:00
+3070000__CDFI2262212026000024,천천스테이,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T03:14:03+00:00
+3070000__CDFI2262212026000025,산책길 스테이,platforms_06,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T03:14:12+00:00
