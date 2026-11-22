@@ -13566,3 +13566,8 @@
 3090000__CDFI2262212025000003,미스터방(Mr.Bang),platforms_05,bing_rss,10,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T02:58:32+00:00
 3090000__CDFI2262212025000004,이룸 홈(Erum Home),platforms_05,bing_rss,10,0,0,,2026-11-22T02:58:33+00:00
 3090000__CDFI2262212025000007,셀베이션,platforms_05,no_results,0,0,0,duckduckgo_lite:RuntimeError:blocked_403,2026-11-22T02:58:35+00:00
+3090000__CDFI2262212025000008,BANDI HOUSE(반디하우스),platforms_05,bing_rss,10,0,0,,2026-11-22T02:58:38+00:00
+3090000__CDFI2262212025000009,MUA HOUSE(무아하우스),platforms_05,bing_rss,10,0,0,,2026-11-22T02:58:39+00:00
+3090000__CDFI2262212025000011,민스테이,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectionError:('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",2026-11-22T02:58:41+00:00
+3090000__CDFI2262212026000001,YUYU STAY,platforms_05,bing_rss,10,0,0,,2026-11-22T02:58:42+00:00
+3090000__CDFI2262212026000002,홍스테이,platforms_05,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T02:58:51+00:00
