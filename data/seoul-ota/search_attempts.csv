@@ -11381,3 +11381,8 @@
 3060000__CDFI2262212025000004,원더 서울,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:09:08+00:00
 3060000__CDFI2262212025000008,땡스테이(thankstay),platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%;duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:09:24+00:00
 3060000__CDFI2262212025000010,RB HOUSE 301,platforms_03,bing_rss,10,0,0,,2026-11-22T00:09:25+00:00
+3060000__CDFI2262212025000011,RB HOUSE 302,platforms_03,bing_rss,10,0,0,,2026-11-22T00:09:28+00:00
+3060000__CDFI2262212025000012,에피소드 23,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:09:36+00:00
+3060000__CDFI2262212025000013,Haven in Seoul,platforms_03,bing_rss,10,0,0,,2026-11-22T00:09:37+00:00
+3060000__CDFI2262212025000014,NEST9,platforms_03,bing_rss,10,0,0,,2026-11-22T00:09:39+00:00
+3060000__CDFI2262212025000015,사가하우스,platforms_03,no_results,0,0,0,"duckduckgo_lite:ConnectTimeout:HTTPSConnectionPool(host='lite.duckduckgo.com', port=443): Max retries exceeded with url: /lite/?q=%",2026-11-22T00:09:47+00:00
