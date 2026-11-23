@@ -1,0 +1,58 @@
+name: HITEL Scribd 5001 one-time approved reset dispatch
+run-name: One-shot 5001-5020 manual approval 20261124
+on:
+  push:
+    branches: [ops/scribd-5001-smoke-once-20261124]
+    paths: [.github/workflows/hitel-scribd-5001-once-dispatch.yml]
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: hitel-scribd-5001-approved-reset-once-20261124
+  cancel-in-progress: false
+jobs:
+  dispatch-one-smoke:
+    if: github.event_name == 'push' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify original 5000-result checkpoint artifact is still available
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/14739075109" --jq 'select(.expired==false and .name=="hitel-ai-18109-ws-recovery-checkpoint" and .workflow_run.id==44982742353) | .id' | grep -Fx 14739075109
+          echo PASS_ORIGINAL_5000_CHECKPOINT_ARCHIVE_PRESERVED
+      - name: Verify exact old 5001-5020 job unverified on live relay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,urllib.request
+          root="https://hitel-integration-api-production.up.railway.app/integrations/v1/public/"
+          with urllib.request.urlopen("https://hitel-integration-api-production.up.railway.app/health", timeout=15) as r:
+              assert r.status==200
+          with urllib.request.urlopen(root+"jobs/job_769d8fbcaf034b8ebf5ca4e8d9ef3ce6", timeout=20) as r:
+              job=json.load(r)
+          assert (
+              job.get("job_id")=="job_769d8fbcaf034b8ebf5ca4e8d9ef3ce6"
+              and job.get("request_id")=="scribd18109-05001-05020-f0d6a6c13403b04fa32cf145c2ddc686"
+              and job.get("room_id")=="room_85204c97cf5f4b6bb610e16776f27592"
+              and job.get("status")=="unknown"
+              and job.get("error_code")=="UPSTREAM_DELIVERY_UNKNOWN"
+              and job.get("result_ready") is False
+              and job.get("chatgpt_send_confirmed") is not True
+              and job.get("assistant_reply_observed") is not True
+          ), "OLD_JOB_CHANGED_FAIL_CLOSED_NO_RESTART"
+          print("PASS_PREVIOUS_5001_JOB_UNVERIFIED_AUDIT_PRESERVED")
+          PY
+      - name: Dispatch approved exactly one 20-document smoke, no full chain
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run hitel-public-ai-corpus.yml --repo "$GITHUB_REPOSITORY" --ref main -f mode=smoke -f presend_recovery=approved
+          echo PASS_APPROVED_5001_5020_SMOKE_DISPATCH_ACCEPTED
+          echo "Only mode=smoke; original 5000 preserved; no watchdog or full mode"
