@@ -9,19 +9,23 @@ run-name: HITEL Scribd AI handoff ${{ inputs.handoff_token || 'direct' }}
 # in a separate immutable request/room, keeping the original uncertain send.
 # Each 20-title batch uses exactly one durable HTTP request_id and a fresh room.
 # Read-only /requests and /jobs calls recover the same request without reposting.
+# No push-triggered live producer. Only an explicit operator dispatch may
+# submit any new ChatGPT turn. Even smoke runs exactly ONE 20-row window.
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/hitel-public-ai-corpus.yml
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Run one verified 20-row window, or continue verified-only'
+        description: 'Smoke: exactly one verified window; full: continue after verification'
         required: true
         type: choice
         options: [smoke, full]
-        default: full
+        default: smoke
+      presend_recovery:
+        description: 'Allow server-proven pre-send recovery only (never general unknown)'
+        required: true
+        type: choice
+        options: [blocked, approved]
+        default: blocked
       handoff_token:
         description: 'Unique parent run identity for safe HTTP 500 recovery'
         required: false
@@ -38,23 +42,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  kickoff_after_config_change:
-    # A push run has no isolated producer authority by design. It may only
-    # enqueue a workflow_dispatch, whose signed OIDC claims are authorized
-    # by Railway for task scribd-18109. Never send a chat on a push event.
-    if: github.event_name == 'push'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Start authorized manual-event Scribd classification
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh workflow run hitel-public-ai-corpus.yml --repo "$GITHUB_REPOSITORY" --ref main -f mode=full
-          echo PASS_SCRIBD_SIGNED_WORKFLOW_DISPATCH_FROM_CONFIG_PUSH >> "$GITHUB_STEP_SUMMARY"
-
   worker_ready:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
@@ -243,8 +230,10 @@ jobs:
           PY
             echo "CHECKPOINT_SOURCE=verified_340_reset" >>"$GITHUB_OUTPUT"
           fi
-      - name: Validate 340 historical successes and no remaining legacy skip markers
+      - name: Validate preserved checkpoint and exact approved smoke window
         id: before
+        env:
+          HITEL_SCRIBD_RUN_MODE: ${{ inputs.mode }}
         shell: bash
         run: |
           python3 - <<'PY'
@@ -260,7 +249,39 @@ jobs:
                   rows[n]=r
           assert len(rows)>=340 and all(k in rows for k in range(1,261))
           assert len(list(Path("hitel-ai-batches/skipped").glob("*.json")))==0
-          print("PRESERVED_VERIFIED",len(rows),"FIRST_MISSING",next((i for i in range(1,18110) if i not in rows),None))
+          first_missing=next((i for i in range(1,18110) if i not in rows),None)
+          if os.environ.get("HITEL_SCRIBD_RUN_MODE")=="smoke":
+              # A manual 5001-only authorization cannot silently process an
+              # earlier or later range if a newer/incorrect artifact is restored.
+              assert len(rows)==5000 and first_missing==5001,(
+                  "SMOKE_REQUIRES_EXACT_5000_CHECKPOINT_AND_5001_FIRST_MISSING",
+                  len(rows),first_missing)
+              assert all(i in rows for i in range(1,5001)),(
+                  "SMOKE_REQUIRES_CONTIGUOUS_5000_VERIFIED_ROWS")
+              # Never allocate an unrelated ChatGPT job merely because the
+              # failed-run artifact was lost. Smoke must resume EXACTLY the
+              # previous 5001-5020 request with its immutable source IDs.
+              old_statefile=Path("hitel-ai-batches/http/05001-05020.json")
+              assert old_statefile.is_file(),("SMOKE_MISSING_PRIOR_HTTP_CHECKPOINT")
+              previous=json.loads(old_statefile.read_text("utf-8"))
+              old_ids=[{"no":i,"id":str(source[i-1]["문서 ID"])}
+                       for i in range(5001,5021)]
+              assert (
+                  previous.get("task_id")=="scribd-18109"
+                  and previous.get("key")=="05001-05020"
+                  and previous.get("job_id")=="job_769d8fbcaf034b8ebf5ca4e8d9ef3ce6"
+                  and previous.get("request_id")=="scribd18109-05001-05020-f0d6a6c13403b04fa32cf145c2ddc686"
+                  and previous.get("room_id")=="room_85204c97cf5f4b6bb610e16776f27592"
+                  and previous.get("source_ids")==old_ids
+              ),("SMOKE_PRIOR_JOB_OR_20_SOURCE_IDS_MISMATCH")
+          elif os.environ.get("HITEL_SCRIBD_RUN_MODE")=="full":
+              # Continuous production is separately authorized only AFTER
+              # the exact 5001-5020 smoke was verified and durably preserved.
+              assert len(rows)>=5020 and all(i in rows for i in range(1,5021)),(
+                  "FULL_REQUIRES_5020_VERIFIED_BEFORE_NEXT_WINDOW",len(rows))
+          else:
+              raise SystemExit("UNKNOWN_SCRIBD_MODE_FAIL_CLOSED")
+          print("PRESERVED_VERIFIED",len(rows),"FIRST_MISSING",first_missing)
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
               f.write(f"verified={len(rows)}\n")
           PY
@@ -268,6 +289,7 @@ jobs:
         id: classify
         env:
           HITEL_ISOLATED_TASK_ID: scribd-18109
+          HITEL_SCRIBD_PRESEND_RECOVERY: ${{ inputs.presend_recovery }}
         # One POST per exact prompt and immutable request_id; thereafter GET only.
         # Old 1101 WS timeout is audited and old 1100 verified rows retained.
         shell: bash
@@ -320,7 +342,7 @@ jobs:
           retention-days: 90
           if-no-files-found: error
       - name: Chain next window only after real AI result verified
-        if: steps.classify.outcome == 'success' && steps.verify.outcome == 'success' && steps.verify.outputs.continue == 'true'
+        if: inputs.mode == 'full' && steps.classify.outcome == 'success' && steps.verify.outcome == 'success' && steps.verify.outputs.continue == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

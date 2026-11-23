@@ -1,77 +1,33 @@
-name: HITEL Scribd verified checkpoint watchdog - every 5 minutes
-
-# Checks the signed scribd-18109 task every five minutes. A terminal
-# disconnected/unknown AI delivery is audited against the immutable job ID,
-# source checkpoint, worker heartbeat and retry policy before auto-resume.
-# No human browser session or hourly ChatGPT reminder is required.
-# NEVER consider five minutes of model generation to be a stalled job.
+name: HITEL Scribd checkpoint diagnostic (manual read-only)
+# Historical filename preserved so no second watchdog is introduced.
+# No schedule, no workflow_run, no restart, no cancellation and NO chat POST.
 on:
-  schedule:
-    - cron: '*/5 * * * *'
-  push:
-    branches: [main]
-    paths: [.github/workflows/hitel-scribd-watchdog-five-min.yml]
   workflow_dispatch:
-  # GitHub's cron scheduler may be delayed. A finished classifier also
-  # triggers a watchdog probe, including failure/timeout/cancellation.
-  workflow_run:
-    workflows:
-      - HITEL Scribd 18109 - native Web2API completion verified
-    types: [completed]
-    branches: [main]
-
 permissions:
   contents: read
-  actions: write
-
-# One watchdog at a time. It does not interrupt the classifier's own
-# non-cancelling concurrency group.
-concurrency:
-  group: hitel-scribd-18109-watchdog-five-min
-  cancel-in-progress: false
-
 jobs:
-  monitor-and-recover:
+  inspect:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 3
     steps:
-      - name: Checkout the original verified corpus and watchdog
-        uses: actions/checkout@v4
-        with:
-          ref: feature/hitel-public-ai-batches-20261119
-      - name: Confirm watchdog safety tests before remote checks
+      - name: Read-only isolated Scribd status, no task mutation
         run: |
-          set -euo pipefail
-          python3 -m py_compile tools/zocbo/hitel_scribd_watchdog.py tools/zocbo/hitel_dispatch_next_verified.py
-          python3 tools/zocbo/test_hitel_scribd_watchdog.py
-          python3 tools/zocbo/test_hitel_scribd_watchdog_progress.py
-          python3 tools/zocbo/test_hitel_dispatch_next_verified.py
-          python3 tools/zocbo/test_hitel_scribd_http_continue.py
-      - name: Give a just-completed classifier time to index its child run
-        if: github.event_name == 'workflow_run'
-        run: |
-          # A prior successful job may have dispatched its successor just
-          # before completion. Avoid racing delayed GitHub run indexing.
-          sleep 140
-      - name: Compare independent five-minute observations and recover only proven stale states
-        env:
-          GH_TOKEN: ${{ github.token }}
-          HITEL_WATCHDOG_STATE_FILE: ${{ runner.temp }}/five-minute-health.json
-        run: |
-          set -euo pipefail
-          python3 tools/zocbo/hitel_scribd_watchdog_progress.py
-      - name: Preserve read-only checkpoint health observation for next five-minute comparison
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: hitel-scribd-watchdog-five-minute-observation
-          path: ${{ runner.temp }}/five-minute-health.json
-          if-no-files-found: warn
-          retention-days: 7
-      - name: Read current GitHub Actions and latest verified checkpoint; resume if safe
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          python3 tools/zocbo/hitel_scribd_watchdog.py
+          python3 - <<'PY'
+          import json,urllib.request
+          root="https://hitel-integration-api-production.up.railway.app/integrations/v1/public/"
+          for suffix in (
+              "isolated/tasks/scribd-18109/status",
+              "jobs/job_769d8fbcaf034b8ebf5ca4e8d9ef3ce6",
+          ):
+              with urllib.request.urlopen(root+suffix,timeout=15) as r:
+                  result=json.load(r)
+              if suffix.startswith("jobs/"):
+                  print("SCRIBD_PRIOR_JOB_READ_ONLY",
+                        result.get("job_id"),result.get("status"),
+                        result.get("error_code"),result.get("result_ready"))
+              else:
+                  print("SCRIBD_TASK_READ_ONLY",result.get("task_id"),
+                        "connected",result.get("worker_connected"),
+                        "queued",result.get("queued_jobs_count"))
+          print("PASS_NO_DISPATCH_NO_CHROME_NO_CHAT_SEND")
+          PY

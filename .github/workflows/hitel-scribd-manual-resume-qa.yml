@@ -1,0 +1,50 @@
+name: Scribd manual-only 20-row workflow QA
+on:
+  push:
+    branches: [fix/scribd-manual-20-only-workflow-20261123]
+  pull_request:
+    paths:
+      - .github/workflows/hitel-public-ai-corpus.yml
+      - .github/workflows/hitel-scribd-watchdog-five-min.yml
+      - .github/workflows/hitel-scribd-manual-resume-qa.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert no automatic job creation without signed manual mode
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('.github/workflows/hitel-public-ai-corpus.yml').read_text()
+          assert 'on:\n  workflow_dispatch:' in s
+          assert '  push:' not in s.split('permissions:')[0]
+          assert '  kickoff_after_config_change:' not in s
+          assert 'default: smoke' in s
+          assert 'HITEL_SCRIBD_RUN_MODE: ${{ inputs.mode }}' in s
+          assert 'len(rows)==5000 and first_missing==5001' in s
+          assert 'all(i in rows for i in range(1,5001))' in s
+          assert 'SMOKE_REQUIRES_EXACT_5000_CHECKPOINT_AND_5001_FIRST_MISSING' in s
+          assert 'SMOKE_MISSING_PRIOR_HTTP_CHECKPOINT' in s
+          assert 'SMOKE_PRIOR_JOB_OR_20_SOURCE_IDS_MISMATCH' in s
+          assert 'job_769d8fbcaf034b8ebf5ca4e8d9ef3ce6' in s
+          assert 'previous.get("source_ids")==old_ids' in s
+          assert 'FULL_REQUIRES_5020_VERIFIED_BEFORE_NEXT_WINDOW' in s
+          assert 'len(rows)>=5020 and all(i in rows for i in range(1,5021))' in s
+          assert 'HITEL_SCRIBD_PRESEND_RECOVERY: ${{ inputs.presend_recovery }}' in s
+          assert "if: inputs.mode == 'full' && steps.classify.outcome == 'success'" in s
+          assert 'default: blocked' in s
+          diagnostic=Path('.github/workflows/hitel-scribd-watchdog-five-min.yml').read_text()
+          assert 'on:\n  workflow_dispatch:' in diagnostic
+          assert '  schedule:' not in diagnostic and '  workflow_run:' not in diagnostic
+          assert '  push:' not in diagnostic and '  actions: write' not in diagnostic
+          assert 'python3 tools/zocbo/hitel_scribd_watchdog' not in diagnostic
+          assert 'curl -X POST' not in diagnostic
+          print('PASS_SCRIBD_MANUAL_ONLY_ONE_BATCH_DEFAULT_NO_AI_SEND')
+          PY
+      - name: Execute real mode gate against local synthetic checkpoints
+        run: python3 .github/scripts/test_scribd_smoke_checkpoint_gate.py
