@@ -152,3 +152,11 @@
 - 위 실행은 7개 회귀시험군 `4+4+3+5+11+7+19=53`개 통과, 나라장터 1개·데이터허브 15개·쇼핑몰 7개 등 HTTP 응답 원본 23개 바이트 재해시 성공. 세 사이트 모두 `verified_list_records=0`, `verified_detail_records=0`, `verified_page_transitions=0`, `verified_join_rows=0`, `complete=false`. UI 증빙 아티팩트 `14831333880`, 업로드 로그 기록 ZIP SHA256 `f495aef18f1857bc382bbf0d7406f3d2fbe9dff6ba184f2b0128a40eca409308` (ZIP 자체 독립 재다운로드 검증은 미실시).
 - 별도 [쇼핑몰 순차 진단 #45202468959](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/45202468959)의 작업 `137789284046`에서는 12초까지 빈 DOM, OIDC 302 왕복, 실제 조회 POST 0건으로 확인되었다. 이는 위의 **장시간 렌더링 후 모달로 막힌 상세검색**과 서로 다른 진단 시점/조건이다. ZIP 아티팩트 `14833185144` 업로드 로그 기록 SHA256 `7c8b298abb5069cf311f19b8645a7c5b60d9ed04895f0781a94ec0c66c15734b` (독립 재해시 미실시).
 - 후속 검증은 모달의 표시 문구·발생 직전 HTTP 실패 및 JS 오류의 타임라인을 연결하는 읽기 전용 계측이 우선이다. 모달을 강제로 닫거나 조회 POST를 추정 재생하지 않는다. 계약·112R/113R·MAS·납품요구의 실제 목록/상세/페이징/공식키 JOIN은 0건 검증으로 유지한다. 169번 샤드 `verified_complete=3385/5000`, `no_bidder_rows_unverified=103`, `complete=false`와 170~172 완료 미입증을 유지하며 기존 공고 930,379건·187쌍 Release·운영/복구 워크플로·PC Runner는 변경하지 않는다.
+
+
+## 2026-11-24 쇼핑몰 모달 관측 후 클릭 보류 패치
+- 순차 쇼핑몰 진단 #45202468959의 부트스트랩 로그: 2/5/9/12초 빈 DOM, OIDC GET 302, 최종 홈페이지 HTTP 200. 이는 상품 데이터 확보가 아니다.
+- 아티팩트 14833185144: 업로드 로그의 ZIP 119867바이트, SHA256 7c8b298abb5069cf311f19b8645a7c5b60d9ed04895f0781a94ec0c66c15734b. 독립 재다운로드 검증은 하지 않았다.
+- 코드 커밋 bc0a21487a696c03ec0103ff982d8045e9055da4: div.w2modal_popup의 가시성·크기·z-index·pointer-events 및 제한된 텍스트를 기록한다. 표시된 모달이 클릭을 막으면 강제 클릭이나 모달 제거 없이 쇼핑몰 상세검색 탐색을 보류한다.
+- 변경 후 GitHub-hosted Chrome/Xvfb 재실행 및 회귀시험은 아직 미검증이다. 계약·112R/113R·MAS·납품요구 목록·상세·페이징·JOIN의 실제 검증은 0건으로 유지한다.
+- Stage2 #43868699164의 169번 verified_complete=3385/5000, no_bidder_rows_unverified=103, complete=false를 유지한다. 170~172번 완료는 미입증이다. 기존 930379건 공고, 187쌍 Release, 운영·복구 워크플로, PC Runner는 변경하지 않았다.
