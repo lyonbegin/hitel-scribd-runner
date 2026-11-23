@@ -258,6 +258,22 @@ jobs:
                   len(rows),first_missing)
               assert all(i in rows for i in range(1,5001)),(
                   "SMOKE_REQUIRES_CONTIGUOUS_5000_VERIFIED_ROWS")
+              # Never allocate an unrelated ChatGPT job merely because the
+              # failed-run artifact was lost. Smoke must resume EXACTLY the
+              # previous 5001-5020 request with its immutable source IDs.
+              old_statefile=Path("hitel-ai-batches/http/05001-05020.json")
+              assert old_statefile.is_file(),("SMOKE_MISSING_PRIOR_HTTP_CHECKPOINT")
+              previous=json.loads(old_statefile.read_text("utf-8"))
+              old_ids=[{"no":i,"id":str(source[i-1]["문서 ID"])}
+                       for i in range(5001,5021)]
+              assert (
+                  previous.get("task_id")=="scribd-18109"
+                  and previous.get("key")=="05001-05020"
+                  and previous.get("job_id")=="job_769d8fbcaf034b8ebf5ca4e8d9ef3ce6"
+                  and previous.get("request_id")=="scribd18109-05001-05020-f0d6a6c13403b04fa32cf145c2ddc686"
+                  and previous.get("room_id")=="room_85204c97cf5f4b6bb610e16776f27592"
+                  and previous.get("source_ids")==old_ids
+              ),("SMOKE_PRIOR_JOB_OR_20_SOURCE_IDS_MISMATCH")
           print("PRESERVED_VERIFIED",len(rows),"FIRST_MISSING",first_missing)
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
               f.write(f"verified={len(rows)}\n")
