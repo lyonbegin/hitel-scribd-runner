@@ -183,6 +183,23 @@ def main():
                 report["events"].append(info)
 
         page.on("response", on_response)
+        # Preserve a bounded, ordered HTTP failure timeline for WebSquare modal diagnosis.
+        # Never retain response bodies, cookies, credentials, or POST payload values.
+        report["network_failure_timeline"] = []
+        def on_failure_response(response):
+            if response.status < 300:
+                return
+            info = network_info(response.request)
+            if len(report["network_failure_timeline"]) < 100:
+                report["network_failure_timeline"].append({
+                    "at": dt.datetime.now(dt.timezone.utc).isoformat(),
+                    "status": response.status,
+                    "method": info["method"],
+                    "host": info["host"],
+                    "path": info["path"],
+                    "is_oidc": "/oidc/" in info["path"],
+                })
+        page.on("response", on_failure_response)
         page.on("requestfailed", lambda req: report["request_failures"].append(
             {**network_info(req), "failure": short(req.failure, 180)}
         ) if len(report["request_failures"]) < 40 else None)
@@ -428,6 +445,7 @@ def main():
         "request_count": len(report["events"]),
         "response_count_total": report["response_count_total"],
         "http_errors": report["http_errors"], "request_failures": report["request_failures"],
+        "network_failure_timeline": report["network_failure_timeline"],
         "observed_script_paths": sorted(set(x["path"] for x in report["late_script_paths"]))[-110:],
         "xhr_paths": report["xhr_paths"][:30],
         "tracked_post_responses": report["tracked_post_responses"],
