@@ -9,19 +9,23 @@ run-name: HITEL Scribd AI handoff ${{ inputs.handoff_token || 'direct' }}
 # in a separate immutable request/room, keeping the original uncertain send.
 # Each 20-title batch uses exactly one durable HTTP request_id and a fresh room.
 # Read-only /requests and /jobs calls recover the same request without reposting.
+# No push-triggered live producer. Only an explicit operator dispatch may
+# submit any new ChatGPT turn. Even smoke runs exactly ONE 20-row window.
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/hitel-public-ai-corpus.yml
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Run one verified 20-row window, or continue verified-only'
+        description: 'Smoke: exactly one verified window; full: continue after verification'
         required: true
         type: choice
         options: [smoke, full]
-        default: full
+        default: smoke
+      presend_recovery:
+        description: 'Allow server-proven pre-send recovery only (never general unknown)'
+        required: true
+        type: choice
+        options: [blocked, approved]
+        default: blocked
       handoff_token:
         description: 'Unique parent run identity for safe HTTP 500 recovery'
         required: false
@@ -38,23 +42,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  kickoff_after_config_change:
-    # A push run has no isolated producer authority by design. It may only
-    # enqueue a workflow_dispatch, whose signed OIDC claims are authorized
-    # by Railway for task scribd-18109. Never send a chat on a push event.
-    if: github.event_name == 'push'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Start authorized manual-event Scribd classification
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh workflow run hitel-public-ai-corpus.yml --repo "$GITHUB_REPOSITORY" --ref main -f mode=full
-          echo PASS_SCRIBD_SIGNED_WORKFLOW_DISPATCH_FROM_CONFIG_PUSH >> "$GITHUB_STEP_SUMMARY"
-
   worker_ready:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
@@ -268,6 +255,7 @@ jobs:
         id: classify
         env:
           HITEL_ISOLATED_TASK_ID: scribd-18109
+          HITEL_SCRIBD_PRESEND_RECOVERY: ${{ inputs.presend_recovery }}
         # One POST per exact prompt and immutable request_id; thereafter GET only.
         # Old 1101 WS timeout is audited and old 1100 verified rows retained.
         shell: bash
@@ -320,7 +308,7 @@ jobs:
           retention-days: 90
           if-no-files-found: error
       - name: Chain next window only after real AI result verified
-        if: steps.classify.outcome == 'success' && steps.verify.outcome == 'success' && steps.verify.outputs.continue == 'true'
+        if: inputs.mode == 'full' && steps.classify.outcome == 'success' && steps.verify.outcome == 'success' && steps.verify.outputs.continue == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
