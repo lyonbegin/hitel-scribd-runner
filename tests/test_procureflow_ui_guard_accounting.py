@@ -50,6 +50,19 @@ class PublicUIGuardAccountingTests(unittest.TestCase):
             self.assertIsNone(pattern.fullmatch(label))
         self.assertIn('PUBLIC_SHOP_NAVIGATION.fullmatch(c.get("text", "").strip())', source)
 
+    def test_http_failure_timeline_is_bounded_and_excludes_sensitive_values(self):
+        source = SOURCE.read_text(encoding="utf-8")
+        ast.parse(source)
+        self.assertIn('report["network_failure_timeline"] = []', source)
+        self.assertIn('if response.status < 300:', source)
+        self.assertIn('len(report["network_failure_timeline"]) < 100', source)
+        self.assertIn('"network_failure_timeline": report["network_failure_timeline"]', source)
+        block = source.split('def on_failure_response(response):', 1)[1].split('page.on("response", on_failure_response)', 1)[0]
+        self.assertNotIn('response.body()', block)
+        self.assertNotIn('post_data', block)
+        self.assertNotIn('headers', block)
+        self.assertNotIn('cookies', block)
+
     def test_all_post_response_paths_are_counted(self):
         source = SOURCE.read_text(encoding="utf-8")
         ast.parse(source)
