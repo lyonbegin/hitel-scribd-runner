@@ -294,8 +294,10 @@ def recover_proven_presend_once(statefile:Path,state:dict,remote:dict) -> bool:
         return True
     if (receipt.get("accepted") is not True
             or receipt.get("job_id")==state["job_id"]
-            or receipt.get("recovery_kind") not in
+            or (receipt.get("recovery_kind") not in
                 ("instrumented_pre_send","source_pinned_legacy_pre_send")
+                and not (receipt.get("replayed") is True and
+                         receipt.get("recovery_kind")=="existing_scoped_recovery"))
             or not str(receipt.get("job_id","")).startswith("job_")
             or not str(receipt.get("room_id","")).startswith("room_")
             or not str(receipt.get("request_id","")).startswith("hitel-clean-scribd-18109-")):
