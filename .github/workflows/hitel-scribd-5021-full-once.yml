@@ -1,0 +1,48 @@
+name: HITEL Scribd 5021 approved continuous classification start
+run-name: Approved Scribd FULL from verified 5020
+on:
+  push:
+    branches: [ops/scribd-5021-full-once-20261124]
+    paths: [.github/workflows/hitel-scribd-5021-full-once.yml]
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: hitel-scribd-5021-full-approved-once-20261124
+  cancel-in-progress: false
+jobs:
+  begin-continuous-classification:
+    if: github.event_name == 'push' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Check exact 5020 verified checkpoint is latest and no older source will be restored
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/14870942420" \
+             --jq 'select(.expired==false and .name=="hitel-ai-18109-ws-recovery-checkpoint" and .workflow_run.id==45282941706) | .id' | grep -Fx 14870942420
+          LATEST="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=hitel-ai-18109-ws-recovery-checkpoint&per_page=100" --jq '[.artifacts[] | select(.expired==false)] | sort_by(.created_at) | reverse | .[0].id')"
+          test "$LATEST" = 14870942420 || { echo "REFUSE_CHECKPOINT_CHANGED=$LATEST"; exit 1; }
+          echo PASS_VERIFIED_5020_LATEST_CHECKPOINT
+      - name: Check no existing Scribd producer active and manual workflow remains safe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/hitel-public-ai-corpus.yml/runs?per_page=100" \
+            --jq '[.workflow_runs[] | select(.event=="workflow_dispatch" and (.status=="queued" or .status=="in_progress" or .status=="waiting" or .status=="pending" or .status=="requested"))] | length' | grep -Fx 0
+          gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/hitel-public-ai-corpus.yml?ref=main" --jq '.content' |
+            base64 -d | python3 -c 'import sys;s=sys.stdin.read(); assert "  workflow_dispatch:" in s and "  schedule:" not in s; assert "mode: full" in s or "mode == '\''full'\''" in s or "inputs.mode == '\''full'\''" in s; assert "FULL_REQUIRES_5020_VERIFIED_BEFORE_NEXT_WINDOW" in s; print("PASS_FULL_REQUIRES_5020_NO_CRON")'
+      - name: Start one approved full run from source 5021 with verifiable handoff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run hitel-public-ai-corpus.yml --repo "$GITHUB_REPOSITORY" --ref main -f mode=full -f presend_recovery=approved
+          echo PASS_APPROVED_SCRIBD_FULL_DISPATCH_ACCEPTED
+          echo "Continuous verified-only handoff enabled; no separate 5-minute Scribd classifier watchdog"
