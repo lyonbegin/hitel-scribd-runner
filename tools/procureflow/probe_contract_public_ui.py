@@ -418,6 +418,8 @@ def main():
         "errors": report["errors"], "browser_pages": report["browser_pages"],
         "page_errors": report["page_errors"], "console_errors": report["console_errors"],
         "get_paths": sorted(set(x["path"] for x in report["events"] if x["method"] == "GET"))[:70],
+        "shop_search_trial_failures": report.get("shop_search_trial_failures", []),
+        "shop_search_click_diagnostics": report.get("shop_search_click_diagnostics", []),
         "shop_public_search_candidates": report.get("shop_public_search_candidates", []),
         "shop_delivery_labels_not_clicked": report.get("shop_delivery_labels_not_clicked", []),
         "report_http_statuses": {k:v for k,v in report.items() if k.endswith("_http_status")},
