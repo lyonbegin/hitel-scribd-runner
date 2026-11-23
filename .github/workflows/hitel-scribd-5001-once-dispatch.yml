@@ -54,7 +54,7 @@ jobs:
         run: |
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/hitel-public-ai-corpus.yml?ref=main" --jq '.content' |
-            base64 -d | python3 -c 'import sys;s=sys.stdin.read(); assert "on:\\n  workflow_dispatch:" in s; assert "  schedule:" not in s; assert "  push:" not in s.split("permissions:")[0]; assert "default: smoke" in s; assert "default: blocked" in s; print("PASS_WORKFLOW_MANUAL_ONLY_NO_CRON")'
+            base64 -d | python3 -c 'import sys;s=sys.stdin.read(); assert "on:" in s and "  workflow_dispatch:" in s; assert "  schedule:" not in s; assert "  push:" not in s.split("permissions:")[0]; assert "default: smoke" in s; assert "default: blocked" in s; print("PASS_WORKFLOW_MANUAL_ONLY_NO_CRON")'
           gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/hitel-public-ai-corpus.yml/enable" --silent
           echo PASS_ORIGINAL_SCRIBD_MANUAL_ONLY_WORKFLOW_ENABLED
       - name: Dispatch approved exactly one 20-document smoke, no full chain
