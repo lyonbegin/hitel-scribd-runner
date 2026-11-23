@@ -274,6 +274,13 @@ jobs:
                   and previous.get("room_id")=="room_85204c97cf5f4b6bb610e16776f27592"
                   and previous.get("source_ids")==old_ids
               ),("SMOKE_PRIOR_JOB_OR_20_SOURCE_IDS_MISMATCH")
+          elif os.environ.get("HITEL_SCRIBD_RUN_MODE")=="full":
+              # Continuous production is separately authorized only AFTER
+              # the exact 5001-5020 smoke was verified and durably preserved.
+              assert len(rows)>=5020 and all(i in rows for i in range(1,5021)),(
+                  "FULL_REQUIRES_5020_VERIFIED_BEFORE_NEXT_WINDOW",len(rows))
+          else:
+              raise SystemExit("UNKNOWN_SCRIBD_MODE_FAIL_CLOSED")
           print("PRESERVED_VERIFIED",len(rows),"FIRST_MISSING",first_missing)
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
               f.write(f"verified={len(rows)}\n")
