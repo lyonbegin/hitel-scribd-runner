@@ -1,0 +1,31 @@
+name: Scribd manual-only 20-row workflow QA
+on:
+  push:
+    branches: [fix/scribd-manual-20-only-workflow-20261123]
+  pull_request:
+    paths:
+      - .github/workflows/hitel-public-ai-corpus.yml
+      - .github/workflows/hitel-scribd-manual-resume-qa.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert no automatic job creation without signed manual mode
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('.github/workflows/hitel-public-ai-corpus.yml').read_text()
+          assert 'on:\n  workflow_dispatch:' in s
+          assert '  push:' not in s.split('permissions:')[0]
+          assert '  kickoff_after_config_change:' not in s
+          assert 'default: smoke' in s
+          assert 'HITEL_SCRIBD_PRESEND_RECOVERY: ${{ inputs.presend_recovery }}' in s
+          assert "if: inputs.mode == 'full' && steps.classify.outcome == 'success'" in s
+          assert 'default: blocked' in s
+          print('PASS_SCRIBD_MANUAL_ONLY_ONE_BATCH_DEFAULT_NO_AI_SEND')
+          PY
