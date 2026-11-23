@@ -29,7 +29,7 @@ jobs:
           assert "if: inputs.mode == 'full' && steps.classify.outcome == 'success'" in s
           assert 'default: blocked' in s
           diagnostic=Path('.github/workflows/hitel-scribd-watchdog-five-min.yml').read_text()
-          assert 'on:\\n  workflow_dispatch:' in diagnostic
+          assert 'on:\n  workflow_dispatch:' in diagnostic
           assert '  schedule:' not in diagnostic and '  workflow_run:' not in diagnostic
           assert '  push:' not in diagnostic and '  actions: write' not in diagnostic
           assert 'python3 tools/zocbo/hitel_scribd_watchdog' not in diagnostic
