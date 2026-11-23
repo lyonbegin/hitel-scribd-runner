@@ -109,7 +109,7 @@ def main():
         "read_only_response_proofs": [],
     }
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(channel="chrome", headless=False, timeout=30000)
+        browser = playwright.chromium.launch(channel="chrome", headless=False, timeout=90000)
         context = browser.new_context(
             locale="ko-KR", timezone_id="Asia/Seoul",
             viewport={"width": 1440, "height": 900},
