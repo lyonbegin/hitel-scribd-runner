@@ -299,59 +299,80 @@ def main():
                     c.get("text", "") for c in start.get("visible_controls", [])
                     if PUBLIC_DELIVERY.search(c.get("text", ""))
                 ][:30]
-                for candidate in report["shop_public_search_candidates"]:
-                    label = candidate.get("text", "")
-                    try:
-                        target = page.get_by_text(label, exact=True).first
-                        if target.count() and target.is_visible(timeout=2500):
-                            # Capture the WebSquare hit target; never force-click overlays.
-                            report.setdefault("shop_search_click_diagnostics", []).append(
-                                target.evaluate("""e => {
-                                    const r = e.getBoundingClientRect();
-                                    const x = r.left + r.width / 2, y = r.top + r.height / 2;
-                                    const hit = document.elementFromPoint(x, y);
-                                    return {tag:e.tagName, disabled:Boolean(e.disabled),
-                                      rect:{x:r.x,y:r.y,width:r.width,height:r.height},
-                                      hit_tag:hit?.tagName || null,
-                                      hit_class:String(hit?.className || '').slice(0,120),
-                                      hit_is_target:hit === e || e.contains(hit)};
-                                }""")
-                            )
-                            # Trial-click failure is diagnostic, not permission to force-click.
-                            # Record the actual center-point interceptor and visibility state.
-                            try:
-                                target.click(timeout=3000, trial=True)
-                            except Exception as trial_exc:
-                                report.setdefault("shop_search_trial_failures", []).append({
-                                    "label": short(label, 90),
-                                    "error": type(trial_exc).__name__ + ":" + short(trial_exc, 300),
-                                    "hit_test": target.evaluate("""e => {
-                                      const r=e.getBoundingClientRect();
-                                      const x=r.left+r.width/2,y=r.top+r.height/2;
-                                      const h=document.elementFromPoint(x,y);
-                                      const chain=[];
-                                      for(let p=h;p&&chain.length<6;p=p.parentElement){
-                                        chain.push({tag:p.tagName,id:String(p.id||'').slice(0,70),
-                                          cls:String(p.className||'').slice(0,100),
-                                          pointerEvents:getComputedStyle(p).pointerEvents,
-                                          zIndex:getComputedStyle(p).zIndex});
-                                      }
-                                      return {viewport:{width:innerWidth,height:innerHeight},
-                                        inViewport:x>=0&&y>=0&&x<innerWidth&&y<innerHeight,
-                                        targetPointerEvents:getComputedStyle(e).pointerEvents,
-                                        targetVisibility:getComputedStyle(e).visibility,
-                                        targetDisplay:getComputedStyle(e).display,
-                                        interceptorChain:chain,
-                                        intercepted:!!h&&h!==e&&!e.contains(h)};
+                # Observe WebSquare modal state before attempting any navigation.
+                # A modal intercepting clicks is not authorization to dismiss it.
+                report["shop_visible_modal_diagnostics"] = page.evaluate("""() =>
+                    Array.from(document.querySelectorAll('div.w2modal_popup'))
+                      .slice(0, 12).map(e => {
+                        const r = e.getBoundingClientRect();
+                        const s = getComputedStyle(e);
+                        return {id: String(e.id || '').slice(0, 90),
+                          visible: r.width > 0 && r.height > 0 &&
+                            s.display !== 'none' && s.visibility !== 'hidden',
+                          width: r.width, height: r.height,
+                          zIndex: s.zIndex, pointerEvents: s.pointerEvents,
+                          textExcerpt: (e.innerText || '').replace(/\\s+/g, ' ').slice(0, 180)};
+                      })""")
+                if any(m["visible"] and m["pointerEvents"] != "none"
+                       for m in report["shop_visible_modal_diagnostics"]):
+                    report["shop_navigation_deferred_reason"] = "VISIBLE_WEBSQUARE_MODAL"
+                    report["shop_navigation_deferred_no_force_click"] = True
+                    # Retain network and modal evidence without modifying UI state.
+                    report["shop_public_search_candidates_not_clicked"] = True
+                else:
+                    for candidate in report["shop_public_search_candidates"]:
+                        label = candidate.get("text", "")
+                        try:
+                            target = page.get_by_text(label, exact=True).first
+                            if target.count() and target.is_visible(timeout=2500):
+                                # Capture the WebSquare hit target; never force-click overlays.
+                                report.setdefault("shop_search_click_diagnostics", []).append(
+                                    target.evaluate("""e => {
+                                        const r = e.getBoundingClientRect();
+                                        const x = r.left + r.width / 2, y = r.top + r.height / 2;
+                                        const hit = document.elementFromPoint(x, y);
+                                        return {tag:e.tagName, disabled:Boolean(e.disabled),
+                                          rect:{x:r.x,y:r.y,width:r.width,height:r.height},
+                                          hit_tag:hit?.tagName || null,
+                                          hit_class:String(hit?.className || '').slice(0,120),
+                                          hit_is_target:hit === e || e.contains(hit)};
                                     }""")
-                                })
-                                continue
-                            target.click(timeout=9000)
-                            capture("01_public_product_search_navigation")
-                            break
-                    except Exception as exc:
-                        report["errors"].append({"step": "shop_public_search_navigation",
-                                                 "error": type(exc).__name__ + ":" + short(exc)})
+                                )
+                                # Trial-click failure is diagnostic, not permission to force-click.
+                                # Record the actual center-point interceptor and visibility state.
+                                try:
+                                    target.click(timeout=3000, trial=True)
+                                except Exception as trial_exc:
+                                    report.setdefault("shop_search_trial_failures", []).append({
+                                        "label": short(label, 90),
+                                        "error": type(trial_exc).__name__ + ":" + short(trial_exc, 300),
+                                        "hit_test": target.evaluate("""e => {
+                                          const r=e.getBoundingClientRect();
+                                          const x=r.left+r.width/2,y=r.top+r.height/2;
+                                          const h=document.elementFromPoint(x,y);
+                                          const chain=[];
+                                          for(let p=h;p&&chain.length<6;p=p.parentElement){
+                                            chain.push({tag:p.tagName,id:String(p.id||'').slice(0,70),
+                                              cls:String(p.className||'').slice(0,100),
+                                              pointerEvents:getComputedStyle(p).pointerEvents,
+                                              zIndex:getComputedStyle(p).zIndex});
+                                          }
+                                          return {viewport:{width:innerWidth,height:innerHeight},
+                                            inViewport:x>=0&&y>=0&&x<innerWidth&&y<innerHeight,
+                                            targetPointerEvents:getComputedStyle(e).pointerEvents,
+                                            targetVisibility:getComputedStyle(e).visibility,
+                                            targetDisplay:getComputedStyle(e).display,
+                                            interceptorChain:chain,
+                                            intercepted:!!h&&h!==e&&!e.contains(h)};
+                                        }""")
+                                    })
+                                    continue
+                                target.click(timeout=9000)
+                                capture("01_public_product_search_navigation")
+                                break
+                        except Exception as exc:
+                            report["errors"].append({"step": "shop_public_search_navigation",
+                                                     "error": type(exc).__name__ + ":" + short(exc)})
             elif args.site == "data":
                 reports = [
                     ("01_contract_method_report", "https://data.g2b.go.kr/link/AISC001_01/?reptNm=UI-ADOXFA-113R"),
