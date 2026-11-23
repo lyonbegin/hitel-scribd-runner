@@ -230,8 +230,10 @@ jobs:
           PY
             echo "CHECKPOINT_SOURCE=verified_340_reset" >>"$GITHUB_OUTPUT"
           fi
-      - name: Validate 340 historical successes and no remaining legacy skip markers
+      - name: Validate preserved checkpoint and exact approved smoke window
         id: before
+        env:
+          HITEL_SCRIBD_RUN_MODE: ${{ inputs.mode }}
         shell: bash
         run: |
           python3 - <<'PY'
@@ -247,7 +249,16 @@ jobs:
                   rows[n]=r
           assert len(rows)>=340 and all(k in rows for k in range(1,261))
           assert len(list(Path("hitel-ai-batches/skipped").glob("*.json")))==0
-          print("PRESERVED_VERIFIED",len(rows),"FIRST_MISSING",next((i for i in range(1,18110) if i not in rows),None))
+          first_missing=next((i for i in range(1,18110) if i not in rows),None)
+          if os.environ.get("HITEL_SCRIBD_RUN_MODE")=="smoke":
+              # A manual 5001-only authorization cannot silently process an
+              # earlier or later range if a newer/incorrect artifact is restored.
+              assert len(rows)==5000 and first_missing==5001,(
+                  "SMOKE_REQUIRES_EXACT_5000_CHECKPOINT_AND_5001_FIRST_MISSING",
+                  len(rows),first_missing)
+              assert all(i in rows for i in range(1,5001)),(
+                  "SMOKE_REQUIRES_CONTIGUOUS_5000_VERIFIED_ROWS")
+          print("PRESERVED_VERIFIED",len(rows),"FIRST_MISSING",first_missing)
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
               f.write(f"verified={len(rows)}\n")
           PY
