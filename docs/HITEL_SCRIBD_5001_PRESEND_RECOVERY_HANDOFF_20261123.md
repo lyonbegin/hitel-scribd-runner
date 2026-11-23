@@ -22,9 +22,10 @@
 2. **문제집 분류기** — [hitel-scribd-runner PR #5](https://github.com/lyonbegin/hitel-scribd-runner/pull/5), 브랜치 `fix/scribd-presend-proof-handoff-20261123`, 병합 대상 `feature/hitel-public-ai-batches-20261119`.
    - `tools/zocbo/hitel_scribd_http_continue.py`: 환경값 `HITEL_SCRIBD_PRESEND_RECOVERY=approved`일 때만 **해당 20건**의 기존 job에 대해 서명된 `/recover` POST를 호출. 승인 전, 다른 job, 응답이 있거나 전송 신호가 있는 경우 절대 호출하지 않음. 서버가 `pending`을 반환하면 기존 상태만 관찰. 승인 시 이전 request, old job, source, 새 room, 새 request를 감사 기록에 저장.
    - 기존 `completed/*.json`과 `Scribd_AI_분류결과.csv`의 5,000건은 절대 수정/덮어쓰지 않음. 결과 검증 전 완료 +20 금지.
-3. **안전한 1회 실행 워크플로** — 문제집 `main` 대상 별도 PR [#6](https://github.com/lyonbegin/hitel-scribd-runner/pull/6) (생성 확인 필요), 브랜치 `fix/scribd-manual-20-only-workflow-20261123`.
+3. **안전한 1회 실행 워크플로** — 문제집 `main` 대상 별도 PR [#6](https://github.com/lyonbegin/hitel-scribd-runner/pull/6) (PR 생성 확인 완료), 브랜치 `fix/scribd-manual-20-only-workflow-20261123`.
    - `.github/workflows/hitel-public-ai-corpus.yml`: 작업자 `push` 자동 시작 삭제. `workflow_dispatch`만 허용. `mode=smoke` 기본값에서 20건만 검증하고 종료(추가 20건 자동 체인 금지). `presend_recovery=blocked` 기본값, 별도 승인 시에만 `approved` 전달.
    - 기존 `mode=smoke`가 실제로 다음 20건 체인을 막지 못했던 결함도 수정함.
+   - `.github/workflows/hitel-scribd-watchdog-five-min.yml`: 기존 cron·workflow_run 자동 재개·취소 경로를 제거하고 수동 읽기 전용 진단으로 교체. 워크플로가 생성되어도 결과를 재전송하거나 기존 작업자를 종료하지 않음.
 
 ## 3. 서버 권한 판정표
 
@@ -38,7 +39,14 @@
 | 서버와 클라이언트 request_id/room_id 불일치 | **즉시 거부** |
 | 이전 Chrome 세대가 아직 소유 중이거나 정상 응답 생성 중 | **대기**, 강제 재발송 금지 |
 
-## 4. 시험과 운영 적용 순서
+## 4. 오프라인 검증 결과
+
+- 공통 PR #74: 정책 12개 + FastAPI/서명 WebSocket/SQLite 통합 15개 + 실제 worker 수신 루프 4개 + pinned vendor composer 7개 시험 통과. 추가 전체 통합 회귀시험은 PR Actions 실행 상태를 재확인하십시오.
+- 분류기 PR #5: 복구 승인·차단·대상 일치·영수증 9개 시나리오 시험 통과.
+- 수동 워크플로 PR #6: `mode=smoke` 단회 실행·cron 및 watchdog 자동 재실행 금지의 정적 시험 통과.
+- 모든 시험은 비네트워크 또는 GitHub 저장소의 pinned vendor 소스에 대한 테스트이며, **실제 ChatGPT AI 질문을 전송하지 않았습니다.**
+
+## 5. 시험과 운영 적용 순서
 
 - PR #74의 `HITEL Scribd source-pinned pre-send recovery QA` 및 기존 전체 통합 회귀시험을 확인. 정책·API·서명 WebSocket + 가짜 owned tab 시험만 실행하며 실제 AI 요청을 보내지 않음.
 - PR #5의 `Scribd 5001 source-proof recovery offline QA` 확인. 기본 재시작 금지, 잘못된 ID/긍정적인 전송 신호/잘못된 영수증 거부 시험.
@@ -50,7 +58,7 @@
 - 5,001~5,020번 원본 문서 ID 20개, AI 응답 내용, `result_sha256`, `verified rows`, 현재 5,000건과 중복 없음, 보존 아티팩트를 검사. 확인되어야만 **5,020건 완료**라고 보고.
 - 연속 실행(`mode=full`)은 5,020건 1회 검증이 완료되고 **사용자가 따로 승인한 다음에만** 전환.
 
-## 5. 금지 사항
+## 6. 금지 사항
 
 - `unknown` / `null` 자체를 '미전송'으로 해석하지 마십시오.
 - 동일 요청이나 ChatGPT 대화방에 수동으로 새 질문을 보내지 마십시오.
