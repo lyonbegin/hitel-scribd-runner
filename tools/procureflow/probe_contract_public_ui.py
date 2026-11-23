@@ -304,6 +304,20 @@ def main():
                     try:
                         target = page.get_by_text(label, exact=True).first
                         if target.count() and target.is_visible(timeout=2500):
+                            # Capture the WebSquare hit target; never force-click overlays.
+                            report.setdefault("shop_search_click_diagnostics", []).append(
+                                target.evaluate("""e => {
+                                    const r = e.getBoundingClientRect();
+                                    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+                                    const hit = document.elementFromPoint(x, y);
+                                    return {tag:e.tagName, disabled:Boolean(e.disabled),
+                                      rect:{x:r.x,y:r.y,width:r.width,height:r.height},
+                                      hit_tag:hit?.tagName || null,
+                                      hit_class:String(hit?.className || '').slice(0,120),
+                                      hit_is_target:hit === e || e.contains(hit)};
+                                }""")
+                            )
+                            target.click(timeout=3000, trial=True)
                             target.click(timeout=9000)
                             capture("01_public_product_search_navigation")
                             break
