@@ -25,6 +25,10 @@ jobs:
           assert '  push:' not in s.split('permissions:')[0]
           assert '  kickoff_after_config_change:' not in s
           assert 'default: smoke' in s
+          assert 'HITEL_SCRIBD_RUN_MODE: ${{ inputs.mode }}' in s
+          assert 'len(rows)==5000 and first_missing==5001' in s
+          assert 'all(i in rows for i in range(1,5001))' in s
+          assert 'SMOKE_REQUIRES_EXACT_5000_CHECKPOINT_AND_5001_FIRST_MISSING' in s
           assert 'HITEL_SCRIBD_PRESEND_RECOVERY: ${{ inputs.presend_recovery }}' in s
           assert "if: inputs.mode == 'full' && steps.classify.outcome == 'success'" in s
           assert 'default: blocked' in s
