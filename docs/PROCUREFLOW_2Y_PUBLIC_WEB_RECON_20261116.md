@@ -123,3 +123,13 @@
 - 공개 읽기 전용 HTTP 응답의 원본 SHA256 증빙에 `semantic_verification`을 추가하였다. `result.successBidInfo=[]`인 HTTP 200 JSON은 `NO_BIDDER_ROWS_UNVERIFIED`로 분류하며, HTTP 오류·비JSON·파싱 오류·그 외 JSON도 자동으로 계약/낙찰 검증 완료로 승격하지 않는다.
 - 수정: `tools/procureflow/public_readonly_raw.py`, `tools/procureflow/probe_contract_public_ui.py`; 회귀시험: `tests/test_procureflow_public_response_semantics.py`; 연구용 GitHub-hosted 워크플로에 시험을 연결하였다. 커밋: `3acf6b8b`, `33e62c33`, `0f51f44e`, `ca362444`.
 - 이번 변경은 **분류·진단 코드만** 수정하였다. 후속 GitHub Actions 시험 통과, 실제 계약 목록·상세·페이징·JOIN 또는 ZIP 원본의 신규 검증은 아직 확인되지 않았다. 기존 930,379개 공고 인덱스, 187쌍 원본 Release, Stage2 복구 워크플로 및 PC Runner는 수정하지 않았다. 169~172번의 완료 판정과 나머지 샤드 재수집도 실행하지 않았다.
+
+
+## 2026-11-23 15시 독립 실행 교차검증 — Chrome 90초 변경 후 실증
+
+- 연구 브랜치 HEAD `41e11fa0f859001b538ff495bbb50f8a2bf7864d`의 [공개 웹 실행 #45105197687](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/45105197687) 4개 작업 성공 및 순차 진단 [나라장터 #45105197872](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/45105197872) → [데이터허브 #45105306966](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/45105306966) → [쇼핑몰 #45105585733](https://github.com/lyonbegin/hitel-scribd-runner/actions/runs/45105585733) 성공을 작업 API·원본 로그로 확인. 직전 Chrome 연결 30초 타임아웃 실행 #45092583315와 달리 신규 나라장터 작업은 Chrome 실행 후 공개 첫 화면 진단을 끝냈다. **Chrome 시작 문제의 이번 실행 재현은 없으나 계약 실데이터 수집 성공을 뜻하지 않는다.**
+- 나라장터: 화면 내비게이션 약 10.54초 후 노출. 포털 메인 `POST /fa/faz/fazf/PrtlFtre/selectPrtlFtreMainList.do` HTTP 200, 응답 120,914바이트, SHA256 `93b342272a384773dabe33517bea39519d5063b73cd69580ca8e7c276795ab0c`, 원본 저장·재해시 통과. 이는 **계약 목록이 아닌 포털 메인**이다. `/co/coz/coza/util/getSession.do`는 `net::ERR_FAILED`로 실제 HTTP 응답코드 없음. 화면에 `서버 오류입니다. code : 0` 표시. `contract_labels=[]`.
+- 데이터허브: 내비게이션 약 18.985초 후 렌더링. 112R/113R 링크 모두 화면에는 `서버 오류입니다. code : 0`가 표시됨. 초기화/공통 POST 응답 15개를 관측했지만 **112R/113R의 보고서 행·상세·페이지 증거는 없음**. `getSession.do` 요청 실패를 서버 403/200으로 임의 분류하지 않음.
+- 쇼핑몰: 공개 첫 화면에서 검색·상세검색 요소와 인증/테마/분류 메인 POST 7개 관측. 이들 응답은 **MAS 상품검색 또는 납품요구 실적 원본이 아님**. 초기 화면의 `서버 오류입니다. code : 0`도 데이터 적재 성공 증거가 아님.
+- 위 세 단계의 Actions 성공과 공개 초기화 응답의 바이트 보존은 검증된 계약·수의·공동수급·112R/113R·MAS·납품요구의 목록/상세/페이징/공식키 JOIN을 충족하지 못한다. **실데이터 검증 완료 0건**, 신규 2년 독립 테이블의 실원본 적재는 미완료. 다음 우선순위는 이미 노출된 공개 메뉴의 안전한 상세검색 클릭 가능성, 실제 검색 요청 경로, 화면 `code : 0` 발생 직전 실패 요청의 네트워크/JS 상관관계 증빙이다. 공식 공개 조회가 확정되기 전 임의 POST 재생 금지.
+- 선택 복구 #43868699164의 169번 `verified_complete=3385/5000`, `no_bidder_rows_unverified=103`, `complete=false`와 170~172의 완료 미입증 상태를 유지한다. HTTP 200 + `successBidInfo=[]`를 확정 0건으로 재분류하지 않는다. 기존 930,379 공고, 187쌍 Release, 운영/복구 워크플로 및 PC Runner는 변경하거나 재실행하지 않았다.
