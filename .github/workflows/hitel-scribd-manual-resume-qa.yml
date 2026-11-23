@@ -33,6 +33,8 @@ jobs:
           assert 'SMOKE_PRIOR_JOB_OR_20_SOURCE_IDS_MISMATCH' in s
           assert 'job_769d8fbcaf034b8ebf5ca4e8d9ef3ce6' in s
           assert 'previous.get("source_ids")==old_ids' in s
+          assert 'FULL_REQUIRES_5020_VERIFIED_BEFORE_NEXT_WINDOW' in s
+          assert 'len(rows)>=5020 and all(i in rows for i in range(1,5021))' in s
           assert 'HITEL_SCRIBD_PRESEND_RECOVERY: ${{ inputs.presend_recovery }}' in s
           assert "if: inputs.mode == 'full' && steps.classify.outcome == 'success'" in s
           assert 'default: blocked' in s
