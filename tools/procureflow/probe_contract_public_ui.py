@@ -317,7 +317,35 @@ def main():
                                       hit_is_target:hit === e || e.contains(hit)};
                                 }""")
                             )
-                            target.click(timeout=3000, trial=True)
+                            # Trial-click failure is diagnostic, not permission to force-click.
+                            # Record the actual center-point interceptor and visibility state.
+                            try:
+                                target.click(timeout=3000, trial=True)
+                            except Exception as trial_exc:
+                                report.setdefault("shop_search_trial_failures", []).append({
+                                    "label": short(label, 90),
+                                    "error": type(trial_exc).__name__ + ":" + short(trial_exc, 300),
+                                    "hit_test": target.evaluate("""e => {
+                                      const r=e.getBoundingClientRect();
+                                      const x=r.left+r.width/2,y=r.top+r.height/2;
+                                      const h=document.elementFromPoint(x,y);
+                                      const chain=[];
+                                      for(let p=h;p&&chain.length<6;p=p.parentElement){
+                                        chain.push({tag:p.tagName,id:String(p.id||'').slice(0,70),
+                                          cls:String(p.className||'').slice(0,100),
+                                          pointerEvents:getComputedStyle(p).pointerEvents,
+                                          zIndex:getComputedStyle(p).zIndex});
+                                      }
+                                      return {viewport:{width:innerWidth,height:innerHeight},
+                                        inViewport:x>=0&&y>=0&&x<innerWidth&&y<innerHeight,
+                                        targetPointerEvents:getComputedStyle(e).pointerEvents,
+                                        targetVisibility:getComputedStyle(e).visibility,
+                                        targetDisplay:getComputedStyle(e).display,
+                                        interceptorChain:chain,
+                                        intercepted:!!h&&h!==e&&!e.contains(h)};
+                                    }""")
+                                })
+                                continue
                             target.click(timeout=9000)
                             capture("01_public_product_search_navigation")
                             break
