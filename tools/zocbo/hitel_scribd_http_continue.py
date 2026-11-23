@@ -248,6 +248,75 @@ def recover_common_worker(statefile,state,remote):
     return True
 
 
+# The old 5,001-5,020 batch is a uniquely source-pinned historic exception.
+# No other UPSTREAM_DELIVERY_UNKNOWN is automatically recoverable.
+LEGACY_PRESEND_SCRIBD_JOB="job_769d8fbcaf034b8ebf5ca4e8d9ef3ce6"
+PRESEND_COMPOSER_ERROR="WEB2API_PRE_SEND_COMPOSER_NOT_FOUND"
+
+
+def recover_proven_presend_once(statefile:Path,state:dict,remote:dict) -> bool:
+    """Only an operator-enabled, signed POST to server-authoritative /recover.
+
+    Does not retry a ChatGPT send itself, never uses the shared /chat route,
+    and never guesses that null send-ack means delivery was absent.
+    """
+    if os.environ.get("HITEL_SCRIBD_PRESEND_RECOVERY")!="approved":
+        return False
+    if state.get("task_id")!="scribd-18109":
+        return False
+    if (remote.get("job_id")!=state.get("job_id")
+            or remote.get("room_id")!=state.get("room_id")
+            or remote.get("request_id")!=state.get("active_request_id",state["request_id"])
+            or remote.get("result_ready") is not False
+            or remote.get("chatgpt_send_confirmed") is True
+            or remote.get("assistant_reply_observed") is True):
+        return False
+    code=remote.get("error_code")
+    proven_new=(code==PRESEND_COMPOSER_ERROR and remote.get("status")=="failed")
+    legacy=(state.get("key")=="05001-05020"
+            and state.get("job_id")==LEGACY_PRESEND_SCRIBD_JOB
+            and code=="UPSTREAM_DELIVERY_UNKNOWN"
+            and remote.get("status") in ("unknown","failed"))
+    if not (proven_new or legacy):
+        return False
+    # Server verifies the durable vendor observation, exact worker generation
+    # and one-to-one recovery mapping within one SQLite transaction.
+    result_code,receipt=isolated_chat_once(state,"",recovery={
+        "previous_job_id":state["job_id"],
+        "previous_request_id":state.get("active_request_id",state["request_id"]),
+    })
+    if result_code!=202 or receipt.get("task_id")!="scribd-18109":
+        raise RuntimeError("PRESEND_RECOVERY_TASK_SCOPE_MISMATCH")
+    if receipt.get("pending") is True and receipt.get("accepted") is False:
+        if receipt.get("previous_job_id")!=state["job_id"]:
+            raise RuntimeError("PRESEND_RECOVERY_PENDING_ID_MISMATCH")
+        print("WAIT_FRESH_ISOLATED_VM_FOR_SOURCE_PROVEN_RECOVERY",flush=True)
+        return True
+    if (receipt.get("accepted") is not True
+            or receipt.get("job_id")==state["job_id"]
+            or receipt.get("recovery_kind") not in
+                ("instrumented_pre_send","source_pinned_legacy_pre_send")
+            or not str(receipt.get("job_id","")).startswith("job_")
+            or not str(receipt.get("room_id","")).startswith("room_")
+            or not str(receipt.get("request_id","")).startswith("hitel-clean-scribd-18109-")):
+        raise RuntimeError("PRESEND_RECOVERY_RECEIPT_INVALID")
+    state.setdefault("recovery_audit",[]).append({
+        "previous_job_id":state["job_id"],
+        "previous_request_id":state.get("active_request_id",state["request_id"]),
+        "recovery_kind":receipt["recovery_kind"],
+        "source_proven_presend":True,
+    })
+    state.update({
+        "job_id":receipt["job_id"],
+        "room_id":receipt["room_id"],
+        "active_request_id":receipt["request_id"],
+        "status":"accepted",
+    })
+    save(statefile,state)
+    print("PRESEND_RECOVERY_FENCED_ONCE",state["key"],receipt["recovery_kind"],flush=True)
+    return True
+
+
 def await_http_reply(statefile:Path,state:dict):
     """GET only: worker can rotate, and a lost reply never causes a new POST."""
     while True:
@@ -296,6 +365,10 @@ def await_http_reply(statefile:Path,state:dict):
                 time.sleep(10)
                 continue
             if recovering:
+                time.sleep(10)
+                continue
+        if state.get("task_id")=="scribd-18109" and status in ("unknown","failed"):
+            if recover_proven_presend_once(statefile,state,remote):
                 time.sleep(10)
                 continue
         if status in ("queued","running"):
