@@ -1,24 +1,14 @@
-name: HITEL Scribd verified checkpoint watchdog - every 5 minutes
+name: HITEL Scribd checkpoint diagnostic (manual read-only)
 
-# Checks the signed scribd-18109 task every five minutes. A terminal
+# Manual read-only health check of scribd-18109. A terminal
 # disconnected/unknown AI delivery is audited against the immutable job ID,
-# source checkpoint, worker heartbeat and retry policy before auto-resume.
+# source checkpoint and worker heartbeat are observed; no auto-resume.
 # No human browser session or hourly ChatGPT reminder is required.
 # NEVER consider five minutes of model generation to be a stalled job.
+# Disabled as an automatic resume source. Read-only manual diagnostics only.
+# A one-batch smoke must never wake another classifier via workflow_run.
 on:
-  schedule:
-    - cron: '*/5 * * * *'
-  push:
-    branches: [main]
-    paths: [.github/workflows/hitel-scribd-watchdog-five-min.yml]
   workflow_dispatch:
-  # GitHub's cron scheduler may be delayed. A finished classifier also
-  # triggers a watchdog probe, including failure/timeout/cancellation.
-  workflow_run:
-    workflows:
-      - HITEL Scribd 18109 - native Web2API completion verified
-    types: [completed]
-    branches: [main]
 
 permissions:
   contents: read
@@ -68,10 +58,3 @@ jobs:
           path: ${{ runner.temp }}/five-minute-health.json
           if-no-files-found: warn
           retention-days: 7
-      - name: Read current GitHub Actions and latest verified checkpoint; resume if safe
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          python3 tools/zocbo/hitel_scribd_watchdog.py
