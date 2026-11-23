@@ -46,3 +46,5 @@ jobs:
           assert 'curl -X POST' not in diagnostic
           print('PASS_SCRIBD_MANUAL_ONLY_ONE_BATCH_DEFAULT_NO_AI_SEND')
           PY
+      - name: Execute real mode gate against local synthetic checkpoints
+        run: python3 .github/scripts/test_scribd_smoke_checkpoint_gate.py
