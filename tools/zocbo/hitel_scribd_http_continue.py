@@ -694,7 +694,44 @@ def main():
         raise ValueError("ORIGINAL_18109_CORPUS_IDS_CHANGED")
     for no,r in enumerate(rows,1):
         r["번호"]=no
-    return run_one(rows,Path(o.out))
+    out=Path(o.out)
+    marker=out/"supervisor-reconcile.json"
+    verified=load_verified(rows,out)
+    first=next((n for n in range(1,len(rows)+1) if n not in verified),None)
+    prior=json.loads(marker.read_text("utf-8")) if marker.exists() else {}
+    retries=int(prior.get("infra_retries",0)) if prior.get("first_missing")==first else 0
+    state={"first_missing":first,"verified_before":len(verified),"infra_retries":retries,
+           "phase":"running"}
+    save(marker,state)
+    try:
+        rc=run_one(rows,out)
+    except (urllib.error.URLError,TimeoutError,ConnectionError) as exc:
+        if isinstance(exc,urllib.error.HTTPError) and exc.code not in (408,429,500,502,503,504):
+            raise
+        retries+=1
+        wait=min(300,30*2**min(retries-1,4))
+        if isinstance(exc,urllib.error.HTTPError):
+            retry_after=(exc.headers or {}).get("Retry-After","")
+            if str(retry_after).isdigit():
+                wait=max(wait,int(retry_after))
+        save(marker,{**state,"infra_retries":retries,
+                     "phase":"retryable_transport" if retries<=5 else "retry_budget_exhausted",
+                     "wait_seconds":wait,"error_type":type(exc).__name__})
+        print("SUPERVISOR_TRANSPORT_RECONCILE",first,"ATTEMPT",retries,"WAIT",wait,flush=True)
+        return 75
+    except RuntimeError as exc:
+        # Uncertain POST acceptance may be reconciled only by read-only
+        # request lookup; ensure_one_http_job still refuses duplicate POSTs.
+        if "POST_DELIVERY_UNCERTAIN_LOOKUP_404_REFUSE_DUPLICATE_SEND" not in str(exc):
+            raise
+        retries+=1
+        save(marker,{**state,"infra_retries":retries,
+                     "phase":"retryable_transport" if retries<=5 else "retry_budget_exhausted",
+                     "wait_seconds":min(300,30*2**min(retries-1,4)),
+                     "error_type":"UNCERTAIN_POST_READ_ONLY"})
+        return 75
+    save(marker,{**state,"phase":"verified","verified_after":len(load_verified(rows,out))})
+    return rc
 
 
 if __name__=="__main__":
