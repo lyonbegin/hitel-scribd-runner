@@ -60,7 +60,7 @@ jobs:
           HANDOFF_TOKEN: ${{ inputs.handoff_token }}
         run: |
           python3 - <<'PY'
-          import json,os,re,time,urllib.request
+          import json,os,re,time,urllib.request,urllib.error
           token=os.environ["HANDOFF_TOKEN"]
           if not re.fullmatch(r"(?:from|watchdog)-[0-9]+",token):
               raise SystemExit("INVALID_VERIFIED_BATCH_HANDOFF_TOKEN")
@@ -78,9 +78,25 @@ jobs:
           # A one-off watchdog starts very soon after POST 204; do not
           # mistake delayed visibility for an unauthorized/duplicate run.
           ids=[]
+          # A transient GitHub network timeout is NOT evidence that no owner
+          # exists. Never authorize a duplicate submission on a failed lookup.
+          # Retry this read-only owner check; fail closed if all probes fail.
           for attempt in range(9):
-              with urllib.request.urlopen(req,timeout=25) as response:
-                  runs=json.load(response)["workflow_runs"]
+              try:
+                  with urllib.request.urlopen(req,timeout=25) as response:
+                      runs=json.load(response)["workflow_runs"]
+              except urllib.error.HTTPError as exc:
+                  if exc.code not in (429,500,502,503,504):
+                      raise
+                  print("HANDOFF_OWNER_QUERY_RETRY_HTTP",exc.code,
+                        "TRY",attempt+1,flush=True)
+                  time.sleep(5)
+                  continue
+              except (urllib.error.URLError,TimeoutError,OSError) as exc:
+                  print("HANDOFF_OWNER_QUERY_RETRY_NETWORK",type(exc).__name__,
+                        "TRY",attempt+1,flush=True)
+                  time.sleep(5)
+                  continue
               ids=[int(r["id"]) for r in runs if
                    r.get("event")=="workflow_dispatch"
                    and r.get("head_branch")=="main"
@@ -90,7 +106,7 @@ jobs:
               print("WAIT_GITHUB_HANDOFF_OWNER_INDEXING",attempt+1,flush=True)
               time.sleep(5)
           if not ids:
-              raise SystemExit("HANDOFF_OWNER_NOT_VISIBLE_FAIL_CLOSED")
+              raise SystemExit("HANDOFF_OWNER_NOT_VISIBLE_OR_NETWORK_UNVERIFIED_FAIL_CLOSED")
           owner=min(ids)
           is_duplicate=owner!=int(os.environ["GITHUB_RUN_ID"])
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
