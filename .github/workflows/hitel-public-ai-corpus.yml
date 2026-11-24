@@ -150,7 +150,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/zocbo/hitel_scribd_http_continue.py
+          python3 -m py_compile tools/zocbo/hitel_scribd_http_continue.py tools/zocbo/hitel_scribd_supervisor.py
           python3 tools/zocbo/test_hitel_scribd_http_continue.py
           python3 tools/zocbo/test_hitel_scribd_ws_stalled_retry.py
           python3 tools/zocbo/test_hitel_dispatch_next_verified.py
@@ -350,6 +350,7 @@ jobs:
               f.write(f"Verified {len(verified)}/18109, new {delta}, skipped 0, next source {next_row}\n")
           PY
       - name: Preserve independently verified results and HTTP plus original WS audit state
+        id: persist
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -365,3 +366,36 @@ jobs:
         run: |
           python3 tools/zocbo/hitel_dispatch_next_verified.py
           echo NEXT_VERIFIED_ONLY_HANDOFF_VERIFIED_OR_ACCEPTED >> "$GITHUB_STEP_SUMMARY"
+
+      # Failure continuation is permitted only for a durable, bounded
+      # transport-reconcile decision. Content rejection/splitting is handled
+      # inside the supervisor; unknown sends and integrity failures stay closed.
+      - name: Recover retryable transport from preserved checkpoint
+        if: "!cancelled() && inputs.mode == 'full' && steps.classify.outcome == 'failure' && steps.persist.outcome == 'success'"
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib, time
+          from tools.zocbo.hitel_dispatch_next_verified import GithubClient, handoff, new_token
+          import os
+          path=pathlib.Path("hitel-ai-batches/supervisor-reconcile.json")
+          if not path.exists():
+              print("SUPERVISOR_NO_RETRY_MARKER_FAIL_CLOSED")
+              raise SystemExit(0)
+          state=json.loads(path.read_text("utf-8"))
+          if state.get("phase")!="retryable_transport":
+              print("SUPERVISOR_NONRETRYABLE_OR_BUDGET_EXHAUSTED",state.get("phase"))
+              raise SystemExit(0)
+          count=state.get("infra_retries")
+          wait=state.get("wait_seconds")
+          if not isinstance(count,int) or not 1<=count<=5 or not isinstance(wait,int) or wait<30:
+              raise RuntimeError("SUPERVISOR_RETRY_MARKER_INVALID")
+          print("SUPERVISOR_DURABLE_RETRY_BACKOFF",wait,flush=True)
+          time.sleep(wait)
+          client=GithubClient(os.environ["GITHUB_REPOSITORY"],os.environ["GH_TOKEN"])
+          status,run_id=handoff(client,new_token(os.environ["GITHUB_RUN_ID"]))
+          print("SUPERVISOR_RECONCILIATION_HANDOFF",status,run_id,flush=True)
+          PY
