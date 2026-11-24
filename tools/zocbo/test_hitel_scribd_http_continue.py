@@ -513,5 +513,149 @@ class HttpOnceOnlyTests(unittest.TestCase):
             self.assertTrue(audit["prior_job_not_counted_completed"])
 
 
+
+class SupervisorRecoveryTests(unittest.TestCase):
+    def sample(self,n=20):
+        return [{"번호":8961+i,"문서 ID":str(371313300+i),
+                 "원문 제목":f"distinct title {i}"} for i in range(n)]
+
+    def response(self,batch):
+        from hitel_scribd_supervisor import keyed_inputs, SCHEMA
+        return {"schema":SCHEMA,"rows":[{**entry,"school":"대상외","grade":"해당없음",
+                "semester":"해당없음","subject":"기타","edition":"해당없음",
+                "download":"제외","reason":"학교 교재가 아님"} for entry in keyed_inputs(batch)]}
+
+    def transport(self,batch,invalid_scopes=(),fail_first=False,stop_after=None):
+        from hitel_scribd_supervisor import digest
+        jobs={}
+        sends=[]
+        def ensure(path,state,prompt):
+            req=state["request_id"]
+            if req not in jobs:
+                self.assertNotIn("문서 ID",prompt)
+                self.assertTrue("schema" in prompt)
+                jobs[req]=len(jobs)+1
+                sends.append(req)
+            num=jobs[req]
+            state.update({"job_id":f"job_{num:032x}","room_id":f"room_{num:032x}",
+                          "submit_attempted":True,"status":"accepted"})
+            runner.save(path,state)
+            return state
+        def await_(path,state):
+            if stop_after is not None and len(sends)>stop_after:
+                raise RuntimeError("simulated runner shutdown")
+            ids={r["no"] for r in state["source_ids"]}
+            sub=[x for x in batch if x["번호"] in ids]
+            reply=self.response(sub)
+            n=len(sub)
+            attempt=int(state["request_id"].split("-a")[-1])
+            if n in invalid_scopes or (fail_first and n==20 and attempt==1):
+                reply["rows"][0]["title"]="WRONG PREVIOUS TITLE"
+            answer=json.dumps(reply,ensure_ascii=False)
+            remote={"status":"completed","result_ready":True,
+                    "chatgpt_send_confirmed":True,"assistant_reply_observed":True,
+                    "job_id":state["job_id"],"room_id":state["room_id"],
+                    "request_id":state["request_id"],"result_sha256":digest(answer)}
+            state["status"]="completed"
+            runner.save(path,state)
+            return answer,remote
+        return ensure,await_,sends
+
+    def test_keyed_exact_map_uses_original_id_not_model(self):
+        from hitel_scribd_supervisor import validate_keyed,keyed_prompt
+        b=self.sample()
+        a=self.response(b)
+        a["rows"][0]["id"]="NOT_A_SOURCE_ID"
+        result=validate_keyed(json.dumps(a,ensure_ascii=False),b)
+        self.assertEqual([x["id"] for x in result],[x["문서 ID"] for x in b])
+        self.assertNotIn(b[0]["문서 ID"],keyed_prompt(b))
+
+    def test_wrong_title_or_swapped_key_rejected(self):
+        from hitel_scribd_supervisor import validate_keyed, InvalidReply
+        b=self.sample()
+        a=self.response(b)
+        a["rows"][13]["title"],a["rows"][14]["title"]=a["rows"][14]["title"],a["rows"][13]["title"]
+        with self.assertRaisesRegex(InvalidReply,"KEY_OR_TITLE_MISMATCH"):
+            validate_keyed(json.dumps(a,ensure_ascii=False),b)
+
+    def test_terminal_bad_reply_retries_fresh_room_without_counting_bad(self):
+        from hitel_scribd_supervisor import run_supervised
+        b=self.sample()
+        ensure,await_,sends=self.transport(b,fail_first=True)
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            parsed,proof=run_supervised(root,b,ensure,await_,sleep=lambda _:None)
+            self.assertEqual(len(parsed),20)
+            self.assertEqual(len(proof),1)
+            self.assertEqual(len(set(sends)),2)
+            self.assertEqual(len(list(root.rglob("rejected-*.json"))),1)
+            # Idempotent restart: verified checkpoint reuses reply, no send.
+            parsed2,proof2=run_supervised(root,b,ensure,await_,sleep=lambda _:None)
+            self.assertEqual(parsed2,parsed)
+            self.assertEqual(proof2,proof)
+            self.assertEqual(len(sends),2)
+
+    def test_split_20_to_5_to_1_preserves_all_exact_ids(self):
+        from hitel_scribd_supervisor import run_supervised
+        b=self.sample()
+        ensure,await_,sends=self.transport(b,invalid_scopes=(20,5))
+        with tempfile.TemporaryDirectory() as d:
+            parsed,proof=run_supervised(Path(d),b,ensure,await_,sleep=lambda _:None)
+            self.assertEqual(len(parsed),20)
+            self.assertEqual(len(proof),20)
+            self.assertEqual([x["id"] for x in parsed],[x["문서 ID"] for x in b])
+            self.assertEqual(len(sends),30)
+
+    def test_single_rejection_is_not_a_success(self):
+        from hitel_scribd_supervisor import run_supervised
+        b=self.sample(1)
+        ensure,await_,sends=self.transport(b,invalid_scopes=(1,))
+        with tempfile.TemporaryDirectory() as d:
+            with self.assertRaisesRegex(RuntimeError,"SINGLE_ROW_RETRY_LIMIT"):
+                run_supervised(Path(d),b,ensure,await_,sleep=lambda _:None)
+            self.assertEqual(len(sends),3)
+            self.assertFalse(list(Path(d).rglob("verified.json")))
+
+    def test_lost_reply_does_not_allocate_a_new_request(self):
+        from hitel_scribd_supervisor import run_supervised
+        b=self.sample()
+        ensure,await_,sends=self.transport(b)
+        with tempfile.TemporaryDirectory() as d:
+            with self.assertRaisesRegex(RuntimeError,"lost reply"):
+                run_supervised(Path(d),b,ensure,
+                               lambda p,s: (_ for _ in ()).throw(RuntimeError("lost reply")),
+                               sleep=lambda _:None)
+            parsed,proof=run_supervised(Path(d),b,ensure,await_,sleep=lambda _:None)
+            self.assertEqual(len(parsed),20)
+            self.assertEqual(len(sends),1)
+
+    def test_read_backoff_does_not_repost(self):
+        from hitel_scribd_supervisor import safe_read
+        waits=[]
+        errors=[urllib.error.HTTPError("https://example.invalid",429,"limited",{"Retry-After":"30"},None),
+                urllib.error.URLError("temporarily offline"),"ok"]
+        def read():
+            value=errors.pop(0)
+            if isinstance(value,Exception):
+                raise value
+            return value
+        self.assertEqual(safe_read(read,sleep=waits.append),"ok")
+        self.assertEqual(waits,[30,10])
+
+    def test_legacy_bad_mapping_is_rejected_not_repaired(self):
+        from hitel_scribd_supervisor import strict_legacy, InvalidReply
+        b=self.sample()
+        a=self.response(b)
+        converted=[]
+        for entry,source in zip(a["rows"],b):
+            converted.append({"no":source["번호"],"id":source["문서 ID"],
+                              **{k:v for k,v in entry.items() if k not in ("key","title")}})
+        converted[13]["id"]=converted[14]["id"]
+        converted[14]["id"]=converted[15]["id"]
+        converted[15]["id"]=converted[14]["id"]
+        with self.assertRaises(InvalidReply):
+            strict_legacy(json.dumps({"rows":converted},ensure_ascii=False),b)
+
+
 if __name__=="__main__":
     unittest.main()
