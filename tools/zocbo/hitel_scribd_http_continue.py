@@ -21,6 +21,8 @@ from pathlib import Path
 from hitel_public_named_rooms_corpus import (
     BASE, HTTP, call, output_file, read_completed_result, save, title_prompt, validated_rows)
 from hitel_scribd_ws_continue import SOURCE_SHA, load_verified, next_batch
+from hitel_scribd_supervisor import (InvalidReply, strict_legacy, run_supervised, safe_read)
+
 
 API="/integrations/v1/public"
 OLD_1101_JOB="job_0beb067740a64d488431c274a5d0a69a"
@@ -322,7 +324,7 @@ def recover_proven_presend_once(statefile:Path,state:dict,remote:dict) -> bool:
 def await_http_reply(statefile:Path,state:dict):
     """GET only: worker can rotate, and a lost reply never causes a new POST."""
     while True:
-        code,remote=call(API+"/jobs/"+state["job_id"])
+        code,remote=safe_read(lambda: call(API+"/jobs/"+state["job_id"]))
         if (code!=200 or remote.get("job_id")!=state.get("job_id") or
             remote.get("room_id")!=state.get("room_id") or
             remote.get("request_id")!=state.get("active_request_id",state["request_id"])):
@@ -333,7 +335,7 @@ def await_http_reply(statefile:Path,state:dict):
                 remote.get("chatgpt_send_confirmed") is not True or
                 remote.get("assistant_reply_observed") is not True):
                 raise ValueError("HTTP_COMPLETION_EVIDENCE_MISSING")
-            answer=read_completed_result(state["job_id"],remote)
+            answer=safe_read(lambda: read_completed_result(state["job_id"],remote))
             state.update({"status":"completed",
                           "answer_sha256":hashlib.sha256(answer.encode("utf-8")).hexdigest()})
             save(statefile,state)
@@ -545,6 +547,30 @@ def recover_signed_task_only_after_terminal_disconnect(
     return target,state
 
 
+def commit_supervised(rows,out,key,verified,parsed,proof):
+    dest=out/"completed"/(key+".json")
+    if dest.exists():
+        raise ValueError("REFUSE_OVERWRITE_VERIFIED_RESULTS")
+    if not proof or not parsed:
+        raise ValueError("SUPERVISOR_EMPTY_COMMIT")
+    for row in parsed:
+        n=int(row["no"])
+        if n in verified or not 1<=n<=len(rows) or str(row["id"])!=str(rows[n-1]["문서 ID"]):
+            raise ValueError("SUPERVISOR_COMMIT_SCOPE_MISMATCH")
+    if len(set(int(row["no"]) for row in parsed))!=len(parsed):
+        raise ValueError("SUPERVISOR_DUPLICATE_ROW")
+    save(dest,{"rows":parsed,"transport":"HITEL_TASK_ISOLATED_SUPERVISOR_V1",
+               "verified_reply_evidence":proof,"source_id_repairs":[],
+               "source_id_repair_count":0})
+    summary=output_file(rows,out)
+    if summary["verified_ai_completed"]!=len(verified)+len(parsed):
+        raise ValueError("VERIFIED_TOTAL_MISMATCH")
+    print("HTTP_VERIFIED_BATCH",key,"NEW",len(parsed),
+          "TOTAL_VERIFIED",summary["verified_ai_completed"],
+          "REMAINING",len(rows)-summary["verified_ai_completed"],flush=True)
+    return 0
+
+
 def run_one(rows:list[dict],out:Path) -> int:
     verified=load_verified(rows,out)
     batch=next_batch(rows,verified)
@@ -562,6 +588,12 @@ def run_one(rows:list[dict],out:Path) -> int:
     statefile=out/"http"/(key+".json")
     request_id="scribd18109-"+key+"-"+digest[:32]
     room_name="HITEL-SCRIBD-18109-PROVEN-HTTP-20261121-"+key
+    supervised_scope=out/"supervisor"/key/"scope.json"
+    if (os.environ.get("HITEL_ISOLATED_TASK_ID")=="scribd-18109"
+            and (supervised_scope.exists() or not statefile.exists())
+            and key!=OLD_1101_KEY):
+        parsed,proof=run_supervised(out,batch,ensure_one_http_job,await_http_reply)
+        return commit_supervised(rows,out,key,verified,parsed,proof)
     if statefile.exists():
         state=json.loads(statefile.read_text("utf-8"))
         if (state.get("key")!=key or state.get("digest")!=digest
@@ -609,7 +641,25 @@ def run_one(rows:list[dict],out:Path) -> int:
     state=ensure_one_http_job(statefile,state,question)
     answer,remote=await_http_reply(statefile,state)
     identity_repair_audit=[]
-    parsed=validated_rows(answer,batch,identity_repair_audit)
+    if state.get("task_id")=="scribd-18109":
+        try:
+            parsed=strict_legacy(answer,batch)
+        except InvalidReply as exc:
+            # A fully received but incorrect response is not an unknown delivery.
+            # Preserve its immutable identity and digest before issuing a new job.
+            if (remote.get("status")!="completed" or remote.get("result_ready") is not True
+                    or remote.get("chatgpt_send_confirmed") is not True
+                    or remote.get("assistant_reply_observed") is not True
+                    or remote.get("result_sha256")!=hashlib.sha256(answer.encode("utf-8")).hexdigest()):
+                raise RuntimeError("LEGACY_RECLASSIFICATION_WITHOUT_TERMINAL_EVIDENCE")
+            audit={"job_id":state["job_id"],"room_id":state["room_id"],
+                   "request_id":remote["request_id"],"result_sha256":remote["result_sha256"],
+                   "raw_reply":answer,"reason":str(exc)[:240],"not_counted":True}
+            print("SUPERVISOR_LEGACY_REJECTED",key,str(exc)[:120],flush=True)
+            parsed,proof=run_supervised(out,batch,ensure_one_http_job,await_http_reply,audit)
+            return commit_supervised(rows,out,key,verified,parsed,proof)
+    else:
+        parsed=validated_rows(answer,batch,identity_repair_audit)
     dest=out/"completed"/(key+".json")
     if dest.exists():
         raise ValueError("REFUSE_OVERWRITE_VERIFIED_RESULTS")
