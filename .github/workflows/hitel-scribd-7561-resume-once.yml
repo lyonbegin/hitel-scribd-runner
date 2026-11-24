@@ -1,0 +1,65 @@
+name: HITEL Scribd 7561 verified checkpoint full resume once
+run-name: Resume 7561 from latest verified 7560
+on:
+  push:
+    branches: [ops/scribd-7561-resume-full-20261124]
+    paths: [.github/workflows/hitel-scribd-7561-resume-once.yml]
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: hitel-scribd-7561-full-resume-once-20261124
+  cancel-in-progress: false
+jobs:
+  dispatch-exact-resume:
+    if: github.event_name == 'push' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Verify 7560 saved and latest checkpoint, no other live Scribd AI dispatch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/14884090770" --jq 'select(.expired==false and .name=="hitel-ai-18109-ws-recovery-checkpoint" and .workflow_run.id==45312536876) | .id' | grep -Fx 14884090770
+          LATEST="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=hitel-ai-18109-ws-recovery-checkpoint&per_page=100" --jq '[.artifacts[] | select(.expired==false)] | sort_by(.created_at) | reverse | .[0].id')"
+          test "$LATEST" = 14884090770 || { echo "STOP_NEWER_CHECKPOINT_EXISTS=$LATEST"; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/hitel-public-ai-corpus.yml/runs?per_page=100" \
+            --jq '[.workflow_runs[] | select(.event=="workflow_dispatch" and (.status=="queued" or .status=="in_progress" or .status=="waiting" or .status=="pending" or .status=="requested"))] | length' | grep -Fx 0
+          echo PASS_7560_LAST_SUCCESS_UNCHANGED_NO_DUPLICATE_PRODUCER
+      - name: Verify former Chrome is terminated and the NEW Scribd-only VM is online
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,time,urllib.request
+          url="https://hitel-integration-api-production.up.railway.app/integrations/v1/public/isolated/tasks/scribd-18109/status"
+          for attempt in range(25):
+              try:
+                  with urllib.request.urlopen(url,timeout=15) as r: t=json.load(r)
+                  assert t.get("task_id")=="scribd-18109"
+                  if (t.get("worker_connected") is True
+                      and t.get("worker_heartbeat_recent") is True
+                      and t.get("worker_bootstrap_ready") is True
+                      and t.get("worker_run_id")==45332497067
+                      and t.get("generation")>=150):
+                      print("PASS_NEW_CHROME_7561_SIGNED_OWNER_RUN",t["worker_run_id"],"GENERATION",t["generation"])
+                      break
+                  print("WAIT_NEW_SCRIBD_ONLY_WORKER",attempt+1,t.get("worker_run_id"))
+              except Exception as e:
+                  print("WAIT_NEW_SCRIBD_OWNER_PROBE",attempt+1,type(e).__name__)
+              time.sleep(5)
+          else:
+              raise SystemExit("NO_NEW_SIGNED_SCRIBD_WORKER_NO_CLASSIFICATION_DISPATCH")
+          PY
+      - name: Dispatch exactly one continuous verified-only Scribd classification from 7561
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/hitel-public-ai-corpus.yml/enable" --silent
+          gh workflow run hitel-public-ai-corpus.yml --repo "$GITHUB_REPOSITORY" --ref main -f mode=full -f presend_recovery=blocked
+          echo PASS_CONTINUOUS_7561_FULL_DISPATCH_ACCEPTED
+          echo "Restores latest verified 7560 checkpoint; no 1-7560 reset"
