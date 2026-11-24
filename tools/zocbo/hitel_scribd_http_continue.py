@@ -715,7 +715,7 @@ def main():
             if str(retry_after).isdigit():
                 wait=max(wait,int(retry_after))
         save(marker,{**state,"infra_retries":retries,
-                     "phase":"retryable_transport" if retries<=5 else "retry_budget_exhausted",
+                     "phase":"retryable_transport" if retries<=1 else "retry_budget_exhausted",
                      "wait_seconds":wait,"error_type":type(exc).__name__})
         print("SUPERVISOR_TRANSPORT_RECONCILE",first,"ATTEMPT",retries,"WAIT",wait,flush=True)
         return 75
@@ -726,9 +726,10 @@ def main():
             raise
         retries+=1
         save(marker,{**state,"infra_retries":retries,
-                     "phase":"retryable_transport" if retries<=5 else "retry_budget_exhausted",
+                     "phase":"retryable_transport" if retries<=1 else "retry_budget_exhausted",
                      "wait_seconds":min(300,30*2**min(retries-1,4)),
                      "error_type":"UNCERTAIN_POST_READ_ONLY"})
+        print("SUPERVISOR_UNCERTAIN_POST_READ_ONLY",first,"ATTEMPT",retries,flush=True)
         return 75
     save(marker,{**state,"phase":"verified","verified_after":len(load_verified(rows,out))})
     return rc
