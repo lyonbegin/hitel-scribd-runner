@@ -657,5 +657,56 @@ class SupervisorRecoveryTests(unittest.TestCase):
             strict_legacy(json.dumps({"rows":converted},ensure_ascii=False),b)
 
 
+
+class Incident09134RecoveryTests(unittest.TestCase):
+    def test_recover_exact_partial_only_when_request_absent_and_task_idle(self):
+        rows=[{"번호":n,"문서 ID":str(400000000+n),"원문 제목":"sample"}
+              for n in range(1,18110)]
+        rows[9133]["문서 ID"]="408651836"
+        verified={n:{} for n in range(1,9121)}
+        prior={"first_missing":9121,"error_type":"UNCERTAIN_POST_READ_ONLY","infra_retries":5}
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            parent=root/"supervisor"/"09121-09140"
+            state={"request_id":runner.HELD_9134_REQUEST,"source_ids":[runner.HELD_9134_SOURCE],
+                   "task_id":"scribd-18109","status":"prepared","submit_attempted":True}
+            runner.save(parent/"09134-09134"/"attempt-1.json",state)
+            for first,last in ((9121,9125),(9126,9130),(9131,9131),(9132,9132),(9133,9133)):
+                ids=[{"no":n,"id":rows[n-1]["문서 ID"]} for n in range(first,last+1)]
+                parsed=[{**item,"school":"대상외","grade":"해당없음","semester":"해당없음",
+                         "subject":"해당없음","edition":"해당없음","download":"제외",
+                         "reason":"교육과정 교재가 아닌 기타 문서"} for item in ids]
+                runner.save(parent/f"{first:05d}-{last:05d}"/"verified.json",
+                            {"source_ids":ids,"rows":parsed,"evidence":[{"job_id":"job_sample",
+                             "room_id":"room_sample","request_id":"sample","result_sha256":"a"*64}]})
+            idle={"task_id":"scribd-18109","queued_jobs_count":0,"worker_active_jobs_count":0,
+                  "worker_live_jobs_count":0,"worker_recovery_required_count":0,
+                  "worker_reset_required":False,"worker_connected":False,"generation":151}
+            with patch.object(runner,"fetch_existing",return_value={"job_id":"job_found"}), \
+                 patch.object(runner,"call") as call,patch.object(runner,"commit_supervised") as commit:
+                self.assertFalse(runner.recover_09134_partial(rows,root,verified,prior))
+                call.assert_not_called()
+                commit.assert_not_called()
+            with patch.object(runner,"fetch_existing",return_value=None), \
+                 patch.object(runner,"call",return_value=(200,{**idle,"queued_jobs_count":1})), \
+                 patch.object(runner,"commit_supervised") as commit:
+                self.assertFalse(runner.recover_09134_partial(rows,root,verified,prior))
+                commit.assert_not_called()
+            with patch.object(runner,"fetch_existing",return_value=None), \
+                 patch.object(runner,"call",return_value=(200,idle)), \
+                 patch.object(runner,"commit_supervised") as commit, \
+                 patch.object(runner,"isolated_chat_once") as post:
+                self.assertTrue(runner.recover_09134_partial(rows,root,verified,prior))
+                post.assert_not_called()
+                commit.assert_called_once()
+                args=commit.call_args.args
+                self.assertEqual(args[2],"09121-09133")
+                self.assertEqual([r["no"] for r in args[4]],list(range(9121,9134)))
+                self.assertEqual(runner.held_numbers(rows,root),{9134})
+                self.assertEqual(json.loads((parent/"09134-09134"/"attempt-1.json").read_text("utf-8")),state)
+                verified.update({n:{} for n in range(9121,9134)})
+                self.assertEqual(runner.next_eligible_batch(rows,verified,root)[0]["번호"],9135)
+
+
 if __name__=="__main__":
     unittest.main()
