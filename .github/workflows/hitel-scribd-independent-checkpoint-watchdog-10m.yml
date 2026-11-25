@@ -1,0 +1,29 @@
+name: HITEL Scribd independent checkpoint watchdog 10 minutes
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/hitel-scribd-independent-checkpoint-watchdog-10m.yml
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: hitel-scribd-independent-checkpoint-watchdog-10m
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test checkpoint and safe recovery decisions
+        run: |
+          python3 -m py_compile tools/zocbo/hitel_scribd_independent_watchdog_10m.py
+          python3 tools/zocbo/hitel_scribd_independent_watchdog_10m.py --test
+      - name: Inspect Scribd producer and resume only durable recoverable checkpoint
+        run: python3 tools/zocbo/hitel_scribd_independent_watchdog_10m.py
