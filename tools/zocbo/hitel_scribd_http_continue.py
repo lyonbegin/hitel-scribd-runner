@@ -571,11 +571,103 @@ def commit_supervised(rows,out,key,verified,parsed,proof):
     return 0
 
 
+
+# Incident recovery: the 09134 POST is uncertain, NOT a verified response.
+# Only the exact original request can be reconciled. Never create another
+# request for this source merely because the public request lookup returns 404.
+HELD_9134_REQUEST="scribd18109-sv1-09121-09140-09134-09134-fa4fe2e2ccfc2a794deef905-a1"
+HELD_9134_SOURCE={"no":9134,"id":"408651836"}
+
+def held_numbers(rows,out):
+    held=set()
+    for p in (out/"deferred").glob("*.json"):
+        obj=json.loads(p.read_text("utf-8"))
+        ids=obj.get("source_ids")
+        if (obj.get("phase")!="uncertain_post_read_only" or not isinstance(ids,list)
+                or not ids or not obj.get("original_state",{}).get("submit_attempted")
+                or obj["original_state"].get("job_id") or not obj.get("request_id")):
+            raise ValueError("INVALID_DEFERRED_CHECKPOINT")
+        for item in ids:
+            n=int(item["no"])
+            if not 1<=n<=len(rows) or str(rows[n-1]["문서 ID"])!=str(item["id"]):
+                raise ValueError("DEFERRED_SOURCE_ID_CHANGED")
+            held.add(n)
+    return held
+
+def next_eligible_batch(rows,verified,out):
+    # A hold is not a completion; keep it out of new POSTs until reconciled.
+    unavailable=set(verified)|held_numbers(rows,out)
+    return next_batch(rows,unavailable)
+
+def recover_09134_partial(rows,out,verified,prior):
+    """One-time promotion of existing, independently verified leaves only.
+    No model call, worker reset, or speculative completion occurs here.
+    """
+    if (len(verified)!=9120 or any(n not in verified for n in range(1,9121))
+            or prior.get("first_missing")!=9121
+            or prior.get("error_type")!="UNCERTAIN_POST_READ_ONLY"
+            or int(prior.get("infra_retries",0))<2):
+        return False
+    from hitel_scribd_supervisor import validate_cached
+    parent=out/"supervisor"/"09121-09140"
+    p=parent/"09134-09134"/"attempt-1.json"
+    state=json.loads(p.read_text("utf-8"))
+    if (state.get("request_id")!=HELD_9134_REQUEST
+            or state.get("source_ids")!=[HELD_9134_SOURCE]
+            or state.get("task_id")!="scribd-18109"
+            or state.get("status")!="prepared"
+            or state.get("submit_attempted") is not True or state.get("job_id")
+            or str(rows[9133]["문서 ID"])!=HELD_9134_SOURCE["id"]):
+        raise ValueError("INCIDENT_09134_SCOPE_MISMATCH")
+    parsed=[]; proof=[]
+    for first,last in ((9121,9125),(9126,9130),(9131,9131),(9132,9132),(9133,9133)):
+        key=f"{first:05d}-{last:05d}"
+        record=json.loads((parent/key/"verified.json").read_text("utf-8"))
+        child,ev=validate_cached(record,rows[first-1:last])
+        if not all(isinstance(e,dict) and str(e.get("job_id","")).startswith("job_")
+                   and str(e.get("room_id","")).startswith("room_")
+                   and e.get("request_id") and len(e.get("result_sha256",""))==64
+                   for e in ev):
+            raise ValueError("INCIDENT_09134_EVIDENCE_MISSING")
+        parsed.extend(child); proof.extend(ev)
+    if [int(x["no"]) for x in parsed]!=list(range(9121,9134)):
+        raise ValueError("INCIDENT_09134_PARTIAL_RANGE_MISMATCH")
+    # Read-only reconciliation; no new request if old request has appeared.
+    if fetch_existing(HELD_9134_REQUEST) is not None:
+        print("INCIDENT_09134_REQUEST_FOUND_RESUME_ORIGINAL_ONLY",flush=True)
+        return False
+    code,task=call(API+"/isolated/tasks/scribd-18109/status")
+    if (code!=200 or task.get("task_id")!="scribd-18109"
+            or any(task.get(k)!=0 for k in ("queued_jobs_count","worker_active_jobs_count",
+                 "worker_live_jobs_count","worker_recovery_required_count"))
+            or task.get("worker_reset_required") is not False
+            or task.get("worker_connected") is not False):
+        print("INCIDENT_09134_TASK_NOT_PROVEN_IDLE_FAIL_CLOSED",flush=True)
+        return False
+    hold=out/"deferred"/"09134.json"
+    record={"phase":"uncertain_post_read_only","source_ids":[HELD_9134_SOURCE],
+            "request_id":HELD_9134_REQUEST,"original_state":state,
+            "lookup":"404","task_generation":task.get("generation"),
+            "not_counted":True}
+    if hold.exists():
+        old=json.loads(hold.read_text("utf-8"))
+        if any(old.get(k)!=record[k] for k in ("phase","source_ids","request_id","original_state")):
+            raise ValueError("INCIDENT_09134_HOLD_CHANGED")
+    else:
+        save(hold,record)
+    commit_supervised(rows,out,"09121-09133",verified,parsed,proof)
+    print("INCIDENT_09134_HELD_NO_REPOST_PARTIAL_13_VERIFIED",flush=True)
+    return True
+
+
 def run_one(rows:list[dict],out:Path) -> int:
     verified=load_verified(rows,out)
-    batch=next_batch(rows,verified)
+    batch=next_eligible_batch(rows,verified,out)
     if not batch:
         output_file(rows,out)
+        if len(verified)!=len(rows):
+            print("DEFERRED_UNVERIFIED_REMAIN",sorted(held_numbers(rows,out)-set(verified)),flush=True)
+            return 75
         print("COMPLETE_VERIFIED_ALL",len(verified),flush=True)
         return 0
     key=f'{batch[0]["번호"]:05d}-{batch[-1]["번호"]:05d}'
@@ -697,8 +789,14 @@ def main():
     out=Path(o.out)
     marker=out/"supervisor-reconcile.json"
     verified=load_verified(rows,out)
-    first=next((n for n in range(1,len(rows)+1) if n not in verified),None)
     prior=json.loads(marker.read_text("utf-8")) if marker.exists() else {}
+    if recover_09134_partial(rows,out,verified,prior):
+        save(marker,{"phase":"verified","verified_before":len(verified),
+                     "verified_after":len(load_verified(rows,out)),
+                     "first_missing":9134,"infra_retries":0})
+        return 0
+    eligible=next_eligible_batch(rows,verified,out)
+    first=eligible[0]["번호"] if eligible else None
     retries=int(prior.get("infra_retries",0)) if prior.get("first_missing")==first else 0
     state={"first_missing":first,"verified_before":len(verified),"infra_retries":retries,
            "phase":"running"}
