@@ -10,10 +10,46 @@ $downloads = Join-Path $root 'ScribdDownloads'
 New-Item -ItemType Directory -Force -Path $work,$profile,$downloads | Out-Null
 try {
     Write-Host '=== HITEL Scribd PC 다운로드 ===' -ForegroundColor Cyan
-    $queue = Join-Path $PSScriptRoot 'download_queue.csv'
-    if (-not (Test-Path -LiteralPath $queue)) { throw 'ZIP 전체를 압축 해제한 후 실행하십시오. download_queue.csv 파일이 필요합니다.' }
+    # PowerShell hosts that evaluate pasted text may not define PSScriptRoot.
+    # Never pass an empty path to Join-Path. Accept only the pinned queue.
+    $queue = $null
+    $folders = @()
+    if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) { $folders += $PSScriptRoot }
+    if (-not [string]::IsNullOrWhiteSpace($MyInvocation.MyCommand.Path)) {
+        $folders += (Split-Path -LiteralPath $MyInvocation.MyCommand.Path -Parent)
+    }
+    $location = (Get-Location).ProviderPath
+    if (-not [string]::IsNullOrWhiteSpace($location)) { $folders += $location }
+    $folders += $work
+    foreach ($folder in ($folders | Select-Object -Unique)) {
+        if ([string]::IsNullOrWhiteSpace($folder)) { continue }
+        $candidate = Join-Path $folder 'download_queue.csv'
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            if ((Get-FileHash -LiteralPath $candidate -Algorithm SHA256).Hash.ToLowerInvariant() -eq '07533a58ab96ab4e31cc53f7d6ad9d4a83f3c390e99c0a399b0cfaa7aa00b6f6') {
+                $queue = $candidate; break
+            }
+        }
+    }
+    if (-not $queue) {
+        Write-Host '목록 파일 위치를 자동으로 찾지 못했습니다. 파일 선택 창에서 압축을 푼 download_queue.csv를 선택하십시오.' -ForegroundColor Yellow
+        Add-Type -AssemblyName System.Windows.Forms
+        $dialog = New-Object System.Windows.Forms.OpenFileDialog
+        $dialog.Title = 'HITEL 다운로드 목록 선택'
+        $dialog.Filter = 'Download queue (download_queue.csv)|download_queue.csv|CSV (*.csv)|*.csv'
+        $dialog.CheckFileExists = $true
+        $dialog.Multiselect = $false
+        $dialog.InitialDirectory = [Environment]::GetFolderPath('Desktop')
+        try {
+            if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $queue = $dialog.FileName }
+        } finally { $dialog.Dispose() }
+        if ([string]::IsNullOrWhiteSpace($queue)) { throw '목록 선택이 취소되었습니다. ZIP 압축 해제 후 다시 실행하십시오.' }
+    }
+    Write-Host "목록 파일: $queue"
     $hash = (Get-FileHash -LiteralPath $queue -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($hash -ne '07533a58ab96ab4e31cc53f7d6ad9d4a83f3c390e99c0a399b0cfaa7aa00b6f6') { throw '목록 파일 검증 실패. 원본 ZIP을 다시 압축 해제하십시오.' }
+    $cachedQueue = Join-Path $work 'download_queue.csv'
+    if ([IO.Path]::GetFullPath($queue) -ne [IO.Path]::GetFullPath($cachedQueue)) { Copy-Item -LiteralPath $queue -Destination $cachedQueue -Force }
+    $queue = $cachedQueue
     Write-Host '[1/4] 목록 확인: 7,210건 (대상 1,725 / 판본검토 5,485)'
     $py = $null
     $pyArgs = @()
@@ -195,6 +231,8 @@ if __name__=="__main__":
     if ($LASTEXITCODE -ne 0) { throw "다운로드 프로그램 종료 코드 $LASTEXITCODE" }
 } catch {
     Write-Host ("오류: " + $_.Exception.Message) -ForegroundColor Red
+    Write-Host ("오류 위치: " + $_.InvocationInfo.PositionMessage) -ForegroundColor Yellow
+    Write-Host ("오류 코드: " + $_.FullyQualifiedErrorId) -ForegroundColor Yellow
 } finally {
     Write-Host "PDF 저장 폴더: $downloads"
     Write-Host "실행 기록: $work\download-results.jsonl"
