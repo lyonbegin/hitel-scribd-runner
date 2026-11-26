@@ -381,16 +381,21 @@ async def main():
         if not browser.contexts:raise RuntimeError("Chrome 로그인 창을 확인하십시오.")
         ctx=browser.contexts[0]
         ok=0;fail=0
+        async def worker(r,index):
+            nonlocal ok,fail
+            started=time.monotonic()
+            print(f"시작 {index}/{len(pending)} | 문서 {r['document_id']}",flush=True)
+            try:
+                detail=await one(ctx,r)
+            except Exception as exc:
+                detail={"status":"error:"+type(exc).__name__,"error":str(exc)[:300]}
+            saved=(detail.get("status")=="pdf_saved_on_pc" and detail.get("pdf_signature_valid") is True and (detail.get("file_size_bytes") or 0)>0)
+            ok+=saved;fail+=not saved
+            emit({**detail,"document_id":r["document_id"],"decision":r["download_decision"],"success":ok,"failed":fail,"duration_seconds":round(time.monotonic()-started,2)})
         for offset in range(0,len(pending),5):
             batch=pending[offset:offset+5]
-            results=await asyncio.gather(*(one(ctx,r) for r in batch),return_exceptions=True)
-            for r,res in zip(batch,results):
-                detail=res if isinstance(res,dict) else {"status":"error:"+type(res).__name__,"error":str(res)[:300]}
-                saved=(detail.get("status")=="pdf_saved_on_pc" and detail.get("pdf_signature_valid") is True and (detail.get("file_size_bytes") or 0)>0)
-                ok+=saved;fail+=not saved
-                emit({**detail,"document_id":r["document_id"],"decision":r["download_decision"],"success":ok,"failed":fail})
+            await asyncio.gather(*(worker(r,offset+i+1) for i,r in enumerate(batch)))
             print(f"진행 {min(offset+len(batch),len(pending))}/{len(pending)} | 성공 {ok} | 미완료 {fail}",flush=True)
-            await asyncio.sleep(2)
         print(f"이번 실행 완료: 저장 {ok}건, 미완료 {fail}건. 미완료는 다음 실행에서 다시 확인합니다.",flush=True)
 if __name__=="__main__":
     asyncio.run(main())
