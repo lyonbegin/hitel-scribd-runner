@@ -35,9 +35,11 @@ def main():
         if proof is None:
             if r["학교급"]!="미처리" or r["다운로드"]:raise ValueError("UNVERIFIED_ROW_HAS_CLASSIFICATION")
             continue
-        if str(proof["id"])!=r["문서 ID"] or any(r[k]!=proof[v] for k,v in
-            (("학교급","school"),("학년","grade"),("학기","semester"),("2022 세부과목","subject"),("다운로드","download"))):
-            raise ValueError("VERIFIED_CSV_MISMATCH")
+        for k,v in (("문서 ID","id"),("학교급","school"),("학년","grade"),("학기","semester"),
+                    ("2022 세부과목","subject"),("다운로드","download")):
+            expected="" if proof.get(v) is None else str(proof[v])
+            if r[k]!=expected:
+                raise ValueError(f"VERIFIED_CSV_MISMATCH row={i} field={k} csv={r[k]!r} proof={expected!r}")
         decision=proof["download"];counts[decision]+=1
         item={"document_id":r["문서 ID"],"original_title":r["원문 제목"],"original_url":r["Scribd 상세URL"],
               "source_no":i,"school":r["학교급"],"grade":r["학년"],"semester":r["학기"],
