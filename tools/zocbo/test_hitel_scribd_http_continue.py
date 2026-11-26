@@ -606,6 +606,32 @@ class SupervisorRecoveryTests(unittest.TestCase):
             self.assertEqual([x["id"] for x in parsed],[x["문서 ID"] for x in b])
             self.assertEqual(len(sends),30)
 
+
+    def test_missing_schema_only_accepts_exact_valid_rows(self):
+        from hitel_scribd_supervisor import validate_keyed, InvalidReply
+        b=self.sample(1)
+        a=self.response(b)
+        del a["schema"]
+        self.assertEqual(len(validate_keyed(json.dumps(a,ensure_ascii=False),b)),1)
+        a["rows"][0]["title"]="wrong title"
+        with self.assertRaises(InvalidReply):
+            validate_keyed(json.dumps(a,ensure_ascii=False),b)
+        a=self.response(b)
+        a["schema"]="wrong-schema"
+        with self.assertRaises(InvalidReply):
+            validate_keyed(json.dumps(a,ensure_ascii=False),b)
+
+    def test_single_rejection_allows_next_round_on_restart(self):
+        from hitel_scribd_supervisor import run_supervised
+        b=self.sample(1)
+        ensure,await_,sends=self.transport(b,invalid_scopes=(1,))
+        with tempfile.TemporaryDirectory() as d:
+            with self.assertRaisesRegex(RuntimeError,"SINGLE_ROW_RETRY_LIMIT"):
+                run_supervised(Path(d),b,ensure,await_,sleep=lambda _:None)
+            with self.assertRaisesRegex(RuntimeError,"SINGLE_ROW_RETRY_LIMIT"):
+                run_supervised(Path(d),b,ensure,await_,sleep=lambda _:None)
+            self.assertEqual(len(set(sends)),4)
+
     def test_single_rejection_is_not_a_success(self):
         from hitel_scribd_supervisor import run_supervised
         b=self.sample(1)
