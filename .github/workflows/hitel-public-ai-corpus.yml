@@ -43,7 +43,8 @@ concurrency:
 
 jobs:
   worker_ready:
-    if: github.event_name == 'workflow_dispatch'
+    # Closed by owner: 18088 verified; 21 deferred records excluded.
+    if: ${{ false }}
     runs-on: ubuntu-24.04
     outputs:
       skip_handoff: ${{ steps.claim_handoff.outputs.skip }}
@@ -136,7 +137,7 @@ jobs:
 
   ai:
     needs: worker_ready
-    if: github.event_name == 'workflow_dispatch' && needs.worker_ready.outputs.skip_handoff != 'true'
+    if: ${{ false }}
     runs-on: ubuntu-24.04
     # GitHub host safety bound above the API server's own 15000s observer
     # and the 240-minute Chrome worker session, not a 10-minute model timeout.
@@ -386,7 +387,7 @@ jobs:
 
   recover:
     needs: [worker_ready, ai]
-    if: always() && !cancelled() && inputs.mode == 'full' && (needs.worker_ready.result == 'failure' || needs.ai.result == 'failure')
+    if: ${{ false }}
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     steps:
