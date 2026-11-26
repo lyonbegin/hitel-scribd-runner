@@ -16,7 +16,7 @@ try {
     $folders = @()
     if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) { $folders += $PSScriptRoot }
     if (-not [string]::IsNullOrWhiteSpace($MyInvocation.MyCommand.Path)) {
-        $folders += (Split-Path -LiteralPath $MyInvocation.MyCommand.Path -Parent)
+        $folders += ([IO.Path]::GetDirectoryName($MyInvocation.MyCommand.Path))
     }
     $location = (Get-Location).ProviderPath
     if (-not [string]::IsNullOrWhiteSpace($location)) { $folders += $location }
@@ -77,24 +77,12 @@ try {
         & $py @pyArgs -m venv $venv
         if ($LASTEXITCODE -ne 0) { throw 'Python 환경 생성 실패' }
     }
-    & $venvPy -m pip show playwright | Out-Null
+    & $venvPy -c "import importlib.util,sys; sys.exit(0 if importlib.util.find_spec('playwright') else 1)"
     if ($LASTEXITCODE -ne 0) {
         & $venvPy -m pip install --disable-pip-version-check playwright==1.56.0
         if ($LASTEXITCODE -ne 0) { throw 'Playwright 설치 실패' }
     }
-    $chromeCandidates = @(
-        "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
-        "$([Environment]::GetEnvironmentVariable('ProgramFiles(x86)'))\Google\Chrome\Application\chrome.exe",
-        "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
-    )
-    $chrome = $chromeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if (-not $chrome) {
-        Start-Process 'https://www.google.com/chrome/'
-        Read-Host 'Chrome을 설치한 후 Enter를 누르십시오'
-        $chrome = $chromeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-        if (-not $chrome) { throw 'Chrome 설치를 확인할 수 없습니다.' }
-    }
-    Write-Host '[3/4] 전용 Chrome을 시작합니다.'
+    Write-Host '[3/4] 이미 실행된 전용 Chrome에 연결합니다.'
     # Probe CDP via Python with proxies explicitly disabled. A GUI window alone
     # is not proof of a live DevTools endpoint.
     $probeFile = Join-Path $work 'cdp-probe.py'
@@ -147,30 +135,12 @@ except Exception as exc:
             Write-Host "기존 HITEL Chrome이 연결 불가능한 상태입니다. 다른 전용 프로필을 확인합니다: $dir" -ForegroundColor Yellow
             continue
         }
-        # Port 0 avoids collisions with other Chrome processes. Chrome records
-        # its actual loopback port in DevToolsActivePort in the dedicated profile.
-        if (Test-Path -LiteralPath $activePort) { Remove-Item -LiteralPath $activePort -Force }
-        $chromeLog = Join-Path $work 'chrome-start.log'
-        $arguments = @('--remote-debugging-port=0','--remote-debugging-address=127.0.0.1',('--user-data-dir="' + $dir + '"'),'--no-first-run','--no-default-browser-check','--enable-logging',('--log-file="' + $chromeLog + '"'),'https://www.scribd.com/')
-        Start-Process -FilePath $chrome -ArgumentList $arguments | Out-Null
-        for ($i=0; $i -lt 60; $i++) {
-            Start-Sleep -Milliseconds 500
-            if (Test-Path -LiteralPath $activePort) {
-                $portLine = Get-Content -LiteralPath $activePort -TotalCount 1 -ErrorAction SilentlyContinue
-                if ($portLine -match '^\d+$' -and [int]$portLine -ge 1024 -and [int]$portLine -le 65535) {
-                    $candidate = "http://127.0.0.1:$portLine"
-                    if (Test-HitelCdp $candidate) { $cdp=$candidate; break }
-                }
-            }
-            if (($i+1)%10 -eq 0) { Write-Host "Chrome 연결 확인 중... $($i+1)/60" }
-        }
-        if ($cdp) { break }
-        Write-Host "연결 실패: $dir / $lastProbe" -ForegroundColor Yellow
+        # Attach-only: never launch, close or modify a Chrome process here.
     }
     if (-not $cdp) {
         Write-Host "Chrome 진단 로그: $(Join-Path $work 'chrome-start.log')" -ForegroundColor Yellow
         Write-Host "마지막 연결 결과: $lastProbe"
-        throw '전용 Chrome의 CDP 포트를 확인할 수 없습니다. HITEL 전용 Chrome 창만 닫은 후 다시 실행하십시오.'
+        throw '1_Chrome_Start.ps1을 먼저 실행하고 Scribd에 로그인한 후 이 파일을 다시 실행하십시오.'
     }
     Write-Host "Chrome 연결 성공: $cdp" -ForegroundColor Green
     if ($env:HITEL_CDP_SELFTEST -eq '1') {
@@ -178,7 +148,7 @@ except Exception as exc:
         return
     }
     Write-Host ''
-    Write-Host '지금 열린 HITEL 전용 Chrome에서 Scribd에 로그인하십시오.' -ForegroundColor Yellow
+    Write-Host '열어 둔 HITEL Chrome에서 Scribd 로그인이 완료되었는지 확인하십시오.' -ForegroundColor Yellow
     Write-Host '본인에게 다운로드 권한이 있는 문서만 처리합니다. 유료 결제나 접근 제한은 자동으로 진행하지 않습니다.'
     Read-Host '로그인 및 다운로드 권한 확인이 끝나면 Enter를 누르십시오'
     $engine = Join-Path $work 'download.py'
