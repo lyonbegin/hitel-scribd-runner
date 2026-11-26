@@ -1,0 +1,65 @@
+name: HITEL Universal Actions backend
+run-name: HITEL Universal ${{ inputs.handoff || github.run_id }}
+on:
+  push:
+    branches: [feature/hitel-universal-ai-ui-api-20261127]
+    paths: ['universal/engine.py', 'universal/test_engine.py', 'universal/watchdog.py', 'universal/projects/**', '.github/workflows/universal-ai.yml']
+  workflow_dispatch:
+    inputs:
+      handoff:
+        type: string
+        default: direct
+      depth:
+        type: string
+        default: '0'
+permissions:
+  contents: write
+  actions: write
+  id-token: write
+concurrency:
+  group: hitel-universal-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run offline regression
+        run: cd universal && python -m unittest -v test_engine
+      - name: Run durable project queue
+        env:
+          HITEL_ALLOW_LIVE: ${{ vars.HITEL_ALLOW_LIVE }}
+        run: |
+          git config user.name "hitel-universal[bot]"
+          git config user.email "hitel-universal[bot]@users.noreply.github.com"
+          python universal/engine.py
+      - name: Preserve checkpoint evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal-checkpoint-${{ github.run_id }}
+          path: universal/state/
+          if-no-files-found: ignore
+          retention-days: 90
+  watchdog:
+    needs: run
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Check pending work and bounded next-run handoff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HANDOFF_DEPTH: ${{ inputs.depth || '0' }}
+          HITEL_ALLOW_LIVE: ${{ vars.HITEL_ALLOW_LIVE }}
+        run: python universal/watchdog.py
