@@ -1,0 +1,53 @@
+name: HITEL package one-click Scribd PC launcher
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/scribd-package-pc-launcher.yml
+      - ops/HITEL-Scribd-Start.ps1
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch exact verified queue and package Windows launcher
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/$GITHUB_REPOSITORY/actions/artifacts/15090814514/zip > queue.zip
+          echo 'e51490e03db1c16e6a1719c4f025a55241dc99f81a5d9060b715e42f583fac19  queue.zip' | sha256sum -c -
+          python3 - <<'PY'
+          import csv,hashlib,io,zipfile,pathlib
+          out=pathlib.Path("HITEL-Scribd-PC");out.mkdir()
+          with zipfile.ZipFile("queue.zip") as z:
+              data=z.read("download_queue.csv")
+          assert hashlib.sha256(data).hexdigest()=="07533a58ab96ab4e31cc53f7d6ad9d4a83f3c390e99c0a399b0cfaa7aa00b6f6"
+          rows=list(csv.DictReader(io.StringIO(data.decode("utf-8-sig"))))
+          assert len(rows)==len({r["document_id"] for r in rows})==7210
+          assert sum(r["download_decision"]=="대상" for r in rows)==1725
+          assert sum(r["download_decision"]=="판본검토" for r in rows)==5485
+          (out/"download_queue.csv").write_bytes(data)
+          ps=pathlib.Path("ops/HITEL-Scribd-Start.ps1").read_text(encoding="utf-8-sig")
+          engine=ps.split("$source = @'\n",1)[1].split("\n'@",1)[0]
+          compile(engine,"embedded-download.py","exec")
+          (out/"HITEL-Scribd-Start.ps1").write_bytes(ps.encode("utf-8-sig"))
+          print("PACKAGE_VERIFIED_7210_AND_PYTHON_COMPILED")
+          PY
+      - name: Parse PowerShell launcher
+        shell: pwsh
+        run: |
+          $tokens=$null; $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/HITEL-Scribd-PC/HITEL-Scribd-Start.ps1",[ref]$tokens,[ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Out-String | Write-Host; throw "PowerShell parse failed" }
+          Write-Host 'POWERSHELL_SYNTAX_OK'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HITEL-Scribd-PC
+          path: HITEL-Scribd-PC/
+          if-no-files-found: error
+          retention-days: 90
