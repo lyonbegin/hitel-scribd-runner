@@ -9,6 +9,7 @@ WORKFLOW="hitel-public-ai-corpus.yml"
 PREFIX="HITEL Scribd AI handoff "
 ACTIVE={"queued","in_progress","waiting","pending","requested"}
 ARTIFACT="hitel-ai-18109-ws-recovery-checkpoint"
+UNKNOWN_CODES={"UPSTREAM_DELIVERY_UNKNOWN","SERVER_RESTARTED_DELIVERY_UNKNOWN","WORKER_CONNECTION_LOST"}
 BASE="https://hitel-integration-api-production.up.railway.app/integrations/v1/public/"
 def report(*args): print("SCRIBD_CHECKPOINT_WATCHDOG",*args,flush=True)
 def api(path):
@@ -69,6 +70,21 @@ def checkpoint(run):
             if info.file_size>1_000_000:raise ValueError("CHECKPOINT_METADATA_TOO_LARGE")
             return json.loads(z.read(info))
         stats=read("status.json"); marker=read("supervisor-reconcile.json")
+        first=marker.get("first_missing")
+        if marker.get("phase")=="running" and isinstance(first,int):
+            candidates=[]
+            for name in z.namelist():
+                if not re.fullmatch(r"supervisor/[0-9]{5}-[0-9]{5}/[0-9]{5}-[0-9]{5}/attempt-[0-9]+\.json",name):
+                    continue
+                if int(name.split("/")[1].split("-")[0])!=first:continue
+                st=read(name)
+                if (st.get("task_id")=="scribd-18109" and st.get("submit_attempted") is True
+                    and st.get("status")=="unverified" and st.get("remote_error_code") in UNKNOWN_CODES
+                    and str(st.get("job_id","")).startswith("job_")
+                    and str(st.get("room_id","")).startswith("room_")
+                    and st.get("active_request_id",st.get("request_id"))):
+                    candidates.append(st)
+            if len(candidates)==1:marker["terminal_unknown_candidate"]=candidates[0]
     report("exact_artifact",a["id"],"verified",stats.get("verified_ai_completed"),"phase",marker.get("phase"))
     return stats,marker
 def checkpoint_plan(stats,m):
@@ -85,7 +101,21 @@ def checkpoint_plan(stats,m):
         and m.get("verified_before")==n and m.get("error_type") in ("URLError","TimeoutError","ConnectionError")
         and isinstance(m.get("wait_seconds"),int) and 0<=m["wait_seconds"]<=600):
         return "resume_transport"
+    if (m.get("phase")=="running" and m.get("verified_before")==n
+        and isinstance(m.get("terminal_unknown_candidate"),dict)
+        and m["terminal_unknown_candidate"].get("remote_error_code") in UNKNOWN_CODES):
+        return "resume_terminal_unknown_audit"
     return "hold_nonretryable_or_uncertain"
+def terminal_idle(st,s):
+    if (any(s.get(k)!=0 for k in ("queued_jobs_count","worker_active_jobs_count",
+            "worker_live_jobs_count","worker_recovery_required_count"))
+        or s.get("worker_reset_required") is not False):return False
+    with urllib.request.urlopen(BASE+"jobs/"+urllib.parse.quote(st["job_id"],safe=""),timeout=15) as r:
+        j=json.load(r)
+    return (j.get("job_id")==st["job_id"] and j.get("room_id")==st["room_id"]
+        and j.get("request_id")==st.get("active_request_id",st["request_id"])
+        and j.get("status") in ("unknown","failed","stalled") and j.get("result_ready") is False
+        and j.get("error_code")==st["remote_error_code"])
 def main():
     rs=runs(); action=plan(rs);report(action)
     s=live()
@@ -95,7 +125,10 @@ def main():
     p=rs[0]; cp=checkpoint(p)
     if cp is None:report("hold_no_current_attempt_checkpoint");return
     decision=checkpoint_plan(*cp);report(decision)
-    if decision not in ("resume_verified","resume_transport"):return
+    if decision not in ("resume_verified","resume_transport","resume_terminal_unknown_audit"):return
+    candidate=cp[1].get("terminal_unknown_candidate")
+    if decision=="resume_terminal_unknown_audit" and (not terminal_idle(candidate,s) or p["display_title"].startswith(PREFIX+"watchdog-")):
+        report("unsafe_or_already_reconciled_terminal_unknown");return
     if (decision=="resume_verified" and any(s.get(k)!=0 for k in ("queued_jobs_count",
             "worker_active_jobs_count","worker_live_jobs_count","worker_recovery_required_count"))):
         report("hold_live_or_uncertain_request");return
@@ -107,7 +140,9 @@ def main():
     if decision=="resume_verified" and any(s2.get(k)!=0 for k in ("queued_jobs_count",
             "worker_active_jobs_count","worker_live_jobs_count","worker_recovery_required_count")):
         report("hold_live_or_uncertain_request");return
-    token="from-"+str(p["id"])
+    if decision=="resume_terminal_unknown_audit" and not terminal_idle(candidate,s2):
+        report("terminal_state_changed_no_dispatch");return
+    token=("watchdog-" if decision=="resume_terminal_unknown_audit" else "from-")+str(p["id"])
     if any(r.get("display_title")==PREFIX+token for r in fresh):
         report("existing_child_no_duplicate");return
     # The existing producer's same-token ownership and concurrency fences remain intact.
@@ -124,6 +159,8 @@ def test():
     assert checkpoint_plan(s,retry)=="resume_transport"
     assert checkpoint_plan(s,dict(retry,error_type="HTTPError"))=="hold_nonretryable_or_uncertain"
     assert checkpoint_plan(s,dict(retry,error_type="UNCERTAIN_POST_READ_ONLY"))=="hold_nonretryable_or_uncertain"
+    assert checkpoint_plan(s,dict(phase="running",verified_before=9313,terminal_unknown_candidate={"remote_error_code":"UPSTREAM_DELIVERY_UNKNOWN"}))=="resume_terminal_unknown_audit"
+    assert checkpoint_plan(s,dict(phase="running",verified_before=9313))=="hold_nonretryable_or_uncertain"
     assert checkpoint_plan(dict(s,verified_ai_completed=18109,remaining_unverified=0),m)=="all_complete"
     assert plan([{"status":"in_progress"}])=="producer_active"
     report("offline_tests_pass")
