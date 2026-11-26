@@ -52,7 +52,7 @@ def validate_keyed(answer,batch):
         s=s.split("\n",1)[-1].rsplit(chr(96)*3,1)[0].strip()
     try:
         obj=json.loads(s)
-        if not isinstance(obj,dict) or obj.get("schema")!=SCHEMA:
+        if not isinstance(obj,dict) or ("schema" in obj and obj["schema"]!=SCHEMA):
             raise InvalidReply("WRONG_SCHEMA")
         got=obj.get("rows")
         expected=keyed_inputs(batch)
@@ -78,6 +78,8 @@ def validate_keyed(answer,batch):
         checked=validated_rows(json.dumps({"rows":normalized},ensure_ascii=False),batch,audit)
         if audit:
             raise InvalidReply("UNEXPECTED_ID_REPAIR")
+        if "schema" not in obj:
+            print("SUPERVISOR_SCHEMA_ABSENT_EXACT_ROWS_VALIDATED",flush=True)
         return checked
     except InvalidReply:
         raise
@@ -176,6 +178,13 @@ def process_scope(root,parent,batch,ensure_job,await_reply,sleep=time.sleep):
             raise RuntimeError("SINGLE_TITLE_PROMPT_LIMIT")
         return split_scope(root,parent,batch,ensure_job,await_reply,sleep)
     ids=identity(batch)
+    # A single-source content rejection must not create a permanent retry
+    # ceiling. Existing rejected attempts are immutable, and a fresh round
+    # may only follow hash-verified terminal replies. Multi-row scopes split.
+    if n==1:
+        while all((folder/f"rejected-{a}.json").is_file()
+                  for a in range(1,max_attempts+1)):
+            max_attempts+=1
     for attempt in range(1,max_attempts+1):
         file=folder/f"attempt-{attempt}.json"
         rejected=folder/f"rejected-{attempt}.json"
@@ -187,6 +196,21 @@ def process_scope(root,parent,batch,ensure_job,await_reply,sleep=time.sleep):
             r=json.loads(rejected.read_text("utf-8"))
             if r.get("scope")!=fixed or not r.get("evidence"):
                 raise RuntimeError("SUPERVISOR_REJECTED_SCOPE_MISMATCH")
+            # Revalidate the exact previously received raw reply under the
+            # current schema parser; no new turn if only the envelope was absent.
+            ev=r["evidence"]; raw=r.get("raw_reply")
+            if (isinstance(raw,str) and digest(raw)==ev.get("result_sha256")
+                and str(ev.get("job_id","")).startswith("job_")
+                and str(ev.get("room_id","")).startswith("room_")
+                and ev.get("request_id")==req):
+                try:
+                    parsed=validate_keyed(raw,batch)
+                except InvalidReply:
+                    pass
+                else:
+                    save(cache,{"source_ids":ids,"rows":parsed,"evidence":[ev]})
+                    print("SUPERVISOR_REVALIDATED_TERMINAL_REPLY",key,n,flush=True)
+                    return parsed,[ev]
             continue
         if file.exists():
             state=json.loads(file.read_text("utf-8"))
