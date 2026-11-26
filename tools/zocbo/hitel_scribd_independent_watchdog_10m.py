@@ -36,7 +36,8 @@ def plan(rs):
     # Do not silently restart a manually stopped/cancelled or smoke run.
     if not re.fullmatch(PREFIX+r"(from|watchdog)-[0-9]+",p.get("display_title","")):
         return "hold_non_chain_run"
-    if age(p["updated_at"])<600:return "allow_handoff_indexing"
+    # Failed producers have no successful handoff to settle; allow one minute.
+    if age(p["updated_at"])<(600 if p.get("conclusion")=="success" else 60):return "allow_handoff_indexing"
     return "inspect_checkpoint"
 class NoCrossHostAuth(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,req,fp,code,msg,headers,newurl):
