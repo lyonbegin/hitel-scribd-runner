@@ -106,7 +106,8 @@ def checkpoint_plan(stats,m):
         and isinstance(m.get("terminal_unknown_candidate"),dict)
         and m["terminal_unknown_candidate"].get("remote_error_code") in UNKNOWN_CODES):
         return "resume_terminal_unknown_audit"
-    return "hold_nonretryable_or_uncertain"
+    # A valid incomplete checkpoint is a restart obligation, not a terminal state.
+    return "resume_reconcile"
 def terminal_idle(st,s):
     if (any(s.get(k)!=0 for k in ("queued_jobs_count","worker_active_jobs_count",
             "worker_live_jobs_count","worker_recovery_required_count"))
@@ -126,10 +127,10 @@ def main():
     p=rs[0]; cp=checkpoint(p)
     if cp is None:report("hold_no_current_attempt_checkpoint");return
     decision=checkpoint_plan(*cp);report(decision)
-    if decision not in ("resume_verified","resume_transport","resume_terminal_unknown_audit"):return
+    if decision not in ("resume_verified","resume_transport","resume_terminal_unknown_audit","resume_reconcile"):return
     candidate=cp[1].get("terminal_unknown_candidate")
-    if decision=="resume_terminal_unknown_audit" and (not terminal_idle(candidate,s) or p["display_title"].startswith(PREFIX+"watchdog-")):
-        report("unsafe_or_already_reconciled_terminal_unknown");return
+    if decision=="resume_terminal_unknown_audit" and not terminal_idle(candidate,s):
+        decision="resume_reconcile"
     if (decision=="resume_verified" and any(s.get(k)!=0 for k in ("queued_jobs_count",
             "worker_active_jobs_count","worker_live_jobs_count","worker_recovery_required_count"))):
         report("hold_live_or_uncertain_request");return
@@ -142,7 +143,7 @@ def main():
             "worker_active_jobs_count","worker_live_jobs_count","worker_recovery_required_count")):
         report("hold_live_or_uncertain_request");return
     if decision=="resume_terminal_unknown_audit" and not terminal_idle(candidate,s2):
-        report("terminal_state_changed_no_dispatch");return
+        decision="resume_reconcile"
     token=("watchdog-" if decision=="resume_terminal_unknown_audit" else "from-")+str(p["id"])
     if any(r.get("display_title")==PREFIX+token for r in fresh):
         report("existing_child_no_duplicate");return
@@ -154,7 +155,7 @@ def test():
     s=dict(total=18109,verified_ai_completed=9313,unverified_skipped=0,remaining_unverified=8796)
     m=dict(phase="verified",verified_before=9293,verified_after=9313)
     assert checkpoint_plan(s,m)=="resume_verified"
-    assert checkpoint_plan(s,dict(m,phase="retry_budget_exhausted"))=="hold_nonretryable_or_uncertain"
+    assert checkpoint_plan(s,dict(m,phase="retry_budget_exhausted"))=="resume_reconcile"
     assert checkpoint_plan(s,dict(m,verified_after=9999))=="hold_nonretryable_or_uncertain"
     retry=dict(phase="retryable_transport",infra_retries=1,verified_before=9313,error_type="URLError",wait_seconds=30)
     assert checkpoint_plan(s,retry)=="resume_transport"
