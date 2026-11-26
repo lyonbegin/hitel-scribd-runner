@@ -27,10 +27,16 @@ PUT same path with command=pause (same immutable definition and existing sha). R
 GET /repos/{owner}/{repo}/contents/universal/state/{id}/state.json?ref={branch}
 GET /repos/{owner}/{repo}/contents/universal/state/{id}/results.csv?ref={branch}
 GET /repos/{owner}/{repo}/actions/runs?branch={branch}
-POST /repos/{owner}/{repo}/actions/workflows/universal-ai.yml/dispatches with {"ref":branch,"inputs":{...}} only after the workflow is registered on the default branch.
+POST /repos/{owner}/{repo}/actions/workflows/universal-ai.yml/dispatches with {"ref":branch,"inputs":{...}} when GitHub has registered the workflow (the branch-created workflow successfully accepted a dispatch in the recorded test).
 POST /repos/{owner}/{repo}/actions/runs/{run_id}/cancel is a GitHub run cancellation; it does not cancel an already accepted AI request.
 
 Checkpoints are written and pushed BEFORE external POST, then after job acceptance, then after result validation. If push fails no new AI POST is permitted. HTTP GET reconciles uncertain acceptance; do not resend unknown requests. GitHub Actions serializes the branch's runs. Engine polls every 10s, bounds no-progress and respects Retry-After. Runner shutdown preserves already pushed checkpoints. Pause is cooperative at the next batch/status check. GitHub branch access is the security boundary; protect write access. All branch data and checkpoints are visible to anyone with read access. This v0.1 is a prototype, not a production multi-tenant service.
 
 ## Deployment caveat
-GitHub Pages must be enabled in repository Settings > Pages (source GitHub Actions) and the Pages environment must allow the deployment branch. Workflow dispatch/scheduled watchdog require the workflow to exist on the default branch; push triggers on this feature branch can operate before that registration. No existing main workflow is changed in this feature branch. Automatic handoff must not be reported as operational until GitHub actually accepts it. Do not use a long-lived public runner as an HTTP server.
+GitHub Pages must be enabled in repository Settings > Pages (source GitHub Actions) and the Pages environment must allow the deployment branch. Push and a subsequent watchdog workflow_dispatch were both verified on this feature branch. A cron schedule is not installed; the watchdog is a post-run Actions job. GitHub workflow registration and permissions must be checked when installing in another repository. No existing main workflow is changed in this feature branch. Automatic handoff must not be reported as operational until GitHub actually accepts it. Do not use a long-lived public runner as an HTTP server.
+
+## Verified initial QA (2026-11-27 KST)
+- Actions 45907244721: 7 offline tests passed; watchdog emitted WATCHDOG_DISPATCH_ACCEPTED.
+- Child Actions 45907281993: run and watchdog succeeded; synthetic records demo-1, demo-2, demo-3 exported, two batches, mock_completed=3, verified_ai_completed=0; WATCHDOG_NO_PENDING_WORK.
+- Pages Actions 45907260438: configure-pages failed because the repository has no Pages site and the integration cannot create one (Resource not accessible by integration). Administrator must enable Pages / GitHub Actions in repository settings and permit the deployment branch in github-pages environment if restricted. Do not describe the UI as publicly deployed until the deploy succeeds.
+- No live AI, real browser session, full-size input, independent worker restart or production UI end-to-end test has been performed. The generic engine adapts the legacy transport/checkpoint validation, not all Scribd-specific recovery branches. Existing Scribd release and closed main remain untouched.
