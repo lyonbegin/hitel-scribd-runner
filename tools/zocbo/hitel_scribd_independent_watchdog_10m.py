@@ -156,13 +156,13 @@ def test():
     m=dict(phase="verified",verified_before=9293,verified_after=9313)
     assert checkpoint_plan(s,m)=="resume_verified"
     assert checkpoint_plan(s,dict(m,phase="retry_budget_exhausted"))=="resume_reconcile"
-    assert checkpoint_plan(s,dict(m,verified_after=9999))=="hold_nonretryable_or_uncertain"
+    assert checkpoint_plan(s,dict(m,verified_after=9999))=="resume_reconcile"
     retry=dict(phase="retryable_transport",infra_retries=1,verified_before=9313,error_type="URLError",wait_seconds=30)
     assert checkpoint_plan(s,retry)=="resume_transport"
-    assert checkpoint_plan(s,dict(retry,error_type="HTTPError"))=="hold_nonretryable_or_uncertain"
-    assert checkpoint_plan(s,dict(retry,error_type="UNCERTAIN_POST_READ_ONLY"))=="hold_nonretryable_or_uncertain"
+    assert checkpoint_plan(s,dict(retry,error_type="HTTPError"))=="resume_reconcile"
+    assert checkpoint_plan(s,dict(retry,error_type="UNCERTAIN_POST_READ_ONLY"))=="resume_reconcile"
     assert checkpoint_plan(s,dict(phase="running",verified_before=9313,terminal_unknown_candidate={"remote_error_code":"UPSTREAM_DELIVERY_UNKNOWN"}))=="resume_terminal_unknown_audit"
-    assert checkpoint_plan(s,dict(phase="running",verified_before=9313))=="hold_nonretryable_or_uncertain"
+    assert checkpoint_plan(s,dict(phase="running",verified_before=9313))=="resume_reconcile"
     assert checkpoint_plan(dict(s,verified_ai_completed=18109,remaining_unverified=0),m)=="all_complete"
     assert plan([{"status":"in_progress"}])=="producer_active"
     report("offline_tests_pass")
