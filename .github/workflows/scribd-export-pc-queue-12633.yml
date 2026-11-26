@@ -1,0 +1,32 @@
+name: HITEL export verified Scribd PC queue 12633
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/scribd-export-pc-queue-12633.yml
+permissions:
+  contents: read
+  actions: read
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch exact verified classification snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/$GITHUB_REPOSITORY/actions/artifacts/15090658587/zip > checkpoint.zip
+          echo '82dc055adda68684d5d6f69ff337c3a42b320bb45c5f6edf4a7f43cfe8edcb21  checkpoint.zip' | sha256sum -c -
+      - name: Build verified PC input list
+        run: |
+          python3 tools/zocbo/export_scribd_classified_pc_queue.py --checkpoint checkpoint.zip --expected-verified 12633 --out pc-queue
+          cat pc-queue/summary.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scribd-pc-download-queue-12633
+          path: pc-queue/
+          if-no-files-found: error
+          retention-days: 90
