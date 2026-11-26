@@ -3,10 +3,15 @@ on:
   schedule:
     - cron: '*/10 * * * *'
   workflow_dispatch:
+  workflow_run:
+    workflows: ['HITEL Scribd 18109 - native Web2API completion verified']
+    types: [completed]
+    branches: [main]
   push:
     branches: [main]
     paths:
       - .github/workflows/hitel-scribd-independent-checkpoint-watchdog-10m.yml
+      - tools/zocbo/hitel_scribd_independent_watchdog_10m.py
 permissions:
   contents: read
   actions: write
@@ -15,6 +20,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   inspect:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
@@ -25,5 +31,8 @@ jobs:
         run: |
           python3 -m py_compile tools/zocbo/hitel_scribd_independent_watchdog_10m.py
           python3 tools/zocbo/hitel_scribd_independent_watchdog_10m.py --test
+      - name: Allow failed producer handoff to settle
+        if: github.event_name == 'workflow_run'
+        run: sleep 65
       - name: Inspect Scribd producer and resume only durable recoverable checkpoint
         run: python3 tools/zocbo/hitel_scribd_independent_watchdog_10m.py
