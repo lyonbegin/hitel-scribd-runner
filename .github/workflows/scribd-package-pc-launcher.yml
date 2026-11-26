@@ -51,7 +51,35 @@ jobs:
               (root/"nested").mkdir()
               (root/"nested"/"105_saved.pdf").write_bytes(b"%PDF-1.7")
               assert env["existing_pdf_ids"](root,{"101","102","103","104","105"})=={"101","102","105"}
-          assert "range(0,len(pending),10)" in engine and "batch=pending[offset:offset+10]" in engine
+          import asyncio
+          pool=next(n for n in tree.body if isinstance(n,ast.AsyncFunctionDef) and n.name=="run_worker_pool")
+          env={"asyncio":asyncio}
+          exec(compile(ast.Module(body=[pool],type_ignores=[]),"pool-test","exec"),env)
+          async def test_pool():
+              active=0;peak=0;started=[];finished=[]
+              release=asyncio.Event();refilled=asyncio.Event()
+              async def worker(row,index):
+                  nonlocal active,peak
+                  active+=1;peak=max(peak,active);started.append(index)
+                  try:
+                      if index<=9:await release.wait()
+                      elif index==11:refilled.set()
+                      await asyncio.sleep(0)
+                  finally:
+                      active-=1;finished.append(index)
+              task=asyncio.create_task(env["run_worker_pool"](list(range(23)),worker,limit=10))
+              try:
+                  await asyncio.wait_for(refilled.wait(),timeout=2)
+                  assert 11 in started and not any(i<=9 for i in finished)
+                  assert peak==10
+              finally:
+                  release.set()
+                  await task
+              assert sorted(started)==sorted(finished)==list(range(1,24))
+              assert active==0 and peak==10
+          asyncio.run(test_pool())
+          assert "await run_worker_pool(pending,worker,limit=10)" in engine
+          print("WORKER_POOL_TEST_OK IMMEDIATE_REFILL MAX_10 NO_DUPLICATE")
           original=pathlib.Path("tools/zocbo/scribd_pc_cdp_attach.py").read_text(encoding="utf-8")
           original=original[original.index("async def one_permitted_download_test("):original.index("async def main_async(")].rstrip()
           assert original in engine
