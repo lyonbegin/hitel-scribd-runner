@@ -141,6 +141,8 @@ jobs:
     # GitHub host safety bound above the API server's own 15000s observer
     # and the 240-minute Chrome worker session, not a 10-minute model timeout.
     timeout-minutes: 300
+    outputs:
+      retry_after: ${{ steps.retry_delay.outputs.seconds }}
     steps:
       - name: Checkout original Scribd corpus and recovery runner
         uses: actions/checkout@v4
@@ -349,6 +351,21 @@ jobs:
           with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
               f.write(f"Verified {len(verified)}/18109, new {delta}, skipped 0, next source {next_row}\n")
           PY
+      - name: Retain upstream retry delay
+        id: retry_delay
+        if: always() && steps.before.outcome == 'success'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path("hitel-ai-batches/supervisor-reconcile.json")
+          m=json.loads(p.read_text("utf-8")) if p.is_file() else {}
+          delay=m.get("wait_seconds",0)
+          if not isinstance(delay,int) or delay<0: delay=0
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write(f"seconds={delay}\n")
+          PY
       - name: Preserve independently verified results and HTTP plus original WS audit state
         id: persist
         if: always() && steps.before.outcome == 'success'
@@ -371,7 +388,7 @@ jobs:
     needs: [worker_ready, ai]
     if: always() && !cancelled() && inputs.mode == 'full' && (needs.worker_ready.result == 'failure' || needs.ai.result == 'failure')
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
         with:
@@ -380,6 +397,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FAILED_RUN: ${{ github.run_id }}
+          RETRY_AFTER: ${{ needs.ai.outputs.retry_after }}
         run: |
           set -euo pipefail
           # Do not rely on an exception-specific retry marker. Every failed
@@ -397,7 +415,7 @@ jobs:
               if r["status"]!="completed":continue
               if r["conclusion"]!="failure":break
               failures+=1
-          wait=min(600,60*2**min(failures,4))
+          wait=max(min(600,60*2**min(failures,4)),int(os.environ.get("RETRY_AFTER") or "0"))
           print("RECOVERY_ALL_FAILURES_BACKOFF",wait,flush=True)
           time.sleep(wait)
           client=GithubClient(repo,os.environ["GH_TOKEN"])
