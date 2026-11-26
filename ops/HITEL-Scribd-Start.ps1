@@ -164,7 +164,6 @@ u=urlparse(cdp)
 if u.scheme!="http" or u.hostname!="127.0.0.1" or not u.port:raise ValueError("Local CDP required")
 dest.mkdir(parents=True,exist_ok=True)
 log=work/"download-results.jsonl"
-blocked=re.compile(r"captcha|verify you are human|client challenge|checking your browser|security verification|access denied|membership is on hold|problem with your last payment|credit card information is invalid",re.I)
 async def visible(loc):
     try:return await loc.count()>0 and await loc.first.is_visible()
     except Exception:return False
@@ -188,50 +187,188 @@ def load():
         seen.add(d)
     if len(rows)!=7210:raise ValueError("목록 건수 불일치")
     return rows
-async def one(ctx,r):
-    d=r["document_id"];page=await ctx.new_page();future=asyncio.get_running_loop().create_future()
-    def on_download(x):
-        if not future.done():future.set_result(x)
-    page.on("download",on_download)
+async def one_permitted_download_test(context, item, destination: Path, results_dir: Path):
+    """Test one user's authorized PDF download with the actual Scribd modal DOM.
+
+    Exact workflow: open supplied full URL; dismiss Continue anyway if shown;
+    open Download modal if needed; confirm PDF; click the actual anchor
+    <a data-e2e="modal-download-button">Download document</a>;
+    handle a further Continue anyway if shown; verify a browser download and
+    saved PDF on the Windows PC. No direct file URL is invented.
+    """
+    given_url = (
+        "https://www.scribd.com/document/1061417751/"
+        "%EB%82%B4%EA%B3%B5%EC%9D%98-%ED%9E%98-%EC%A4%911-1-2013-"
+        "%EB%B9%84%EC%83%81-%EA%B5%90%EC%9E%AC-Black#"
+    )
+    target_url = given_url if item["document_id"] == "1061417751" else item["original_url"]
+    result = {
+        "document_id": item["document_id"],
+        "attempted_url": target_url,
+        "status": "not_started",
+        "download_saved_on_pc": False,
+        "initial_download_clicked": False,
+        "continue_anyway_clicked": False,
+        "final_download_anchor_clicked": False,
+        "pdf_format_verified": False,
+        "steps": [],
+        "click_timeout_ms": 20000,
+    }
+    page = await context.new_page()
+    download_future = asyncio.get_running_loop().create_future()
+
+    def on_download(download):
+        if not download_future.done():
+            download_future.set_result(download)
+
+    page.on("download", on_download)
     try:
-        await page.goto(r["original_url"],wait_until="domcontentloaded",timeout=35000)
-        clicked=False;confirmed=False
-        end=time.monotonic()+65
-        while time.monotonic()<end:
-            body=await page.locator("body").inner_text(timeout=5000)
-            if blocked.search(body) or await visible(page.get_by_role("button",name=re.compile(r"^Continue anyway$",re.I))):
-                return "access_or_payment_check"
-            if future.done():break
-            modal=page.locator('[role="dialog"][data-e2e="modal"]').filter(has=page.locator('a[data-e2e="modal-download-button"]'))
-            anchor=modal.locator('a[data-e2e="modal-download-button"]')
-            if not confirmed and await visible(anchor):
-                box=modal.first.get_by_role("combobox")
-                if not await visible(box) or not re.match(r"^PDF\b",(await box.first.inner_text(timeout=2500)).strip(),re.I):
-                    return "pdf_format_unavailable"
-                await anchor.first.click(timeout=20000)
-                confirmed=True
-            elif not clicked and not confirmed:
-                b=page.get_by_role("button",name=re.compile(r"^Download$",re.I))
-                if not await visible(b):b=page.get_by_role("link",name=re.compile(r"^Download$",re.I))
-                if await visible(b):
-                    await b.first.click(timeout=20000);clicked=True
-            await asyncio.sleep(.6)
-        if not future.done():return "no_download"
-        dl=future.result()
-        if await dl.failure():return "browser_download_failed"
-        name=re.sub(r"[^\w.\-가-힣]+","_",dl.suggested_filename)[:100]
-        final=dest/(d+"_"+(name or "document.pdf"))
-        if final.suffix.lower()!=".pdf":final=final.with_suffix(".pdf")
-        temp=final.with_suffix(".part")
-        await dl.save_as(temp)
-        if not pdf(temp):
-            temp.unlink(missing_ok=True);return "invalid_pdf"
-        os.replace(temp,final)
-        return "saved"
-    except Exception as e:
-        return "error:"+type(e).__name__
+        try:
+            await page.goto(target_url, wait_until="domcontentloaded", timeout=30000)
+            result["steps"].append("full_user_url_opened")
+        except Exception as exc:
+            # A download may cause page navigation to abort.
+            result["navigation_note"] = (type(exc).__name__ + ": " + str(exc))[:180]
+        result["final_url"] = page.url
+
+        modal_anchor = page.locator(
+            '[role="dialog"][data-e2e="modal"] a[data-e2e="modal-download-button"]'
+        )
+        payment_button = page.get_by_role("button", name=re.compile(r"^Continue anyway$", re.I))
+
+        async def is_visible(locator):
+            try:
+                return bool(await locator.count() and await locator.first.is_visible(timeout=600))
+            except Exception:
+                return False
+
+        async def click_continue():
+            if await is_visible(payment_button):
+                await payment_button.first.click(timeout=20_000)
+                result["continue_anyway_clicked"] = True
+                result["steps"].append("payment_continue_anyway_clicked")
+                return True
+            return False
+
+        async def click_pdf_modal_anchor():
+            if not await is_visible(modal_anchor):
+                return False
+            # User-provided HTML shows role=combobox "PDF (4.96 MB)" and
+            # a final clickable <a> rather than a <button>.
+            modal = page.locator('[role="dialog"][data-e2e="modal"]').filter(
+                has=page.locator('a[data-e2e="modal-download-button"]')
+            ).first
+            selector = modal.get_by_role("combobox")
+            selected_format = ""
+            if await selector.count():
+                selected_format = (await selector.first.inner_text(timeout=2500)).strip()
+            result["selected_format"] = selected_format
+            if not re.search(r"^PDF\b", selected_format, re.I):
+                result["status"] = "modal_format_not_pdf"
+                result["steps"].append("download_modal_format_not_pdf")
+                return False
+            result["pdf_format_verified"] = True
+            result["steps"].append("download_modal_pdf_verified")
+            await modal_anchor.first.click(timeout=20_000)
+            result["final_download_anchor_clicked"] = True
+            result["steps"].append("modal_download_anchor_clicked")
+            return True
+
+        # Direct URL is used first, as requested; only the actual site UI
+        # can start the browser download if navigation did not.
+        initial_download_attempted = False
+        modal_clicks = 0
+        for _ in range(48):
+            if download_future.done():
+                break
+            # Membership hold may appear before OR after the download dialog.
+            if await click_continue():
+                await page.wait_for_timeout(300)
+                continue
+            if await is_visible(modal_anchor):
+                if result.get("status") == "modal_format_not_pdf":
+                    break
+                if modal_clicks < 2:
+                    did_click = await click_pdf_modal_anchor()
+                    if did_click:
+                        modal_clicks += 1
+                else:
+                    result["steps"].append("download_modal_reappeared_twice_no_retry")
+                    break
+                await page.wait_for_timeout(450)
+                continue
+            if not initial_download_attempted:
+                # When the supplied /document/ID/slug URL only loads a detail
+                # page, the site's actual Download control is necessary to
+                # open the modal. Avoid treating the URL as a direct file link.
+                detail_button = page.get_by_role(
+                    "button", name=re.compile(r"^Download$", re.I)
+                )
+                detail_link = page.get_by_role(
+                    "link", name=re.compile(r"^Download$", re.I)
+                )
+                control = detail_button if await is_visible(detail_button) else detail_link
+                if await is_visible(control):
+                    await control.first.click(timeout=20_000)
+                    initial_download_attempted = True
+                    result["initial_download_clicked"] = True
+                    result["steps"].append("detail_download_opens_modal")
+                    await page.wait_for_timeout(350)
+                    continue
+            await page.wait_for_timeout(400)
+
+        if not download_future.done() and result.get("status") != "modal_format_not_pdf":
+            try:
+                await asyncio.wait_for(asyncio.shield(download_future), timeout=10)
+            except asyncio.TimeoutError:
+                pass
+
+        if download_future.done():
+            download = download_future.result()
+            failure = await download.failure()
+            if failure:
+                result["status"] = "browser_download_failed"
+                result["download_failure"] = str(failure)[:250]
+            else:
+                destination.mkdir(parents=True, exist_ok=True)
+                safe = re.sub(r"[^\w.\-가-힣]+", "_", download.suggested_filename)[:110]
+                path = destination / (item["document_id"] + "_" + (safe or "document.pdf"))
+                await download.save_as(path)
+                size = path.stat().st_size
+                with path.open("rb") as fp:
+                    signature = fp.read(5)
+                result["local_file_name"] = path.name
+                result["file_size_bytes"] = size
+                result["pdf_signature_valid"] = signature == b"%PDF-"
+                result["download_saved_on_pc"] = size > 0 and signature == b"%PDF-"
+                result["status"] = ("pdf_saved_on_pc" if result["download_saved_on_pc"]
+                                    else "file_saved_but_pdf_not_verified")
+                result["steps"].append("download_event_and_file_checked")
+        elif result.get("status") != "modal_format_not_pdf":
+            result["status"] = "no_download_event"
+            result["steps"].append("no_browser_download_event")
+            result["final_url"] = page.url
+            result["final_modal_anchor_visible"] = await is_visible(modal_anchor)
+            result["payment_continue_visible"] = await is_visible(payment_button)
+            try:
+                await page.screenshot(
+                    path=str(results_dir / "one-download-modal-result.png"),
+                    full_page=False, timeout=6000
+                )
+            except Exception:
+                pass
+    except Exception as exc:
+        result["status"] = "download_test_exception"
+        result["error"] = (type(exc).__name__ + ": " + str(exc))[:300]
     finally:
+        page.remove_listener("download", on_download)
         await page.close()
+    return result
+
+async def one(ctx,r):
+    diagnostics=work/"diagnostics"/r["document_id"]
+    diagnostics.mkdir(parents=True,exist_ok=True)
+    return await asyncio.wait_for(one_permitted_download_test(ctx,r,dest,diagnostics),timeout=145)
 async def main():
     rows=load()
     existing={p.name.split("_",1)[0] for p in dest.glob("*.pdf") if pdf(p)}
@@ -247,16 +384,12 @@ async def main():
         for offset in range(0,len(pending),5):
             batch=pending[offset:offset+5]
             results=await asyncio.gather(*(one(ctx,r) for r in batch),return_exceptions=True)
-            stop=False
             for r,res in zip(batch,results):
-                status=res if isinstance(res,str) else "error:"+type(res).__name__
-                ok+=status=="saved";fail+=status!="saved"
-                emit({"document_id":r["document_id"],"decision":r["download_decision"],"status":status,"success":ok,"failed":fail})
-                if status=="access_or_payment_check":stop=True
+                detail=res if isinstance(res,dict) else {"status":"error:"+type(res).__name__,"error":str(res)[:300]}
+                saved=(detail.get("status")=="pdf_saved_on_pc" and detail.get("pdf_signature_valid") is True and (detail.get("file_size_bytes") or 0)>0)
+                ok+=saved;fail+=not saved
+                emit({**detail,"document_id":r["document_id"],"decision":r["download_decision"],"success":ok,"failed":fail})
             print(f"진행 {min(offset+len(batch),len(pending))}/{len(pending)} | 성공 {ok} | 미완료 {fail}",flush=True)
-            if stop:
-                print("접근 또는 결제 확인이 필요합니다. 사이트의 안내를 확인하신 후 다시 실행하십시오.",flush=True)
-                return
             await asyncio.sleep(2)
         print(f"이번 실행 완료: 저장 {ok}건, 미완료 {fail}건. 미완료는 다음 실행에서 다시 확인합니다.",flush=True)
 if __name__=="__main__":
