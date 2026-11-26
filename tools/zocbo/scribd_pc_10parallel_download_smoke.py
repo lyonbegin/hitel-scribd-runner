@@ -15,6 +15,8 @@ import time
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
+import re
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import scribd_pc_cdp_attach as engine
@@ -46,6 +48,24 @@ def choice(catalog, scope, local_checkpoint):
     return docs, selected, len(confirmed)
 
 
+def load_classified_queue(path):
+    with Path(path).open("r",encoding="utf-8-sig",newline="") as f:
+        rows=list(csv.DictReader(f))
+    seen=set(); result=[]
+    for row in rows:
+        doc_id=row["document_id"]
+        url=row["original_url"]
+        parsed=urlparse(url)
+        if (row.get("download_decision")!="대상" or not doc_id.isdecimal()
+            or doc_id in seen or parsed.scheme!="https"
+            or parsed.netloc.lower() not in ("scribd.com","www.scribd.com")
+            or not re.match(r"^/document/"+re.escape(doc_id)+r"(?:/|$)",parsed.path)):
+            raise ValueError("INVALID_CLASSIFIED_QUEUE_ROW")
+        seen.add(doc_id)
+        result.append({k:row[k] for k in ("document_id","original_title","original_url")})
+    if len(result)<10:raise ValueError("CLASSIFIED_QUEUE_HAS_FEWER_THAN_TEN_DOCUMENTS")
+    return result
+
 async def main(args):
     if args.cdp != "http://127.0.0.1:9222":
         raise ValueError("CDP must stay on localhost:9222")
@@ -54,7 +74,14 @@ async def main(args):
     local = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "HITEL"
     checkpoint = local / "ScribdReview" / "unlinked" / "results.csv"
     downloaded_files = local / "ScribdDownloads"
-    docs, selected, prior_previews = choice(Path(args.catalog).resolve(), "unlinked", checkpoint)
+    if args.queue_csv:
+        docs=load_classified_queue(args.queue_csv)
+        selected=docs[:10]
+        prior_previews=0
+        scope="classified"
+    else:
+        docs, selected, prior_previews = choice(Path(args.catalog).resolve(), "unlinked", checkpoint)
+        scope="unlinked"
     print("FIVE_PARALLEL_SELECTED", json.dumps({
         "original_queue": len(docs), "previously_verified_preview_with_download_control": prior_previews,
         "ten_distinct_document_ids": [d["document_id"] for d in selected],
@@ -138,7 +165,7 @@ async def main(args):
                     (r.get("file_size_bytes") or 0) > 0 for r in results)
     counts = dict(Counter(str(r.get("status", "unknown")) for r in results))
     summary = {
-        "scope": "unlinked", "original_queue": len(docs),
+        "scope": scope, "original_queue": len(docs),
         "attempted_documents": len(results),
         "simultaneous_tabs": 5,
         "total_batches": 2, "batch_size": 5, "click_timeout_ms": 20000,
@@ -160,7 +187,9 @@ async def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--catalog", required=True)
+    inputs=parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument("--catalog")
+    inputs.add_argument("--queue-csv",help="Verified classification queue; ten authorized downloads only")
     parser.add_argument("--cdp", default="http://127.0.0.1:9222")
     parser.add_argument("--out", default="hitel-scribd-10parallel-results")
     parser.add_argument("--per-document-timeout", type=int, default=145)
