@@ -1,0 +1,26 @@
+{
+  "project_id": "demo-mock-001",
+  "command": "start",
+  "provider": "mock",
+  "task_id": "",
+  "batch_size": 2,
+  "prompt": "Synthetic test. Return category and score.",
+  "fields": {
+    "category": "string",
+    "score": "number"
+  },
+  "records": [
+    {
+      "record_id": "demo-1",
+      "text": "synthetic alpha"
+    },
+    {
+      "record_id": "demo-2",
+      "text": "synthetic beta"
+    },
+    {
+      "record_id": "demo-3",
+      "text": "synthetic gamma"
+    }
+  ]
+}
