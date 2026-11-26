@@ -748,10 +748,49 @@ def recover_09134_partial(rows,out,verified,prior):
     return True
 
 
+def reconcile_deferred_results(rows,out,verified):
+    """Revisit every unresolved audited request. No duplicate send and no
+    artificial completion; a late terminal reply must pass all original checks."""
+    from hitel_scribd_supervisor import validate_keyed,evidence
+    for p in sorted((out/"deferred").glob("*.json")):
+        rec=json.loads(p.read_text("utf-8"))
+        ids=rec.get("source_ids",[])
+        unresolved=[x for x in ids if int(x["no"]) not in verified]
+        if not unresolved: continue
+        st=dict(rec["original_state"])
+        if not st.get("job_id"):
+            existing=fetch_existing(rec["request_id"])
+            if not existing:continue
+            st.update({"job_id":existing["job_id"],"room_id":existing["room_id"]})
+        code,remote=call(API+"/jobs/"+st["job_id"])
+        if (code!=200 or remote.get("status")!="completed"
+            or remote.get("result_ready") is not True):
+            continue
+        original_ids=st.get("source_ids",[])
+        if not original_ids or any(not 1<=int(x["no"])<=len(rows)
+            or str(rows[int(x["no"])-1]["문서 ID"])!=str(x["id"]) for x in original_ids):
+            raise ValueError("DEFERRED_ORIGINAL_SCOPE_MISMATCH")
+        if remote.get("room_id")!=st.get("room_id") or remote.get("request_id")!=rec["request_id"]:
+            raise ValueError("DEFERRED_REMOTE_IDENTITY_MISMATCH")
+        answer=safe_read(lambda:read_completed_result(st["job_id"],remote))
+        ev=evidence(st,remote,answer)
+        try:
+            parsed=validate_keyed(answer,[rows[int(x["no"])-1] for x in original_ids])
+        except InvalidReply:
+            print("DEFERRED_REPLY_STILL_INVALID",p.name,flush=True)
+            continue
+        allowed={int(x["no"]) for x in unresolved}
+        parsed=[x for x in parsed if int(x["no"]) in allowed]
+        if parsed:
+            return commit_supervised(rows,out,"late-"+p.stem,verified,parsed,[ev])==0
+    return False
+
 def run_one(rows:list[dict],out:Path) -> int:
     verified=load_verified(rows,out)
     batch=next_eligible_batch(rows,verified,out)
     if not batch:
+        if len(verified)!=len(rows) and reconcile_deferred_results(rows,out,verified):
+            return 0
         output_file(rows,out)
         if len(verified)!=len(rows):
             print("DEFERRED_UNVERIFIED_REMAIN",sorted(held_numbers(rows,out)-set(verified)),flush=True)
