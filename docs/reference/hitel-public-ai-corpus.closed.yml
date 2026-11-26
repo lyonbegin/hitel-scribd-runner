@@ -1,0 +1,425 @@
+name: HITEL Scribd 18109 - native Web2API completion verified
+run-name: HITEL Scribd AI handoff ${{ inputs.handoff_token || 'direct' }}
+# Transport: signed /isolated/tasks/scribd-18109/chat for new batches;
+# legacy completed HTTP jobs are recovered by read-only /jobs requests.
+# Keep 340 previously verified records. Never mark an AI or transport failure as processed.
+# Missing or uncertain replies are never implicitly reposted.
+# Verified after Railway restart changes the old remote status from stalled to unknown.
+# Explicit operator-authorized WORKER_CONNECTION_LOST recovery is audited once
+# in a separate immutable request/room, keeping the original uncertain send.
+# Each 20-title batch uses exactly one durable HTTP request_id and a fresh room.
+# Read-only /requests and /jobs calls recover the same request without reposting.
+# No push-triggered live producer. Only an explicit operator dispatch may
+# submit any new ChatGPT turn. Even smoke runs exactly ONE 20-row window.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Smoke: exactly one verified window; full: continue after verification'
+        required: true
+        type: choice
+        options: [smoke, full]
+        default: smoke
+      presend_recovery:
+        description: 'Allow server-proven pre-send recovery only (never general unknown)'
+        required: true
+        type: choice
+        options: [blocked, approved]
+        default: blocked
+      handoff_token:
+        description: 'Unique parent run identity for safe HTTP 500 recovery'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  actions: write
+  id-token: write
+
+concurrency:
+  group: hitel-scribd-ai-18109-transport-v2
+  cancel-in-progress: false
+
+jobs:
+  worker_ready:
+    # Closed by owner: 18088 verified; 21 deferred records excluded.
+    if: ${{ false }}
+    runs-on: ubuntu-24.04
+    outputs:
+      skip_handoff: ${{ steps.claim_handoff.outputs.skip }}
+    # This waits for the existing signed Chrome worker without consuming the
+    # classifier job's separately allotted observation time.
+    timeout-minutes: 300
+    steps:
+      - name: Refuse a duplicate handoff before touching Chrome or AI
+        id: claim_handoff
+        if: github.event_name == 'workflow_dispatch' && inputs.handoff_token != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HANDOFF_TOKEN: ${{ inputs.handoff_token }}
+        run: |
+          python3 - <<'PY'
+          import json,os,re,time,urllib.request,urllib.error
+          token=os.environ["HANDOFF_TOKEN"]
+          if not re.fullmatch(r"(?:from|watchdog)-[0-9]+",token):
+              raise SystemExit("INVALID_VERIFIED_BATCH_HANDOFF_TOKEN")
+          repo=os.environ["GITHUB_REPOSITORY"]
+          url=("https://api.github.com/repos/"+repo+
+               "/actions/workflows/hitel-public-ai-corpus.yml/runs"
+               "?event=workflow_dispatch&per_page=100")
+          req=urllib.request.Request(url,headers={
+              "Authorization":"Bearer "+os.environ["GH_TOKEN"],
+              "Accept":"application/vnd.github+json",
+              "X-GitHub-Api-Version":"2022-11-28",
+          })
+          title="HITEL Scribd AI handoff "+token
+          # GitHub indexing can lag workflow_dispatch by many seconds.
+          # A one-off watchdog starts very soon after POST 204; do not
+          # mistake delayed visibility for an unauthorized/duplicate run.
+          ids=[]
+          # A transient GitHub network timeout is NOT evidence that no owner
+          # exists. Never authorize a duplicate submission on a failed lookup.
+          # Retry this read-only owner check; fail closed if all probes fail.
+          for attempt in range(9):
+              try:
+                  with urllib.request.urlopen(req,timeout=25) as response:
+                      runs=json.load(response)["workflow_runs"]
+              except urllib.error.HTTPError as exc:
+                  if exc.code not in (429,500,502,503,504):
+                      raise
+                  print("HANDOFF_OWNER_QUERY_RETRY_HTTP",exc.code,
+                        "TRY",attempt+1,flush=True)
+                  time.sleep(5)
+                  continue
+              except (urllib.error.URLError,TimeoutError,OSError) as exc:
+                  print("HANDOFF_OWNER_QUERY_RETRY_NETWORK",type(exc).__name__,
+                        "TRY",attempt+1,flush=True)
+                  time.sleep(5)
+                  continue
+              ids=[int(r["id"]) for r in runs if
+                   r.get("event")=="workflow_dispatch"
+                   and r.get("head_branch")=="main"
+                   and r.get("display_title")==title]
+              if ids:
+                  break
+              print("WAIT_GITHUB_HANDOFF_OWNER_INDEXING",attempt+1,flush=True)
+              time.sleep(5)
+          if not ids:
+              raise SystemExit("HANDOFF_OWNER_NOT_VISIBLE_OR_NETWORK_UNVERIFIED_FAIL_CLOSED")
+          owner=min(ids)
+          is_duplicate=owner!=int(os.environ["GITHUB_RUN_ID"])
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write("skip="+str(is_duplicate).lower()+"\n")
+          print("HANDOFF_OWNER_RUN",owner,"THIS_RUN",os.environ["GITHUB_RUN_ID"],
+                "SKIP_DUPLICATE",is_duplicate,flush=True)
+          PY
+      - name: Check scribd-18109 isolated task route, without requiring an existing worker
+        if: steps.claim_handoff.outputs.skip != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The task scheduler starts a dedicated Chrome only AFTER the signed
+          # project producer has enqueued its first task-specific job. Waiting
+          # for an isolated Chrome here would deadlock the new task queue.
+          python3 - <<'PY'
+          import json,urllib.request
+          url=("https://hitel-integration-api-production.up.railway.app/"
+               "integrations/v1/public/isolated/tasks/scribd-18109/status")
+          with urllib.request.urlopen(url,timeout=15) as response:
+              task=json.load(response)
+          assert task.get("task_id")=="scribd-18109", "ISOLATED_TASK_MISSING"
+          assert isinstance(task.get("queued_jobs_count"),int), "ISOLATED_QUEUE_MISSING"
+          assert isinstance(task.get("generation"),int), "ISOLATED_GENERATION_MISSING"
+          print("PASS_SCRIBD_ISOLATED_TASK_REGISTERED_NO_CROSS_TASK_WORKER",flush=True)
+          PY
+
+  ai:
+    needs: worker_ready
+    if: ${{ false }}
+    runs-on: ubuntu-24.04
+    # GitHub host safety bound above the API server's own 15000s observer
+    # and the 240-minute Chrome worker session, not a 10-minute model timeout.
+    timeout-minutes: 300
+    outputs:
+      retry_after: ${{ steps.retry_delay.outputs.seconds }}
+    steps:
+      - name: Checkout original Scribd corpus and recovery runner
+        uses: actions/checkout@v4
+        with:
+          ref: feature/hitel-public-ai-batches-20261119
+      - name: Verify proven HTTP classification client and once-only safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/zocbo/hitel_scribd_http_continue.py tools/zocbo/hitel_scribd_supervisor.py
+          python3 tools/zocbo/test_hitel_scribd_http_continue.py
+          python3 tools/zocbo/test_hitel_scribd_ws_stalled_retry.py
+          python3 tools/zocbo/test_hitel_dispatch_next_verified.py
+      - name: Rebuild and verify the exact original 18109 source
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import csv,hashlib
+          from pathlib import Path
+          pieces=sorted(Path("data/raw_18109").glob("part_*.csv"))
+          assert len(pieces)==20, len(pieces)
+          joined="".join(p.read_text("utf-8") for p in pieces)
+          original=b"\xef\xbb\xbf"+joined.replace("\n","\r\n").encode("utf-8")
+          assert hashlib.sha256(original).hexdigest()=="c9ac45f833dd30a002cffac64cb3ced763ed4eb18b0e121c4ab00b935a9b82e3"
+          Path("Raw_Documents_18109.csv").write_bytes(original)
+          rows=list(csv.DictReader(open("Raw_Documents_18109.csv",encoding="utf-8-sig",newline="")))
+          assert len(rows)==len(set(r["문서 ID"] for r in rows))==18109
+          print("PASS_ORIGINAL_SOURCE_18109_SHA256")
+          PY
+      - name: Restore WS recovery checkpoint or reset only 1560 skipped status markers
+        id: restore
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p hitel-ai-batches
+          # One workflow run can contain MULTIPLE artifacts of the same
+          # name after rerun. "gh run download -n" can restore an older
+          # attempt (2140) even if a newer one (2160) exists. Select and
+          # download the exact latest artifact ID, not its workflow_run.id.
+          RECOVERY_ARTIFACT="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=hitel-ai-18109-ws-recovery-checkpoint&per_page=100" --jq '[.artifacts[]|select(.expired==false)]|sort_by(.created_at)|reverse|.[0].id // empty')"
+          if [[ -n "$RECOVERY_ARTIFACT" ]]; then
+            echo "RESTORE_LATEST_EXACT_ARTIFACT_ID=$RECOVERY_ARTIFACT"
+            python3 - "$RECOVERY_ARTIFACT" <<'PY'
+          import io,os,pathlib,sys,urllib.parse,urllib.request,zipfile
+          aid=sys.argv[1]
+          if not aid.isdecimal():raise SystemExit("INVALID_CHECKPOINT_ARTIFACT_ID")
+          url="https://api.github.com/repos/"+os.environ["GITHUB_REPOSITORY"]+"/actions/artifacts/"+aid+"/zip"
+          req=urllib.request.Request(url,headers={
+              "Authorization":"Bearer "+os.environ["GH_TOKEN"],
+              "Accept":"application/vnd.github+json",
+              "X-GitHub-Api-Version":"2022-11-28"})
+          class NoTokenCrossHostRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, request, fp, code, msg, headers, newurl):
+                  redirect=super().redirect_request(request,fp,code,msg,headers,newurl)
+                  if (redirect and
+                      urllib.parse.urlsplit(newurl).hostname !=
+                      urllib.parse.urlsplit(request.full_url).hostname):
+                      # Azure signed blob URLs reject a forwarded GitHub
+                      # Authorization header (HTTP 401). Keep SAS URL as is.
+                      for key in ("Authorization","X-GitHub-Api-Version","Accept"):
+                          redirect.remove_header(key)
+                  return redirect
+          opener=urllib.request.build_opener(NoTokenCrossHostRedirect())
+          with opener.open(req,timeout=60) as response:
+              archive=response.read(40_000_001)
+          if len(archive)>40_000_000:
+              raise SystemExit("CHECKPOINT_ARCHIVE_EXCEEDS_LIMIT")
+          root=pathlib.Path("hitel-ai-batches").resolve()
+          with zipfile.ZipFile(io.BytesIO(archive)) as z:
+              files=z.infolist()
+              if not files:raise SystemExit("EMPTY_CHECKPOINT_ARCHIVE")
+              for f in files:
+                  target=(root/f.filename).resolve()
+                  if not target.is_relative_to(root):
+                      raise SystemExit("CHECKPOINT_ZIP_PATH_TRAVERSAL")
+                  if (f.external_attr >> 16) & 0o170000 == 0o120000:
+                      raise SystemExit("CHECKPOINT_SYMLINK_UNSAFE")
+              z.extractall(root)
+          print("RESTORED_EXACT_LATEST_CHECKPOINT_ARTIFACT",aid,flush=True)
+          PY
+            echo "CHECKPOINT_SOURCE=exact_artifact_id" >>"$GITHUB_OUTPUT"
+          else
+            # Immutable original artifact from the last stopped run. Old artifact is
+            # retained for audit, while only 340 verified results enter active state.
+            gh run download 44694043614 --repo "$GITHUB_REPOSITORY" -n hitel-ai-18109-v3-checkpoint -D hitel-ai-batches
+            python3 - <<'PY'
+          from pathlib import Path
+          import json,shutil
+          out=Path("hitel-ai-batches")
+          completed=list((out/"completed").glob("*.json"))
+          n=sum(len(json.loads(p.read_text("utf-8"))["rows"]) for p in completed)
+          assert n==340,("REFUSE_DESTRUCTIVE_RESET_WITHOUT_EXACT_340_VERIFIED",n)
+          skipped=list((out/"skipped").glob("*.json"))
+          count=sum(len(json.loads(p.read_text("utf-8"))["source_ids"]) for p in skipped)
+          assert count==1560,("REFUSE_RESET_WITH_UNEXPECTED_SKIPPED_ROWS",count)
+          for subdir in ("skipped","jobs","errors","rooms"):
+              shutil.rmtree(out/subdir,ignore_errors=True)
+          for stale in ("status.json","Scribd_AI_분류결과.csv"):
+              (out/stale).unlink(missing_ok=True)
+          print("RESET_ONLY_UNVERIFIED_STATUS_1560_VERIFIED_340_PRESERVED")
+          PY
+            echo "CHECKPOINT_SOURCE=verified_340_reset" >>"$GITHUB_OUTPUT"
+          fi
+      - name: Validate preserved checkpoint and exact approved smoke window
+        id: before
+        env:
+          HITEL_SCRIBD_RUN_MODE: ${{ inputs.mode }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import csv,json,os
+          from pathlib import Path
+          source=list(csv.DictReader(open("Raw_Documents_18109.csv",encoding="utf-8-sig",newline="")))
+          rows={}
+          for p in Path("hitel-ai-batches/completed").glob("*.json"):
+              for r in json.loads(p.read_text("utf-8"))["rows"]:
+                  n=int(r["no"])
+                  assert 1<=n<=18109 and n not in rows
+                  assert str(r["id"])==source[n-1]["문서 ID"]
+                  rows[n]=r
+          assert len(rows)>=340 and all(k in rows for k in range(1,261))
+          assert len(list(Path("hitel-ai-batches/skipped").glob("*.json")))==0
+          first_missing=next((i for i in range(1,18110) if i not in rows),None)
+          if os.environ.get("HITEL_SCRIBD_RUN_MODE")=="smoke":
+              # A manual 5001-only authorization cannot silently process an
+              # earlier or later range if a newer/incorrect artifact is restored.
+              assert len(rows)==5000 and first_missing==5001,(
+                  "SMOKE_REQUIRES_EXACT_5000_CHECKPOINT_AND_5001_FIRST_MISSING",
+                  len(rows),first_missing)
+              assert all(i in rows for i in range(1,5001)),(
+                  "SMOKE_REQUIRES_CONTIGUOUS_5000_VERIFIED_ROWS")
+              # Never allocate an unrelated ChatGPT job merely because the
+              # failed-run artifact was lost. Smoke must resume EXACTLY the
+              # previous 5001-5020 request with its immutable source IDs.
+              old_statefile=Path("hitel-ai-batches/http/05001-05020.json")
+              assert old_statefile.is_file(),("SMOKE_MISSING_PRIOR_HTTP_CHECKPOINT")
+              previous=json.loads(old_statefile.read_text("utf-8"))
+              old_ids=[{"no":i,"id":str(source[i-1]["문서 ID"])}
+                       for i in range(5001,5021)]
+              assert (
+                  previous.get("task_id")=="scribd-18109"
+                  and previous.get("key")=="05001-05020"
+                  and previous.get("job_id")=="job_769d8fbcaf034b8ebf5ca4e8d9ef3ce6"
+                  and previous.get("request_id")=="scribd18109-05001-05020-f0d6a6c13403b04fa32cf145c2ddc686"
+                  and previous.get("room_id")=="room_85204c97cf5f4b6bb610e16776f27592"
+                  and previous.get("source_ids")==old_ids
+              ),("SMOKE_PRIOR_JOB_OR_20_SOURCE_IDS_MISMATCH")
+          elif os.environ.get("HITEL_SCRIBD_RUN_MODE")=="full":
+              # Continuous production is separately authorized only AFTER
+              # the exact 5001-5020 smoke was verified and durably preserved.
+              assert len(rows)>=5020 and all(i in rows for i in range(1,5021)),(
+                  "FULL_REQUIRES_5020_VERIFIED_BEFORE_NEXT_WINDOW",len(rows))
+          else:
+              raise SystemExit("UNKNOWN_SCRIBD_MODE_FAIL_CLOSED")
+          print("PRESERVED_VERIFIED",len(rows),"FIRST_MISSING",first_missing)
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write(f"verified={len(rows)}\n")
+          PY
+      - name: Resume preserved AI answer or submit one signed scribd-18109 isolated HTTP batch
+        id: classify
+        env:
+          HITEL_ISOLATED_TASK_ID: scribd-18109
+          HITEL_SCRIBD_PRESEND_RECOVERY: ${{ inputs.presend_recovery }}
+        # One POST per exact prompt and immutable request_id; thereafter GET only.
+        # Old 1101 WS timeout is audited and old 1100 verified rows retained.
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/zocbo/hitel_scribd_http_continue.py \
+            --input Raw_Documents_18109.csv \
+            --out hitel-ai-batches
+      - name: Verify only real newly completed documents and preserve 18109 source mappings
+        id: verify
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import csv,json,os
+          from pathlib import Path
+          source=list(csv.DictReader(open("Raw_Documents_18109.csv",encoding="utf-8-sig",newline="")))
+          data=list(csv.DictReader(open("hitel-ai-batches/Scribd_AI_분류결과.csv",encoding="utf-8-sig",newline="")))
+          assert len(source)==len(data)==18109
+          verified={}
+          for f in Path("hitel-ai-batches/completed").glob("*.json"):
+              for row in json.loads(f.read_text("utf-8"))["rows"]:
+                  n=int(row["no"])
+                  assert n not in verified and str(row["id"])==source[n-1]["문서 ID"]
+                  assert all(str(row.get(k,"")).strip() for k in ("school","grade","semester","subject","edition","download","reason"))
+                  verified[n]=row
+          for n,(src,row) in enumerate(zip(source,data),1):
+              assert str(n)==row["번호"] and src["문서 ID"]==row["문서 ID"]
+              assert src["원문 제목"]==row["원문 제목"]
+              assert src["Scribd 상세URL"]==row["Scribd 상세URL"]
+              assert (row["학교급"]!="미처리")== (n in verified)
+          assert not list(Path("hitel-ai-batches/skipped").glob("*.json"))
+          before=int("${{ steps.before.outputs.verified }}")
+          delta=len(verified)-before
+          expected=min(20,18109-before)
+          assert (0<delta<=expected or len(verified)==18109),("NO_VERIFIED_PROGRESS",before,len(verified))
+          next_row=next((i for i in range(1,18110) if i not in verified),None)
+          print("REAL_HTTP_VERIFIED",len(verified),"NEW_VERIFIED",delta,
+                "SKIPPED_ZERO",0,"NEXT_UNVERIFIED_SOURCE",next_row)
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write("continue="+str(next_row is not None).lower()+"\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+              f.write(f"Verified {len(verified)}/18109, new {delta}, skipped 0, next source {next_row}\n")
+          PY
+      - name: Retain upstream retry delay
+        id: retry_delay
+        if: always() && steps.before.outcome == 'success'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path("hitel-ai-batches/supervisor-reconcile.json")
+          m=json.loads(p.read_text("utf-8")) if p.is_file() else {}
+          delay=m.get("wait_seconds",0)
+          if not isinstance(delay,int) or delay<0: delay=0
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write(f"seconds={delay}\n")
+          PY
+      - name: Preserve independently verified results and HTTP plus original WS audit state
+        id: persist
+        if: always() && steps.before.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitel-ai-18109-ws-recovery-checkpoint
+          path: hitel-ai-batches/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Chain next window only after real AI result verified
+        if: inputs.mode == 'full' && steps.classify.outcome == 'success' && steps.verify.outcome == 'success' && steps.verify.outputs.continue == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/zocbo/hitel_dispatch_next_verified.py
+          echo NEXT_VERIFIED_ONLY_HANDOFF_VERIFIED_OR_ACCEPTED >> "$GITHUB_STEP_SUMMARY"
+
+  recover:
+    needs: [worker_ready, ai]
+    if: ${{ false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/hitel-public-ai-batches-20261119
+      - name: Restart every failed full producer from durable checkpoint
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FAILED_RUN: ${{ github.run_id }}
+          RETRY_AFTER: ${{ needs.ai.outputs.retry_after }}
+        run: |
+          set -euo pipefail
+          # Do not rely on an exception-specific retry marker. Every failed
+          # full invocation gets another reconciliation run. Retain the
+          # original request IDs, server backoff and all verified artifacts.
+          python3 - <<'PY'
+          import json,os,subprocess,time
+          from tools.zocbo.hitel_dispatch_next_verified import GithubClient,handoff,new_token
+          repo=os.environ["GITHUB_REPOSITORY"]
+          raw=subprocess.check_output(["gh","api",f"repos/{repo}/actions/workflows/hitel-public-ai-corpus.yml/runs?per_page=20"])
+          runs=json.loads(raw)["workflow_runs"]
+          failures=0
+          for r in runs:
+              if str(r["id"])==os.environ["FAILED_RUN"]: continue
+              if r["status"]!="completed":continue
+              if r["conclusion"]!="failure":break
+              failures+=1
+          wait=max(min(600,60*2**min(failures,4)),int(os.environ.get("RETRY_AFTER") or "0"))
+          print("RECOVERY_ALL_FAILURES_BACKOFF",wait,flush=True)
+          time.sleep(wait)
+          client=GithubClient(repo,os.environ["GH_TOKEN"])
+          result,rid=handoff(client,new_token(os.environ["FAILED_RUN"]))
+          print("RECOVERY_ALL_FAILURES_HANDOFF",result,rid,flush=True)
+          PY
