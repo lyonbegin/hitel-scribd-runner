@@ -708,5 +708,34 @@ class Incident09134RecoveryTests(unittest.TestCase):
                 self.assertEqual(runner.next_eligible_batch(rows,verified,root)[0]["번호"],9135)
 
 
+class TerminalUnknownWindowTests(unittest.TestCase):
+    def test_quarantine_only_exact_terminal_scope_and_continue(self):
+        rows=[{"번호":n,"문서 ID":str(n),"원문 제목":"sample"} for n in range(1,61)]
+        batch=rows[20:40]
+        ids=[{"no":x["번호"],"id":x["문서 ID"]} for x in batch]
+        verified={n:{} for n in range(1,21)}
+        st={"task_id":"scribd-18109","submit_attempted":True,"status":"unverified",
+            "remote_error_code":"UPSTREAM_DELIVERY_UNKNOWN","job_id":"job_test",
+            "room_id":"room_test","request_id":"original","active_request_id":"recovery",
+            "source_ids":ids}
+        remote={"job_id":"job_test","room_id":"room_test","request_id":"recovery",
+                "status":"unknown","error_code":"UPSTREAM_DELIVERY_UNKNOWN","result_ready":False}
+        task={"task_id":"scribd-18109","queued_jobs_count":0,"worker_active_jobs_count":0,
+              "worker_live_jobs_count":0,"worker_recovery_required_count":0,
+              "worker_reset_required":False,"generation":154}
+        with tempfile.TemporaryDirectory() as d:
+            out=Path(d); parent=out/"supervisor"/"00021-00040"
+            runner.save(parent/"scope.json",{"source_ids":ids})
+            runner.save(parent/"00021-00040"/"attempt-1.json",st)
+            with patch.object(runner,"call",side_effect=[(200,remote),(200,{**task,"queued_jobs_count":1})]):
+                self.assertFalse(runner.recover_terminal_unknown_window(rows,out,verified,batch,sleep=lambda _:None))
+            with patch.object(runner,"call",side_effect=[(200,remote),(200,task),(200,remote),(200,task)]), \
+                 patch.object(runner,"isolated_chat_once") as post:
+                self.assertTrue(runner.recover_terminal_unknown_window(rows,out,verified,batch,sleep=lambda _:None))
+                post.assert_not_called()
+            self.assertEqual(runner.held_numbers(rows,out),set(range(21,41)))
+            self.assertEqual(runner.next_eligible_batch(rows,verified,out)[0]["번호"],41)
+            self.assertEqual(json.loads((parent/"00021-00040"/"attempt-1.json").read_text("utf-8")),st)
+
 if __name__=="__main__":
     unittest.main()
