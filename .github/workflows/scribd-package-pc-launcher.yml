@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/scribd-package-pc-launcher.yml
       - ops/HITEL-Scribd-Start.ps1
+      - ops/1_Chrome_Start.ps1
 permissions:
   contents: read
   actions: read
@@ -37,15 +38,18 @@ jobs:
           compile(engine,"embedded-download.py","exec")
           probe=ps.split("$probeSource = @'\n",1)[1].split("\n'@",1)[0]
           compile(probe,"embedded-cdp-probe.py","exec")
-          (out/"HITEL-Scribd-Start.ps1").write_bytes(ps.encode("utf-8-sig"))
+          (out/"2_Download_Start.ps1").write_bytes(ps.encode("utf-8-sig"))
+          (out/"1_Chrome_Start.ps1").write_bytes(pathlib.Path("ops/1_Chrome_Start.ps1").read_text(encoding="utf-8-sig").encode("utf-8-sig"))
           print("PACKAGE_VERIFIED_7210_AND_PYTHON_COMPILED")
           PY
       - name: Parse PowerShell launcher
         shell: pwsh
         run: |
           $tokens=$null; $errors=$null
-          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/HITEL-Scribd-PC/HITEL-Scribd-Start.ps1",[ref]$tokens,[ref]$errors) | Out-Null
-          if ($errors.Count -gt 0) { $errors | Out-String | Write-Host; throw "PowerShell parse failed" }
+          foreach ($file in (Get-ChildItem "$PWD/HITEL-Scribd-PC" -Filter *.ps1)) {
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) { $errors | Out-String | Write-Host; throw "PowerShell parse failed" }
+          }
           Write-Host 'POWERSHELL_SYNTAX_OK'
       - uses: actions/upload-artifact@v4
         with:
@@ -71,7 +75,8 @@ jobs:
           HITEL_CDP_SELFTEST: '1'
         run: |
           $ErrorActionPreference='Stop'
-          & "$PWD\HITEL-Scribd-PC\HITEL-Scribd-Start.ps1"
+          & "$PWD\HITEL-Scribd-PC\1_Chrome_Start.ps1"
+          & "$PWD\HITEL-Scribd-PC\2_Download_Start.ps1"
       - name: Preserve Chrome startup diagnostics
         if: always()
         uses: actions/upload-artifact@v4
