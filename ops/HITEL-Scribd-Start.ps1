@@ -380,6 +380,15 @@ def existing_pdf_ids(folder, valid_ids):
             found.add(match.group(1))
     return found
 
+async def run_worker_pool(pending, worker, limit=10):
+    # One consumer per slot; after its current item finishes, immediately
+    # take the next unassigned item. No batch barrier.
+    items=iter(enumerate(pending,1))
+    async def slot():
+        for index,row in items:
+            await worker(row,index)
+    await asyncio.gather(*(slot() for _ in range(min(limit,len(pending)))))
+
 async def main():
     rows=load()
     existing=existing_pdf_ids(dest,{r["document_id"] for r in rows})
@@ -405,10 +414,8 @@ async def main():
             saved=(detail.get("status")=="pdf_saved_on_pc" and detail.get("pdf_signature_valid") is True and (detail.get("file_size_bytes") or 0)>0)
             ok+=saved;fail+=not saved
             emit({**detail,"document_id":r["document_id"],"decision":r["download_decision"],"success":ok,"failed":fail,"duration_seconds":round(time.monotonic()-started,2)})
-        for offset in range(0,len(pending),10):
-            batch=pending[offset:offset+10]
-            await asyncio.gather(*(worker(r,offset+i+1) for i,r in enumerate(batch)))
-            print(f"진행 {min(offset+len(batch),len(pending))}/{len(pending)} | 성공 {ok} | 미완료 {fail}",flush=True)
+            print(f"진행 {ok+fail}/{len(pending)} | 성공 {ok} | 미완료 {fail}",flush=True)
+        await run_worker_pool(pending,worker,limit=10)
         print(f"이번 실행 완료: 저장 {ok}건, 미완료 {fail}건. 미완료는 다음 실행에서 다시 확인합니다.",flush=True)
 if __name__=="__main__":
     asyncio.run(main())
