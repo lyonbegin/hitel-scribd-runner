@@ -578,14 +578,102 @@ def commit_supervised(rows,out,key,verified,parsed,proof):
 HELD_9134_REQUEST="scribd18109-sv1-09121-09140-09134-09134-fa4fe2e2ccfc2a794deef905-a1"
 HELD_9134_SOURCE={"no":9134,"id":"408651836"}
 
+TERMINAL_UNKNOWN_CODES={"UPSTREAM_DELIVERY_UNKNOWN","SERVER_RESTARTED_DELIVERY_UNKNOWN",
+                        "WORKER_CONNECTION_LOST"}
+
+def recover_terminal_unknown_window(rows,out,verified,batch,sleep=time.sleep):
+    """Never retry an uncertain send. Preserve proven leaves and continue
+    from the next untouched source after auditing the interrupted window."""
+    from hitel_scribd_supervisor import validate_cached,identity,batch_key
+    if not batch: return False
+    key=batch_key(batch)
+    parent=out/"supervisor"/key
+    scope=parent/"scope.json"
+    if not scope.is_file(): return False
+    ids=identity(batch)
+    if json.loads(scope.read_text("utf-8")).get("source_ids")!=ids:
+        raise ValueError("UNKNOWN_WINDOW_SCOPE_MISMATCH")
+    suspects=[]
+    for p in parent.glob("*/attempt-*.json"):
+        st=json.loads(p.read_text("utf-8"))
+        if st.get("status")!="unverified" or st.get("remote_error_code") not in TERMINAL_UNKNOWN_CODES:
+            continue
+        if (st.get("task_id")!="scribd-18109" or st.get("submit_attempted") is not True
+            or not st.get("job_id") or not st.get("room_id")
+            or not st.get("source_ids") or any(x not in ids for x in st["source_ids"])):
+            raise ValueError("UNKNOWN_WINDOW_ATTEMPT_SCOPE_MISMATCH")
+        suspects.append(st)
+    if len(suspects)!=1: return False
+    st=suspects[0]
+    req=st.get("active_request_id",st.get("request_id"))
+    def observe():
+        code,remote=call(API+"/jobs/"+st["job_id"])
+        if (code!=200 or remote.get("job_id")!=st["job_id"] or remote.get("request_id")!=req
+            or remote.get("room_id")!=st["room_id"] or remote.get("status") not in ("unknown","failed","stalled")
+            or remote.get("result_ready") is not False
+            or remote.get("error_code")!=st["remote_error_code"]):
+            return None
+        code,task=call(API+"/isolated/tasks/scribd-18109/status")
+        if (code!=200 or task.get("task_id")!="scribd-18109"
+            or any(task.get(k)!=0 for k in ("queued_jobs_count","worker_active_jobs_count",
+                "worker_live_jobs_count","worker_recovery_required_count"))
+            or task.get("worker_reset_required") is not False):
+            return None
+        return task.get("generation")
+    gen=observe()
+    if not isinstance(gen,int): return False
+    sleep(10)
+    if observe()!=gen: return False
+    # Promote already verified child scopes, largest first. Never count an
+    # unknown response or re-send any of the interrupted window's sources.
+    cached=[]; proof=[]; done=set()
+    for p in sorted(parent.glob("*/verified.json"),key=lambda p:p.parent.name):
+        obj=json.loads(p.read_text("utf-8"))
+        sub=obj.get("source_ids",[])
+        if not sub or any(x not in ids for x in sub):
+            raise ValueError("UNKNOWN_WINDOW_CACHED_SCOPE_MISMATCH")
+        nums={int(x["no"]) for x in sub}
+        if nums<=done: continue
+        if nums&done: continue
+        parsed,ev=validate_cached(obj,[rows[int(x["no"])-1] for x in sub])
+        if not all(str(e.get("job_id","")).startswith("job_") and
+                   str(e.get("room_id","")).startswith("room_") and e.get("request_id") and
+                   len(e.get("result_sha256",""))==64 for e in ev):
+            raise ValueError("UNKNOWN_WINDOW_CACHED_EVIDENCE_MISSING")
+        cached.extend(parsed);proof.extend(ev);done.update(nums)
+    unresolved=[x for x in ids if x["no"] not in done and x["no"] not in verified]
+    if not unresolved: return False
+    record={"phase":"terminal_unknown_no_repost","source_ids":unresolved,
+            "request_id":req,"original_state":st,"remote_error_code":st["remote_error_code"],
+            "task_generation":gen,"not_counted":True,"parent":key}
+    p=out/"deferred"/("terminal-"+key+".json")
+    if p.exists():
+        old=json.loads(p.read_text("utf-8"))
+        if any(old.get(k)!=record[k] for k in ("phase","source_ids","request_id","original_state")):
+            raise ValueError("UNKNOWN_WINDOW_AUDIT_CHANGED")
+    else: save(p,record)
+    if cached:
+        commit_supervised(rows,out,key+"-partial",verified,cached,proof)
+    print("TERMINAL_UNKNOWN_WINDOW_ISOLATED_CONTINUE",key,"UNVERIFIED",len(unresolved),
+          "PRESERVED_LEAVES",len(cached),flush=True)
+    return True
+
 def held_numbers(rows,out):
     held=set()
     for p in (out/"deferred").glob("*.json"):
         obj=json.loads(p.read_text("utf-8"))
         ids=obj.get("source_ids")
-        if (obj.get("phase")!="uncertain_post_read_only" or not isinstance(ids,list)
-                or not ids or not obj.get("original_state",{}).get("submit_attempted")
-                or obj["original_state"].get("job_id") or not obj.get("request_id")):
+        original=obj.get("original_state",{})
+        phase=obj.get("phase")
+        if (phase not in ("uncertain_post_read_only","terminal_unknown_no_repost")
+                or not isinstance(ids,list) or not ids
+                or original.get("submit_attempted") is not True or not obj.get("request_id")
+                or (phase=="uncertain_post_read_only" and original.get("job_id"))
+                or (phase=="terminal_unknown_no_repost" and
+                    (not original.get("job_id") or obj.get("not_counted") is not True
+                     or original.get("task_id")!="scribd-18109"
+                     or obj["request_id"]!=original.get("active_request_id",original.get("request_id"))
+                     or obj.get("remote_error_code") not in TERMINAL_UNKNOWN_CODES))):
             raise ValueError("INVALID_DEFERRED_CHECKPOINT")
         for item in ids:
             n=int(item["no"])
@@ -820,6 +908,23 @@ def main():
     except RuntimeError as exc:
         # Uncertain POST acceptance may be reconciled only by read-only
         # request lookup; ensure_one_http_job still refuses duplicate POSTs.
+        if str(exc)=="HTTP_JOB_NOT_VERIFIED_KEEP_CHECKPOINT":
+            if recover_terminal_unknown_window(rows,out,verified,eligible):
+                now=load_verified(rows,out)
+                if len(now)>len(verified):
+                    save(marker,{**state,"phase":"verified","verified_after":len(now)})
+                    return 0
+                # Same runner, fresh untouched scope, no duplicate POST.
+                next_scope=next_eligible_batch(rows,now,out)
+                if not next_scope:
+                    output_file(rows,out)
+                    return 75
+                save(marker,{"phase":"running","first_missing":next_scope[0]["번호"],
+                             "verified_before":len(now),"infra_retries":0})
+                rc=run_one(rows,out)
+                save(marker,{**state,"phase":"verified","verified_after":len(load_verified(rows,out))})
+                return rc
+            raise
         if "POST_DELIVERY_UNCERTAIN_LOOKUP_404_REFUSE_DUPLICATE_SEND" not in str(exc):
             raise
         retries+=1
