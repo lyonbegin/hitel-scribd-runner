@@ -340,7 +340,7 @@ jobs:
           before=int("${{ steps.before.outputs.verified }}")
           delta=len(verified)-before
           expected=min(20,18109-before)
-          assert 0<delta<=expected,("NO_VERIFIED_PROGRESS",before,len(verified))
+          assert (0<delta<=expected or len(verified)==18109),("NO_VERIFIED_PROGRESS",before,len(verified))
           next_row=next((i for i in range(1,18110) if i not in verified),None)
           print("REAL_HTTP_VERIFIED",len(verified),"NEW_VERIFIED",delta,
                 "SKIPPED_ZERO",0,"NEXT_UNVERIFIED_SOURCE",next_row)
@@ -351,7 +351,7 @@ jobs:
           PY
       - name: Preserve independently verified results and HTTP plus original WS audit state
         id: persist
-        if: always()
+        if: always() && steps.before.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: hitel-ai-18109-ws-recovery-checkpoint
@@ -367,35 +367,40 @@ jobs:
           python3 tools/zocbo/hitel_dispatch_next_verified.py
           echo NEXT_VERIFIED_ONLY_HANDOFF_VERIFIED_OR_ACCEPTED >> "$GITHUB_STEP_SUMMARY"
 
-      # Failure continuation is permitted only for a durable, bounded
-      # transport-reconcile decision. Content rejection/splitting is handled
-      # inside the supervisor; unknown sends and integrity failures stay closed.
-      - name: Recover retryable transport from preserved checkpoint
-        if: "!cancelled() && inputs.mode == 'full' && steps.classify.outcome == 'failure' && steps.persist.outcome == 'success'"
-        shell: bash
+  recover:
+    needs: [worker_ready, ai]
+    if: always() && !cancelled() && inputs.mode == 'full' && (needs.worker_ready.result == 'failure' || needs.ai.result == 'failure')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/hitel-public-ai-batches-20261119
+      - name: Restart every failed full producer from durable checkpoint
         env:
           GH_TOKEN: ${{ github.token }}
+          FAILED_RUN: ${{ github.run_id }}
         run: |
           set -euo pipefail
+          # Do not rely on an exception-specific retry marker. Every failed
+          # full invocation gets another reconciliation run. Retain the
+          # original request IDs, server backoff and all verified artifacts.
           python3 - <<'PY'
-          import json, pathlib, time
-          from tools.zocbo.hitel_dispatch_next_verified import GithubClient, handoff, new_token
-          import os
-          path=pathlib.Path("hitel-ai-batches/supervisor-reconcile.json")
-          if not path.exists():
-              print("SUPERVISOR_NO_RETRY_MARKER_FAIL_CLOSED")
-              raise SystemExit(0)
-          state=json.loads(path.read_text("utf-8"))
-          if state.get("phase")!="retryable_transport":
-              print("SUPERVISOR_NONRETRYABLE_OR_BUDGET_EXHAUSTED",state.get("phase"))
-              raise SystemExit(0)
-          count=state.get("infra_retries")
-          wait=state.get("wait_seconds")
-          if not isinstance(count,int) or not 1<=count<=5 or not isinstance(wait,int) or wait<30:
-              raise RuntimeError("SUPERVISOR_RETRY_MARKER_INVALID")
-          print("SUPERVISOR_DURABLE_RETRY_BACKOFF",wait,flush=True)
+          import json,os,subprocess,time
+          from tools.zocbo.hitel_dispatch_next_verified import GithubClient,handoff,new_token
+          repo=os.environ["GITHUB_REPOSITORY"]
+          raw=subprocess.check_output(["gh","api",f"repos/{repo}/actions/workflows/hitel-public-ai-corpus.yml/runs?per_page=20"])
+          runs=json.loads(raw)["workflow_runs"]
+          failures=0
+          for r in runs:
+              if str(r["id"])==os.environ["FAILED_RUN"]: continue
+              if r["status"]!="completed":continue
+              if r["conclusion"]!="failure":break
+              failures+=1
+          wait=min(600,60*2**min(failures,4))
+          print("RECOVERY_ALL_FAILURES_BACKOFF",wait,flush=True)
           time.sleep(wait)
-          client=GithubClient(os.environ["GITHUB_REPOSITORY"],os.environ["GH_TOKEN"])
-          status,run_id=handoff(client,new_token(os.environ["GITHUB_RUN_ID"]))
-          print("SUPERVISOR_RECONCILIATION_HANDOFF",status,run_id,flush=True)
+          client=GithubClient(repo,os.environ["GH_TOKEN"])
+          result,rid=handoff(client,new_token(os.environ["FAILED_RUN"]))
+          print("RECOVERY_ALL_FAILURES_HANDOFF",result,rid,flush=True)
           PY
