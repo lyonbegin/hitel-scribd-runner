@@ -7,11 +7,11 @@
 <section><h2>3. 작업 관리</h2><button id="load" class="secondary">기존 프로젝트 불러오기</button><button id="status">진행 조회</button><button id="pause" class="secondary">중지 요청</button><button id="resume">재개 요청</button><button id="csv" class="secondary">결과 CSV 다운로드</button><progress id="progress" max="100" value="0"></progress><pre id="out"></pre><a id="actions" target="_blank" rel="noopener">GitHub Actions 보기</a><p><small>실행 요청은 GitHub Contents API의 커밋으로 전달합니다. 페이지는 실행 서버가 아닙니다. 중지 요청은 다음 체크포인트/폴링에서 반영됩니다. 이미 전송된 AI 요청을 취소하지는 않습니다.</small></p></section>
 <script>
 const $=id=>document.getElementById(id),v=id=>$(id).value.trim(), log=(id,x)=>$(id).textContent=typeof x==="string"?x:JSON.stringify(x,null,2);
-let auth="",privateRepo=null;
+let auth="",privateRepo=null,connectedRepo="";
 const enc=x=>encodeURIComponent(x),b64=s=>{const b=new TextEncoder().encode(s);let a="";for(let i=0;i<b.length;i+=8192)a+=String.fromCharCode(...b.subarray(i,i+8192));return btoa(a)},decode=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g,"")),c=>c.charCodeAt(0)));
 function repo(){if(!/^[\w.-]+\/[\w.-]+$/.test(v("repo")))throw Error("저장소 형식");return v("repo")}
 function pid(){if(!/^[a-z][a-z0-9-]{2,63}$/.test(v("pid")))throw Error("프로젝트 ID 형식");return v("pid")}
-async function api(path,method="GET",body){if(!auth)throw Error("먼저 연결하십시오");const r=await fetch("https://api.github.com/repos/"+repo()+path,{method,headers:{Authorization:"Bearer "+auth,Accept:"application/vnd.github+json","Content-Type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)});if(r.status===404)return null;if(!r.ok)throw Error("GitHub HTTP "+r.status);return r.status===204?{}:r.json()}
+async function api(path,method="GET",body){if(!auth||repo()!==connectedRepo)throw Error("저장소에 다시 연결하십시오");const r=await fetch("https://api.github.com/repos/"+connectedRepo+path,{method,headers:{Authorization:"Bearer "+auth,Accept:"application/vnd.github+json","Content-Type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)});if(r.status===404)return null;if(!r.ok)throw Error("GitHub HTTP "+r.status);return r.status===204?{}:r.json()}
 function path(){return "/contents/universal/projects/"+pid()+"/project.json"}
 async function get(p){return api(p+"?ref="+enc(v("branch")))}
 async function put(p,data,old){return api(p,"PUT",{message:"HITEL project control "+pid(),content:b64(JSON.stringify(data,null,2)),branch:v("branch"),...(old?{sha:old.sha}:{})})}
@@ -20,8 +20,8 @@ function records(s,ext){let a;if(ext==="csv")a=parseCSV(s);else if(ext==="jsonl"
 let dataExt="txt";
 function build(){const p={project_id:pid(),command:"start",provider:v("provider"),task_id:v("task"),batch_size:Number(v("batch")),prompt:v("prompt"),fields:JSON.parse(v("fields")),records:records(v("records"),dataExt)};if(!p.prompt||!Number.isInteger(p.batch_size)||p.batch_size<1||p.batch_size>50||!Object.keys(p.fields).length||Object.values(p.fields).some(x=>!["string","number","boolean"].includes(x))||Object.keys(p.fields).some(x=>["key","record_id","status"].includes(x)))throw Error("설정/스키마 오류");if(new Set(p.records.map(x=>x.record_id)).size!==p.records.length)throw Error("중복 ID");if(p.provider==="hitel"&&(!/^[a-z][a-z0-9-]{2,63}$/.test(p.task_id)||p.task_id==="scribd-18109"))throw Error("새 승인 Task ID 필요");return p}
 function wrap(fn){return async()=>{try{await fn()}catch(e){log("out",e.message)}}}
-$("connect").onclick=wrap(async()=>{auth=v("token");$("token").value="";const r=await api("");if(!r)throw Error("저장소 접근 불가");privateRepo=r.private;log("connection",r.private?"비공개 저장소 연결":"공개 저장소 연결 — 입력·결과 공개");$("actions").href="https://github.com/"+repo()+"/actions"});
-$("disconnect").onclick=()=>{auth="";privateRepo=null;$("token").value="";log("connection","연결 해제")};
+$("connect").onclick=wrap(async()=>{auth=v("token");connectedRepo=repo();privateRepo=null;$("publicok").checked=false;$("token").value="";const r=await api("");if(!r)throw Error("저장소 접근 불가");privateRepo=r.private;log("connection",r.private?"비공개 저장소 연결":"공개 저장소 연결 — 입력·결과 공개");$("actions").href="https://github.com/"+repo()+"/actions"});
+$("disconnect").onclick=()=>{auth="";privateRepo=null;connectedRepo="";$("publicok").checked=false;$("token").value="";log("connection","연결 해제")};
 for(const [id,target] of [["promptfile","prompt"],["datafile","records"],["schemafile","fields"]])$(id).onchange=wrap(async()=>{const f=$(id).files[0];if(!f)return;if(f.size>700000)throw Error("초기 버전: 700KB 파일 제한");$(target).value=await f.text();if(id==="datafile")dataExt=f.name.split(".").pop().toLowerCase()});
 $("records").oninput=()=>{dataExt="txt"};
 $("preview").onclick=wrap(async()=>{const p=build();log("previewout",{project_id:p.project_id,records:p.records.length,fields:p.fields,first:p.records[0],provider:p.provider})});
