@@ -44,20 +44,19 @@ def main():
         item={"document_id":r["문서 ID"],"original_title":r["원문 제목"],"original_url":r["Scribd 상세URL"],
               "source_no":i,"school":r["학교급"],"grade":r["학년"],"semester":r["학기"],
               "subject":r["2022 세부과목"],"edition":r["고등 판본"],"download_decision":decision}
-        if decision=="대상":
+        if decision in ("대상","판본검토"):
             u=urlparse(item["original_url"])
             if (u.scheme!="https" or u.netloc.lower() not in ("scribd.com","www.scribd.com")
                 or not re.match(r"^/document/"+re.escape(item["document_id"])+r"(?:/|$)",u.path)):
                 raise ValueError("INVALID_TARGET_URL_"+item["document_id"])
-            candidates.append(item)
-        elif decision=="판본검토":review.append(item)
+            (candidates if decision=="대상" else review).append(item)
         elif decision!="제외":raise ValueError("UNKNOWN_DOWNLOAD_DECISION")
     fields=["document_id","original_title","original_url","source_no","school","grade","semester","subject","edition","download_decision"]
-    for name,data in (("download_queue.csv",candidates),("edition_review.csv",review)):
+    for name,data in (("download_queue.csv",candidates+review),("edition_review.csv",review)):
         with (out/name).open("w",encoding="utf-8-sig",newline="") as f:
             w=csv.DictWriter(f,fieldnames=fields);w.writeheader();w.writerows(data)
     summary={"total":18109,"verified":len(done),"unverified":18109-len(done),
-             "download_targets":len(candidates),"edition_review":len(review),"excluded":counts["제외"],
+             "download_targets":len(candidates),"edition_review":len(review),"total_download_queue":len(candidates)+len(review),"excluded":counts["제외"],
              "decision_counts":dict(counts),"checkpoint_sha256":hashlib.sha256(Path(a.checkpoint).read_bytes()).hexdigest(),
              "download_queue_sha256":hashlib.sha256((out/"download_queue.csv").read_bytes()).hexdigest(),
              "downloads_started":0,"note":"AI target is educational relevance, not a license or download entitlement."}
