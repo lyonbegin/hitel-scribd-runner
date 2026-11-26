@@ -56,7 +56,7 @@ def load_classified_queue(path):
         doc_id=row["document_id"]
         url=row["original_url"]
         parsed=urlparse(url)
-        if (row.get("download_decision")!="대상" or not doc_id.isdecimal()
+        if (row.get("download_decision") not in ("대상","판본검토") or not doc_id.isdecimal()
             or doc_id in seen or parsed.scheme!="https"
             or parsed.netloc.lower() not in ("scribd.com","www.scribd.com")
             or not re.match(r"^/document/"+re.escape(doc_id)+r"(?:/|$)",parsed.path)):
