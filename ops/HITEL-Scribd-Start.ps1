@@ -95,23 +95,87 @@ try {
         if (-not $chrome) { throw 'Chrome 설치를 확인할 수 없습니다.' }
     }
     Write-Host '[3/4] 전용 Chrome을 시작합니다.'
-    $endpoint = 'http://127.0.0.1:9222/json/version'
-    $existing = $null
-    try { $existing = Invoke-RestMethod -Uri $endpoint -TimeoutSec 2 } catch {}
-    if ($existing) {
-        $owned = @(Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object {
-            $_.CommandLine -and $_.CommandLine.Contains('--remote-debugging-port=9222') -and $_.CommandLine.Contains($profile)
-        })
-        if ($owned.Count -eq 0) { throw '9222 포트가 다른 Chrome에서 사용 중입니다. 다른 디버그 Chrome을 종료한 후 다시 실행하십시오.' }
-    } else {
-        $arguments = @('--remote-debugging-port=9222','--remote-debugging-address=127.0.0.1',('--user-data-dir="' + $profile + '"'),'--no-first-run','https://www.scribd.com/')
-        Start-Process -FilePath $chrome -ArgumentList $arguments | Out-Null
-        $ready = $false
-        for ($i=0; $i -lt 30; $i++) {
-            Start-Sleep -Milliseconds 500
-            try { if ((Invoke-RestMethod -Uri $endpoint -TimeoutSec 2).Browser -like 'Chrome/*') { $ready = $true; break } } catch {}
+    # Probe CDP via Python with proxies explicitly disabled. A GUI window alone
+    # is not proof of a live DevTools endpoint.
+    $probeFile = Join-Path $work 'cdp-probe.py'
+    $probeSource = @'
+import json,sys,urllib.request
+from urllib.parse import urlparse
+url=sys.argv[1]
+try:
+    opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(url+"/json/version",timeout=2) as f:
+        v=json.load(f)
+    ws=urlparse(v.get("webSocketDebuggerUrl",""))
+    if not v.get("Browser","").startswith("Chrome/") or ws.scheme!="ws" or ws.hostname not in ("localhost","127.0.0.1","::1") or ws.port!=urlparse(url).port:
+        raise ValueError("Invalid local Chrome CDP response")
+    print("CDP_READY "+url,flush=True)
+except Exception as exc:
+    print(type(exc).__name__+": "+str(exc),flush=True)
+    sys.exit(1)
+'@
+    [IO.File]::WriteAllText($probeFile,$probeSource,(New-Object System.Text.UTF8Encoding($false)))
+    $env:NO_PROXY = 'localhost,127.0.0.1,::1'
+    $env:no_proxy = $env:NO_PROXY
+    function Test-HitelCdp([string]$url) {
+        $script:lastProbe = (& $venvPy $probeFile $url | Out-String).Trim()
+        return ($LASTEXITCODE -eq 0)
+    }
+    function Get-HitelChrome([string]$dir) {
+        @(Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" |
+          Where-Object { $_.CommandLine -and $_.CommandLine.Contains($dir) -and $_.CommandLine -notmatch '--type=' })
+    }
+    $cdp = $null
+    $lastProbe = ''
+    $profiles = @($profile,(Join-Path $root 'ScribdCDPProfile-v3'))
+    foreach ($dir in $profiles) {
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        $owners = @(Get-HitelChrome $dir)
+        # Reuse an existing HITEL session only after checking its ownership.
+        if (@($owners | Where-Object {$_.CommandLine -match '--remote-debugging-port=9222(?:\s|$)'}).Count -gt 0) {
+            if (Test-HitelCdp 'http://127.0.0.1:9222') { $cdp='http://127.0.0.1:9222'; break }
         }
-        if (-not $ready) { throw '전용 Chrome 연결 실패. HITEL Chrome 창을 닫고 다시 실행하십시오.' }
+        $activePort = Join-Path $dir 'DevToolsActivePort'
+        if ($owners.Count -gt 0) {
+            if ((Test-Path $activePort) -and @($owners | Where-Object {$_.CommandLine -match '--remote-debugging-port=0(?:\s|$)'}).Count -gt 0) {
+                $portLine = Get-Content -LiteralPath $activePort -TotalCount 1
+                if ($portLine -match '^\d+$' -and [int]$portLine -ge 1024 -and [int]$portLine -le 65535) {
+                    $candidate = "http://127.0.0.1:$portLine"
+                    if (Test-HitelCdp $candidate) { $cdp=$candidate; break }
+                }
+            }
+            Write-Host "기존 HITEL Chrome이 연결 불가능한 상태입니다. 다른 전용 프로필을 확인합니다: $dir" -ForegroundColor Yellow
+            continue
+        }
+        # Port 0 avoids collisions with other Chrome processes. Chrome records
+        # its actual loopback port in DevToolsActivePort in the dedicated profile.
+        if (Test-Path -LiteralPath $activePort) { Remove-Item -LiteralPath $activePort -Force }
+        $chromeLog = Join-Path $work 'chrome-start.log'
+        $arguments = @('--remote-debugging-port=0','--remote-debugging-address=127.0.0.1',('--user-data-dir="' + $dir + '"'),'--no-first-run','--no-default-browser-check','--enable-logging',('--log-file="' + $chromeLog + '"'),'https://www.scribd.com/')
+        Start-Process -FilePath $chrome -ArgumentList $arguments | Out-Null
+        for ($i=0; $i -lt 60; $i++) {
+            Start-Sleep -Milliseconds 500
+            if (Test-Path -LiteralPath $activePort) {
+                $portLine = Get-Content -LiteralPath $activePort -TotalCount 1 -ErrorAction SilentlyContinue
+                if ($portLine -match '^\d+$' -and [int]$portLine -ge 1024 -and [int]$portLine -le 65535) {
+                    $candidate = "http://127.0.0.1:$portLine"
+                    if (Test-HitelCdp $candidate) { $cdp=$candidate; break }
+                }
+            }
+            if (($i+1)%10 -eq 0) { Write-Host "Chrome 연결 확인 중... $($i+1)/60" }
+        }
+        if ($cdp) { break }
+        Write-Host "연결 실패: $dir / $lastProbe" -ForegroundColor Yellow
+    }
+    if (-not $cdp) {
+        Write-Host "Chrome 진단 로그: $(Join-Path $work 'chrome-start.log')" -ForegroundColor Yellow
+        Write-Host "마지막 연결 결과: $lastProbe"
+        throw '전용 Chrome의 CDP 포트를 확인할 수 없습니다. HITEL 전용 Chrome 창만 닫은 후 다시 실행하십시오.'
+    }
+    Write-Host "Chrome 연결 성공: $cdp" -ForegroundColor Green
+    if ($env:HITEL_CDP_SELFTEST -eq '1') {
+        Write-Host 'WINDOWS_REAL_CHROME_CDP_SELFTEST_OK'
+        return
     }
     Write-Host ''
     Write-Host '지금 열린 HITEL 전용 Chrome에서 Scribd에 로그인하십시오.' -ForegroundColor Yellow
@@ -125,6 +189,9 @@ from urllib.parse import urlparse
 from playwright.async_api import async_playwright
 
 queue, dest, work = map(Path, sys.argv[1:4])
+cdp = sys.argv[4]
+u=urlparse(cdp)
+if u.scheme!="http" or u.hostname!="127.0.0.1" or not u.port:raise ValueError("Local CDP required")
 dest.mkdir(parents=True,exist_ok=True)
 log=work/"download-results.jsonl"
 blocked=re.compile(r"captcha|verify you are human|client challenge|checking your browser|security verification|access denied|membership is on hold|problem with your last payment|credit card information is invalid",re.I)
@@ -203,7 +270,7 @@ async def main():
     print("다운로드 권한이 확인된 문서만 진행합니다. Ctrl+C로 중지 후 다시 실행할 수 있습니다.",flush=True)
     if not pending:return
     async with async_playwright() as p:
-        browser=await p.chromium.connect_over_cdp("http://127.0.0.1:9222",timeout=15000)
+        browser=await p.chromium.connect_over_cdp(cdp,timeout=15000)
         if not browser.contexts:raise RuntimeError("Chrome 로그인 창을 확인하십시오.")
         ctx=browser.contexts[0]
         ok=0;fail=0
@@ -227,14 +294,15 @@ if __name__=="__main__":
 '@
     [IO.File]::WriteAllText($engine,$source,(New-Object System.Text.UTF8Encoding($false)))
     Write-Host '[4/4] 다운로드 실행' -ForegroundColor Green
-    & $venvPy $engine $queue $downloads $work
+    & $venvPy $engine $queue $downloads $work $cdp
     if ($LASTEXITCODE -ne 0) { throw "다운로드 프로그램 종료 코드 $LASTEXITCODE" }
 } catch {
     Write-Host ("오류: " + $_.Exception.Message) -ForegroundColor Red
     Write-Host ("오류 위치: " + $_.InvocationInfo.PositionMessage) -ForegroundColor Yellow
     Write-Host ("오류 코드: " + $_.FullyQualifiedErrorId) -ForegroundColor Yellow
+    if ($env:HITEL_CDP_SELFTEST -eq '1') { throw }
 } finally {
     Write-Host "PDF 저장 폴더: $downloads"
     Write-Host "실행 기록: $work\download-results.jsonl"
-    Read-Host '종료하려면 Enter를 누르십시오'
+    if ($env:HITEL_CDP_SELFTEST -ne '1') { Read-Host '종료하려면 Enter를 누르십시오' }
 }
