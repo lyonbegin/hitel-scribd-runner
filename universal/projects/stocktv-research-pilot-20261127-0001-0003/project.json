@@ -1,0 +1,61 @@
+{
+  "project_id": "stocktv-research-pilot-20261127-0001-0003",
+  "command": "pause",
+  "provider": "hitel",
+  "task_id": "stocktv-universal-20261127",
+  "batch_size": 1,
+  "prompt": "역할: TradingView 공개 Strategy 원본을 분석하고, 실행 가능한 전략 연구 후보를 발굴하는 연구 AI입니다. 각 레코드는 독립된 전략이며, 결과는 레코드별로 빠짐없이 반환하십시오. 추측을 사실이라고 서술하지 마십시오.\n[1. 원본·증거 확보] 레코드에 포함된 title, author, url, description_preview를 정확히 식별하십시오. 가능하면 TradingView 원본 URL에 접근하여 전체 설명·코드 공개 여부·차트 적용 종목/시간봉을 확인하십시오. 접근하지 못했으면 '원문 미확인', 제공된 미리보기만 읽었으면 '미리보기 기반'으로 명시하십시오. 접근하지 않은 링크를 방문했다고 주장하지 마십시오.\n[2. 자산 분류] 적용 자산의 유형을 주식, ETF, 코인, 선물, 외환, 옵션, 기타, 미확인으로 구분하십시오. A그룹은 주식/ETF/코인에만 적용 가능한 경우로 한정하고, 선물/외환/옵션 중심은 B그룹으로 분류하십시오. 자산 미지정이면 해당 원본에 제시된 실제 차트 종목이나 사용 사례를 조사한 뒤 결정하고, 증거 부족 시 미확인으로 남기십시오. 단순 추세 방향이라는 이유로 A그룹이라고 하지 마십시오.\n[3. 전략 분해] 추세/역추세/돌파/변동성/상대가치/차익거래 등의 작동 원리와 진입·청산·재진입·손절·익절·포지션 크기·시간봉·거래 시간 규칙을 추출하십시오. 설정값 및 사용 인디케이터를 이름·역할·상호관계까지 구분하십시오. 없는 규칙을 가정하여 보충하지 마십시오.\n[4. 실제 연구·검색] 가능한 경우 신뢰할 수 있는 공개 출처를 검색하여 유사 전략, 실제 시장·종목 사례, 공개된 과거 적용 사례를 찾으십시오. 날짜, 시장, 대상 종목, 증거 URL을 기록하십시오. 출처에서 직접 확인되지 않은 수익률·체결 내역·백테스트는 사실로 표시하지 마십시오. 검색 불가능하면 검색 불가라고 표시하십시오.\n[5. 기존 체계와 대응] 기존 87개 전략 관계와 추가 신규 후보, 34개 전략 영역의 공식 대응표가 입력에 실제 제공된 경우에만 해당 ID와 근거를 적으십시오. 제공되지 않았다면 '기준표 미제공·대조 보류'로 기록하십시오. 유사하다는 이유만으로 임의의 전략 번호를 생성하지 마십시오.\n[6. 신규 전략 후보 발굴] 원본 전략에서 재사용 가능한 핵심 신호·제약을 구분한 뒤, 다른 인디케이터·시장 조건과 결합할 수 있는 구체적 후속 연구 후보를 제안하십시오. 진입·청산·리스크 통제·검증해야 할 가정을 함께 제시하고, 실적 검증 전에는 '가설'이라고 명시하십시오.\n[7. 검증·한계] 실제 확인, 원문 인용 요약, 추론, 미확인을 엄격하게 구분하십시오. AI 분석 완료는 매매 실증·Pine 실행·차트 동등성 검증 완료가 아닙니다.\n각 항목을 하나도 생략하지 마십시오. 모든 결과 필드에는 구체적인 설명을 문자열로 기록하십시오. 수집하지 못한 항목은 '미확인: 이유'로 기록하십시오. 입력에 없는 원문·거래 사례·분류표를 꾸며내지 마십시오. 결과 형식은 상위 시스템이 부여하는 key와 지정된 필드만 포함한 JSON rows이며, 순서와 개수는 입력과 정확히 같아야 합니다.",
+  "fields": {
+    "asset_type": "string",
+    "asset_group": "string",
+    "source_access": "string",
+    "source_facts": "string",
+    "strategy_mechanism": "string",
+    "indicators_and_parameters": "string",
+    "entry_rules": "string",
+    "exit_rules": "string",
+    "risk_and_position": "string",
+    "markets_and_timeframes": "string",
+    "indicators_relationships": "string",
+    "external_case_research": "string",
+    "evidence_urls": "string",
+    "existing_87_and_34_mapping": "string",
+    "new_strategy_hypotheses": "string",
+    "missing_information": "string",
+    "verification_level": "string"
+  },
+  "records": [
+    {
+      "author": "JustinTimeTunes",
+      "description_preview": "This 'Complex Single Trade Strategy' is a generic trading strategy that features three different types of stops, and four take profits.\nIt takes a Buy/Sell source input of:  \n\nThe first signal will trigger a position to open immediately in that direction, but subsequent signals in the same direction will be ignored whilst the position remains open, as this strategy allows only one position at once.\nA signal in the opposite direction to the current position can either be ignored, or it can close ",
+      "order": 1,
+      "record_id": "02yfhjiz",
+      "source_type": "Strategy",
+      "title": "Complex Single Trade Strategy",
+      "url": "https://www.tradingview.com/script/02yfhjiz-Complex-Single-Trade-Strategy/"
+    },
+    {
+      "author": "TalaeaElhussein",
+      "description_preview": "PROP_Scalper_V2 FINAL is a non-repainting, multi-filter scalping strategy designed for XAUUSD and other active markets. It uses adaptive moving-average signals, optional higher-timeframe trend confirmation, ADX and ATR filters, session filtering, cooldown control, and partial profit-taking with break-even protection to help manage entries and exits more systematically.",
+      "order": 2,
+      "record_id": "03zgCMqx",
+      "source_type": "Strategy",
+      "title": "PROP_Scalper_V2 FINAL",
+      "url": "https://www.tradingview.com/script/03zgCMqx-PROP-Scalper-V2-FINAL/"
+    },
+    {
+      "author": "Crypto_Andy_",
+      "description_preview": "Hey traders! 👋\n\nAfter that solid push higher, LINK is now pulling back into the breakout zone, so $12.00–$12.20 is back on my radar. This was the area that kept a lid on price through most of August and I still see it as the key zone for keeping the bullish structure alive.\n\nI’m definitely not the guy who wants to jump on a moving train just because everyone else is buying. 😄 My plan is simple and emotionless: close above $12.20, then checks three things before entering: price above the long-ter",
+      "order": 3,
+      "record_id": "04erUlJM",
+      "source_type": "Strategy",
+      "title": "LINK Above $12.20: Is $15 Back on the Table?",
+      "url": "https://www.tradingview.com/script/04erUlJM-LINK-Above-12-20-Is-15-Back-on-the-Table/"
+    }
+  ],
+  "notifications": {
+    "channel": "none",
+    "heartbeat_seconds": 60,
+    "events": []
+  }
+}
