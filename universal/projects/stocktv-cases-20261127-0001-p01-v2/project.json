@@ -35,6 +35,16 @@
   "notifications": {
     "channel": "none",
     "heartbeat_seconds": 60,
-    "events": []
+    "events": [
+      "project.started",
+      "request.prepared",
+      "request.accepted",
+      "batch.verified",
+      "project.pending",
+      "project.paused",
+      "project.blocked",
+      "project.completed",
+      "heartbeat"
+    ]
   }
 }
