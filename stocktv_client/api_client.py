@@ -128,7 +128,7 @@ def eligible(p):
     if p["command"]!="start" or p["status"] not in (None,"ready","running","pending"):return False
     if p.get("uncertain_requests",0):return False
     # Never submit a new request after an ambiguous POST.
-    return p["status"] in (None,"ready") or p.get("accepted_jobs",0)>0
+    return True  # Pending without any uncertain POST is also safe for the native queue.
 def issue_named(title):
     page=1
     while True:
@@ -148,12 +148,12 @@ def continuation(report,parent_run=None,manual=False):
         print("CLIENT_CONTINUE_STOP_API_ERRORS");return
     if report["blocked"]:
         report_blockers(report)
-        print("CLIENT_CONTINUE_STOP_BLOCKED");return
+        print("CLIENT_BLOCKED_PROJECTS_ISOLATED")
     candidates=[p for p in report["projects"] if eligible(p)]
     if manual:
         candidates=[p for p in candidates if p["id"]==os.environ["CLIENT_PROJECT"]]
     if not candidates:
-        print("CLIENT_CONTINUE_NO_ELIGIBLE_PROJECT");return
+        print("CLIENT_WAIT_FOR_RECOVERY_EVENT" if report["blocked"] else "CLIENT_CONTINUE_NO_ELIGIBLE_PROJECT");return
     # Backend dispatch is global. Avoid starting unrelated live jobs.
     for d in api("/contents/universal/projects"+REF):
         if d["name"].startswith("stocktv-cases-"):continue
@@ -197,6 +197,9 @@ def main():
             print("CLIENT_CONTINUATION_EVENT_ACCEPTED")
         elif event=="repository_dispatch" and payload.get("action")=="stocktv-client-continue":
             continuation(report)
+        elif event=="issues":
+            # User/authorized issue activity is only a recheck signal, not a reset.
+            continuation(report)
         elif event=="workflow_run":
             continuation(report,parent_run=payload["workflow_run"]["id"])
         elif event=="workflow_dispatch" and os.environ.get("CLIENT_OPERATION")=="start":
@@ -213,6 +216,9 @@ if __name__=="__main__":
         assert eligible({"command":"start","status":"pending","accepted_jobs":1})
         assert not eligible({"command":"start","status":"blocked","accepted_jobs":0})
         assert not eligible({"command":"start","status":"pending","uncertain_requests":1})
+        assert eligible({"command":"start","status":"pending","uncertain_requests":0,"accepted_jobs":0})
+        mixed=[{"command":"start","status":"blocked"},{"command":"start","status":"ready"}]
+        assert [p["status"] for p in mixed if eligible(p)]==["ready"]
         assert not eligible({"command":"pause","status":"ready"})
         print("CLIENT_SELF_TEST_OK")
     else:main()

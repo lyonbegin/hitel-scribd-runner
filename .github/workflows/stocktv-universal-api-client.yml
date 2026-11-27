@@ -18,6 +18,8 @@ on:
       project_id:
         type: string
         default: stocktv-cases-20261127-0001-p01-v2
+  issues:
+    types: [closed, reopened]
   repository_dispatch:
     types: [stocktv-verified-milestone, stocktv-client-continue]
 permissions:
@@ -29,6 +31,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   client:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, 'TradingView API blocked ')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
