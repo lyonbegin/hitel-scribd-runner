@@ -1,0 +1,54 @@
+name: TradingView | Universal API client and milestone events
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/stocktv-universal-api-client.yml'
+      - 'stocktv_client/**'
+  workflow_run:
+    workflows: ['HITEL Universal Actions backend']
+    types: [completed]
+    branches: [feature/hitel-universal-ai-ui-api-20261127]
+  workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        options: [inspect, start]
+        default: inspect
+      project_id:
+        type: string
+        default: stocktv-cases-20261127-0001-p01-v2
+  repository_dispatch:
+    types: [stocktv-verified-milestone]
+permissions:
+  contents: write
+  actions: write
+  issues: write
+concurrency:
+  group: stocktv-universal-api-client
+  cancel-in-progress: false
+jobs:
+  client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Test client and validate API project status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLIENT_OPERATION: ${{ inputs.operation || 'inspect' }}
+          CLIENT_PROJECT: ${{ inputs.project_id || 'stocktv-cases-20261127-0001-p01-v2' }}
+        run: |
+          python3 stocktv_client/api_client.py --self-test
+          python3 stocktv_client/api_client.py
+      - name: Preserve status and verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stocktv-api-client-status-${{ github.run_id }}
+          path: stocktv-client-status.json
+          if-no-files-found: warn
+          retention-days: 90
