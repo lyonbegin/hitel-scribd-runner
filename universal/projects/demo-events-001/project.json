@@ -1,0 +1,36 @@
+{
+  "project_id": "demo-events-001",
+  "command": "start",
+  "provider": "mock",
+  "task_id": "",
+  "batch_size": 2,
+  "prompt": "Synthetic event lifecycle QA, no real AI.",
+  "fields": {
+    "category": "string",
+    "score": "number"
+  },
+  "records": [
+    {
+      "record_id": "e1",
+      "text": "synthetic event one"
+    },
+    {
+      "record_id": "e2",
+      "text": "synthetic event two"
+    },
+    {
+      "record_id": "e3",
+      "text": "synthetic event three"
+    }
+  ],
+  "notifications": {
+    "channel": "none",
+    "heartbeat_seconds": 30,
+    "events": [
+      "project.started",
+      "batch.verified",
+      "project.completed",
+      "heartbeat"
+    ]
+  }
+}
