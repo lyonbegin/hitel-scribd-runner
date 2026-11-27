@@ -1,0 +1,40 @@
+{
+  "project_id": "stocktv-cases-20261127-0001-p01-v2",
+  "command": "pause",
+  "provider": "hitel",
+  "task_id": "stocktv-universal-20261127",
+  "batch_size": 1,
+  "prompt": "# TradingView Strategy 외부 논문·거래사례 전수 조사 AI 지시문 v2\n\n## 이번 작업 범위\n입력된 TradingView Strategy **1개**를 출발점으로 관련 논문·실증 연구·거래소 자료·검증 가능한 공개 주문/백테스트 자료를 폭넓게 수집하고, 자료 **안에 포함된 개별 거래 사례·실험 사례까지 모두 추출**하십시오. 논문 1편을 사례 1건으로 처리하지 마십시오. 가능한 만큼 수집하되 미리 정해진 사례 수 상한은 두지 마십시오. 신규 전략 개발, 지식 그래프, 전략 계열 분류, Python 개발, 차트 작성은 이번 단계에서 금지합니다.\n\n## 1단계: TradingView 원본을 이해하고 근거를 고정\nrecord_id, title, url, author, description_preview를 보존하십시오. 원문 페이지를 실제로 열었다면 확인한 전략 구성 요소/시장/기간/진입·청산 규칙을 기록하십시오. 원문을 못 열었다면 제공된 미리보기에 근거한 판단이라고 표시하고 Pine 코드 전문을 확보했다고 주장하지 마십시오. 검색어는 전략의 이름뿐 아니라 경제적 거래 메커니즘·지표 조합·시장과 상품·매수/매도 조건을 변형하여 여러 개 준비하십시오.\n\n## 2단계: 관련 논문과 실증 자료 발굴, 논문 자체 보존\n학술 검색/DOI/발행사·대학 리포지터리/거래소 공식 연구/공개 백테스트/브로커·저자 공개 체결·검증 가능한 코드 등 **실제로 접근 가능한 채널**을 검색하십시오. 기존 프로젝트에 확인된 검색 서비스 목록이 제공되면 그 목록을 우선 사용하십시오. 어떤 사이트나 API도 사용하지 않았는데 검색했다고 주장하지 마십시오.\n\n발견된 각 논문·보고서·백테스트 자료는 **papers_json에 별도 서지 레코드**로 보존합니다: paper_id, title, authors, year, journal_or_publisher, doi, original_url, pdf_url, publication_type, full_text_access, study_summary, studied_markets, methodology, paper_tables_figures, reference_status, relevance_to_tv, uncertainty_notes. DOI·제목·저자·연도로 중복 제거하며, PDF 전문을 읽지 못했으면 초록 확인만 표시하십시오. 연구와 관계 있는 논문은 실증 사례가 당장 확인되지 않아도 papers_json에 기록하되, 그것을 실제 거래 사례로 세지 마십시오.\n\n## 3단계: **논문 내부의 각 사례를 끝까지 분해**\n논문 한 편을 찾은 뒤 서론이나 초록만 읽고 종료하지 마십시오. 가능하면 전체 PDF의 방법론, 실험 설계, 데이터, 표, 그림, 부록, 개별 거래·주문·성과 사례를 확인하십시오. 논문 속에 독립된 시장/종목·상품 페어, 연구기간, 전략 설정·매매 규칙, 파라미터 조합, 백테스트 실험, 실주문 집행, 서로 다른 실증 실험이 여러 개 있으면 **각각 고유 case_id를 부여하고 cases_json에 개별 항목으로 저장하십시오.**\n\n각 사례에 parent_paper_id를 기록하여 출처 논문과 연결하십시오. 한 논문에서 사례 12개가 실제 확인되면 papers_json에는 논문 1건, cases_json에는 내부 사례 12건으로 집계하십시오. 단, 같은 결과를 표·본문·초록에 반복 언급한 것은 중복 사례가 아닙니다. 개별 거래 내역이 없는 논문의 집계 백테스트를 가상의 매수·매도 체결 여러 건으로 쪼개지 마십시오. 관측 단위(독립 전략 실험·시장·기간·실주문)가 명확히 구별되는 것만 독립 사례로 인정하십시오.\n\n## 4단계: 외부 사례와 실질 연관성의 AI 판정\n각 사례가 (a) 동일 TradingView Pine 스크립트를 사용한 직접 사례, (b) 핵심 진입·청산·경제적 거래구조가 검증 가능하게 대응되는 외부 실증 사례, (c) 단지 지표 이름만 유사한 약한 연관인지 판단하십시오. (c)는 candidate_cases_json에 기록하고 확정 사례 수에 넣지 마십시오. 무근거 광고·수익 인증은 rejection_log_json에 사유와 함께 기록하십시오.\n\n**실제 거래 사례의 의미를 세분화하십시오:** broker_verified_live_execution / public_order_execution / paper_trade / historical_backtest / out_of_sample_backtest / research_simulation / price_dislocation_observation / worked_example. 논문에 백테스트만 있다면 실계좌 거래가 있었다고 주장하지 마십시오. 원문이 실제 시세 기반 연구인지, 합성 데이터 시험인지도 구분하십시오.\n\n## 5단계: 사례마다 증거 위치와 거래 수치를 상세 추출\n각 cases_json 항목의 필수 키:\n- case_id, parent_paper_id, source_id, original_url, doi, title_or_experiment_name, authors_or_organization, publication_year\n- evidence_location: 실제 PDF 페이지/절/표 번호/그림/수식/부록; 해당 위치에서 확인된 사실과 접근 상태\n- market, exchange, instruments, tickers, contract_months, currency, contract_size, trading_timeframe, dataset_name\n- sample_period, in_sample_period, out_of_sample_period, observation_count\n- trade_direction_or_legs, entry_rules, exit_rules, stop_take_profit_rules, hedge_ratios, parameters, position_size\n- transaction_costs, slippage, rolls_maturity_assumptions, risk_controls\n- executed_trade_dates_and_prices: 공개 원문에 실제 있는 경우만. 없으면 미공개\n- reported_returns_risk_metrics: 논문 원문의 결과·단위·측정 기간을 정확히 구분\n- evidence_kind, relationship_to_tv_script, relevance_reason, evidence_status, unverified_fields, limitations\n\n자료에 원문 근거가 없다면 해당 값은 **미확인/미공개**로 채우십시오. 논문 수익률을 이 주식 시스템의 거래 수익률로 쓰지 마십시오. 저자의 연구 가정, 실증 근거, 모의 계산, 실주문 체결을 혼합하지 마십시오. 원문의 표에서 일부 숫자가 보이더라도 표 전체 범주를 모른다면 추정 계산하지 마십시오.\n\n## 6단계: 결과 수와 후속 조사\n범용 API 결과 필드는 아래만 반환하며, *_json 필드는 **문법적으로 유효한 JSON 배열을 직렬화한 문자열**이어야 합니다.\n- papers_json: 조사한 문헌·논문·공식 연구 레코드 배열\n- cases_json: 논문 내부에서 분해한 사례 + 다른 공개 출처의 독립 실증/주문 사례 배열\n- candidate_cases_json: 관련은 있으나 원문·증거 검증이 부족한 후보 배열\n- rejection_log_json: 무관·중복·광고·검증 불가로 탈락한 자료와 판단 근거 배열\n- search_log_json: 실제 검색한 채널·검색어·시간·결과 URL·원문 열람 여부·선정/기각 사유 배열\n- paper_count: papers_json 항목 수\n- case_count: cases_json 항목 수 (논문 수와 별개)\n- paper_case_count: parent_paper_id가 있어 논문 내부에서 추출한 사례 수\n- candidate_count: candidate_cases_json 항목 수\n- has_more: 검색할 자료나 해당 논문 내부 미검토 표·부록·거래 기록이 남은 경우 true\n- continuation_query: 미검토 논문/표/부록, 검색어, 이미 수집한 DOI·case_id의 중복 방지 목록 및 다음 검색 계획\n- research_status: SEARCH_EXECUTED_AND_ASSESSED / PARTIAL_SOURCE_ACCESS / SEARCH_NOT_EXECUTED\n\n한 번에 답변할 수 있는 데이터 양을 넘으면 **사례를 생략했다고 속이지 말고** has_more=true와 continuation_query로 명시하십시오. 고유 project_id와 pass를 새로 할당하여 같은 원본의 후속 조사에서 이어서 수집해야 합니다. 응답당 논문 수·사례 수의 임의 상한을 정하지 마십시오. 반대로 원문을 찾지 못했으면 cases_json='[]'와 0건을 정직하게 반환하십시오.\n\n**HITEL Universal 출력 계약:** 상위 엔진이 제공한 원본 순서와 A01 등의 key를 유지하고, 위 명시된 필드만 사용하여 JSON rows를 반환하십시오. record_id는 임의로 변경하지 마십시오. 참고로 Universal 엔진은 타입·key·행 수만 기본 검증하므로 JSON 문자열 내부 구조, 사례 수 일치, 논문 내부 증거 진위는 별도 소비자 검증 대상입니다.\n",
+  "fields": {
+    "papers_json": "string",
+    "cases_json": "string",
+    "candidate_cases_json": "string",
+    "rejection_log_json": "string",
+    "search_log_json": "string",
+    "paper_count": "number",
+    "case_count": "number",
+    "paper_case_count": "number",
+    "candidate_count": "number",
+    "has_more": "boolean",
+    "continuation_query": "string",
+    "research_status": "string"
+  },
+  "records": [
+    {
+      "author": "JustinTimeTunes",
+      "description_preview": "This 'Complex Single Trade Strategy' is a generic trading strategy that features three different types of stops, and four take profits.\nIt takes a Buy/Sell source input of:  \n\nThe first signal will trigger a position to open immediately in that direction, but subsequent signals in the same direction will be ignored whilst the position remains open, as this strategy allows only one position at once.\nA signal in the opposite direction to the current position can either be ignored, or it can close ",
+      "order": 1,
+      "record_id": "02yfhjiz",
+      "source_type": "Strategy",
+      "title": "Complex Single Trade Strategy",
+      "url": "https://www.tradingview.com/script/02yfhjiz-Complex-Single-Trade-Strategy/",
+      "search_pass": 1,
+      "excluded_case_urls": []
+    }
+  ],
+  "notifications": {
+    "channel": "none",
+    "heartbeat_seconds": 60,
+    "events": []
+  }
+}
