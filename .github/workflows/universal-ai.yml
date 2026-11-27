@@ -3,7 +3,7 @@ run-name: HITEL Universal ${{ inputs.handoff || github.run_id }}
 on:
   push:
     branches: [feature/hitel-universal-ai-ui-api-20261127]
-    paths: ['universal/engine.py', 'universal/test_engine.py', 'universal/watchdog.py', 'universal/projects/**', '.github/workflows/universal-ai.yml']
+    paths: ['universal/engine.py', 'universal/notifications.py', 'universal/test_notifications.py', 'universal/test_engine.py', 'universal/watchdog.py', 'universal/projects/**', '.github/workflows/universal-ai.yml']
   workflow_dispatch:
     inputs:
       handoff:
@@ -15,6 +15,8 @@ on:
 permissions:
   contents: write
   actions: write
+  issues: write
+  pull-requests: read
   id-token: write
 concurrency:
   group: hitel-universal-${{ github.ref }}
@@ -32,10 +34,14 @@ jobs:
         with:
           python-version: '3.12'
       - name: Run offline regression
-        run: cd universal && python -m unittest -v test_engine
+        run: cd universal && python -m unittest -v test_engine test_notifications
       - name: Run durable project queue
         env:
           HITEL_ALLOW_LIVE: ${{ vars.HITEL_ALLOW_LIVE }}
+          HITEL_EVENT_WEBHOOK_URL: ${{ secrets.HITEL_EVENT_WEBHOOK_URL }}
+          HITEL_EVENT_WEBHOOK_SECRET: ${{ secrets.HITEL_EVENT_WEBHOOK_SECRET }}
+          HITEL_NOTIFY_PR_ALLOWLIST: ${{ vars.HITEL_NOTIFY_PR_ALLOWLIST }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "hitel-universal[bot]"
           git config user.email "hitel-universal[bot]@users.noreply.github.com"
