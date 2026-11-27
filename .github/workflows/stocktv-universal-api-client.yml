@@ -19,7 +19,7 @@ on:
         type: string
         default: stocktv-cases-20261127-0001-p01-v2
   repository_dispatch:
-    types: [stocktv-verified-milestone]
+    types: [stocktv-verified-milestone, stocktv-client-continue]
 permissions:
   contents: write
   actions: write

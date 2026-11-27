@@ -73,6 +73,8 @@ def collect():
             report["projects"].append(info)
             if s is None:report["missing_states"].append(pid);continue
             info["accepted_jobs"]=sum(bool(x.get("job_id")) for x in s.get("batches",{}).values())
+            info["uncertain_requests"]=sum(x.get("attempted") is True and not x.get("job_id") for x in s.get("batches",{}).values())
+            info["state_fingerprint"]=digest({"status":s.get("status"),"results":s.get("results"),"batches":s.get("batches"),"no_progress":s.get("no_progress")})
             if s.get("status")=="blocked":
                 report["blocked"].append({"id":pid,"error":s.get("error")})
             if s.get("provider")!="hitel" or s.get("mock_completed",0):continue
@@ -122,17 +124,61 @@ def receive(report,event):
     if type(n) is not int or not 50<=n<=TOTAL or n%50 or n>report["verified_originals"] or report["errors"] or report["missing_states"]:raise ValueError("unverified milestone event")
     if milestone_issue(n) is None:
         api("/issues","POST",{"title":f"TradingView verified milestone {n}/{TOTAL}","body":"Verified original boundary: "+str(n)+"\n\n```json\n"+json.dumps({k:v for k,v in report.items() if k!="verified_records"},ensure_ascii=False,indent=2)+"\n```\n\nActions: https://github.com/"+REPO+"/actions/runs/"+os.environ["GITHUB_RUN_ID"]})
+def eligible(p):
+    if p["command"]!="start" or p["status"] not in (None,"ready","running","pending"):return False
+    if p.get("uncertain_requests",0):return False
+    # Never submit a new request after an ambiguous POST.
+    return p["status"] in (None,"ready") or p.get("accepted_jobs",0)>0
+def issue_named(title):
+    page=1
+    while True:
+        issues=api(f"/issues?state=all&per_page=100&page={page}")
+        for issue in issues:
+            if issue.get("title")==title and "pull_request" not in issue:return issue
+        if len(issues)<100:return None
+        page+=1
+def report_blockers(report):
+    for b in report["blocked"]:
+        key=digest({"id":b["id"],"error":b.get("error")})[:16]
+        title="TradingView API blocked "+key
+        if issue_named(title) is None:
+            api("/issues","POST",{"title":title,"body":"프로젝트: "+b["id"]+"\n오류: "+str(b.get("error"))+"\n동일한 불확실 요청은 재전송하지 않습니다. 프레임워크나 서버는 수정하지 않습니다.\nActions: https://github.com/"+REPO+"/actions/runs/"+os.environ["GITHUB_RUN_ID"]})
+def continuation(report,parent_run=None,manual=False):
+    if report["errors"]:
+        print("CLIENT_CONTINUE_STOP_API_ERRORS");return
+    if report["blocked"]:
+        report_blockers(report)
+        print("CLIENT_CONTINUE_STOP_BLOCKED");return
+    candidates=[p for p in report["projects"] if eligible(p)]
+    if manual:
+        candidates=[p for p in candidates if p["id"]==os.environ["CLIENT_PROJECT"]]
+    if not candidates:
+        print("CLIENT_CONTINUE_NO_ELIGIBLE_PROJECT");return
+    # Backend dispatch is global. Avoid starting unrelated live jobs.
+    for d in api("/contents/universal/projects"+REF):
+        if d["name"].startswith("stocktv-cases-"):continue
+        p=read("universal/projects/"+d["name"]+"/project.json")
+        if p is None:raise ValueError("unavailable other project; do not dispatch")
+        if p.get("provider")=="hitel" and p.get("command")=="start":
+            print("CLIENT_CONTINUE_STOP_OTHER_LIVE_PROJECT");return
+    runs=api(WORKFLOW+"/runs?branch="+urllib.parse.quote(BRANCH,safe="")+"&per_page=100")["workflow_runs"]
+    if any(r["status"]!="completed" for r in runs):
+        print("CLIENT_CONTINUE_BACKEND_ALREADY_ACTIVE");return
+    # Respect any newer native watchdog handoff, including completed children.
+    if parent_run is not None:
+        parent=next((r for r in runs if r["id"]==parent_run),None)
+        if parent is None:
+            print("CLIENT_CONTINUE_PARENT_NOT_FOUND");return
+        if any(r["id"]!=parent_run and r["created_at"]>parent["created_at"] for r in runs):
+            print("CLIENT_CONTINUE_NEWER_BACKEND_EXISTS");return
+    fingerprint=digest([(p["id"],p.get("state_fingerprint","unstarted")) for p in candidates])[:24]
+    handoff="stocktv-client-"+fingerprint
+    if any(r.get("display_title")=="HITEL Universal "+handoff for r in runs):
+        print("CLIENT_CONTINUE_NO_STATE_PROGRESS");return
+    api(WORKFLOW+"/dispatches","POST",{"ref":BRANCH,"inputs":{"handoff":handoff,"depth":"0"}})
+    print("CLIENT_CONTINUE_DISPATCH_ACCEPTED",handoff)
 def start(report):
-    pid=os.environ["CLIENT_PROJECT"]
-    matches=[x for x in report["projects"] if x["id"]==pid]
-    if len(matches)!=1:raise ValueError("unknown project; register approved input through documented API first")
-    p=matches[0]
-    if p["command"]!="start" or p["status"] in ("blocked","complete","paused"):raise ValueError("project not eligible; do not reactivate or replay blocked work")
-    if report["errors"]:raise ValueError("API/proof errors; no dispatch")
-    runs=api(WORKFLOW+"/runs?branch="+urllib.parse.quote(BRANCH,safe="")+"&per_page=20")["workflow_runs"]
-    if any(r["status"]!="completed" for r in runs):raise ValueError("existing backend run active; no duplicate dispatch")
-    # Explicit workflow_dispatch start only. No schedules or implicit restarts.
-    api(WORKFLOW+"/dispatches","POST",{"ref":BRANCH,"inputs":{"handoff":"stocktv-client-"+os.environ["GITHUB_RUN_ID"],"depth":"0"}})
+    continuation(report,manual=True)
 def main():
     report=collect()
     pathlib.Path("stocktv-client-status.json").write_text(json.dumps(report,ensure_ascii=False,indent=2))
@@ -140,11 +186,21 @@ def main():
     with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
         f.write("## TradingView API client\n\nVerified originals: "+str(report["verified_originals"])+"/"+str(TOTAL)+"\n\n```json\n"+json.dumps({k:v for k,v in report.items() if k!="verified_records"},ensure_ascii=False,indent=2)+"\n```\n")
     event=os.environ.get("GITHUB_EVENT_NAME")
-    if event=="repository_dispatch":
-        receive(report,json.loads(pathlib.Path(os.environ["GITHUB_EVENT_PATH"]).read_text()))
+    payload=json.loads(pathlib.Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+    if event=="repository_dispatch" and payload.get("action")=="stocktv-verified-milestone":
+        receive(report,payload)
     else:
         publish(report)
-        if event=="workflow_dispatch" and os.environ.get("CLIENT_OPERATION")=="start":start(report)
+        if event=="push":
+            # One real event-chain test on deployment; never a recurring timer.
+            api("/dispatches","POST",{"event_type":"stocktv-client-continue","client_payload":{"origin_run":os.environ["GITHUB_RUN_ID"]}})
+            print("CLIENT_CONTINUATION_EVENT_ACCEPTED")
+        elif event=="repository_dispatch" and payload.get("action")=="stocktv-client-continue":
+            continuation(report)
+        elif event=="workflow_run":
+            continuation(report,parent_run=payload["workflow_run"]["id"])
+        elif event=="workflow_dispatch" and os.environ.get("CLIENT_OPERATION")=="start":
+            start(report)
 if __name__=="__main__":
     if "--self-test" in sys.argv:
         assert digest({"a":1})==digest({"a":1})
@@ -153,5 +209,10 @@ if __name__=="__main__":
         assert not receipt_ok({},row)
         assert not receipt_ok({"record_id":"x","row_sha256":"bad","source_verified":True,"evidence_review":"test"},row)
         assert receipt_ok({"record_id":"x","row_sha256":digest(row),"source_verified":True,"evidence_review":"test"},row)
+        assert eligible({"command":"start","status":"ready","uncertain_requests":0})
+        assert eligible({"command":"start","status":"pending","accepted_jobs":1})
+        assert not eligible({"command":"start","status":"blocked","accepted_jobs":0})
+        assert not eligible({"command":"start","status":"pending","uncertain_requests":1})
+        assert not eligible({"command":"pause","status":"ready"})
         print("CLIENT_SELF_TEST_OK")
     else:main()
