@@ -1,6 +1,6 @@
 """Bounded next-run reconciliation. Never blindly repeat dispatch after uncertain POST."""
 import json,os,pathlib,subprocess
-from engine import sha,definition,read,ROOT
+from engine import sha,definition,read,ROOT,live_allowed
 def gh(*args):return subprocess.check_output(["gh","api",*args],text=True)
 def pending():
     for p in (ROOT/"projects").glob("*/project.json"):
@@ -8,7 +8,7 @@ def pending():
         if project.get("command")!="start":continue
         s=ROOT/"state"/p.parent.name/"state.json"
         if not s.exists():
-            if project.get("provider")=="mock" or os.getenv("HITEL_ALLOW_LIVE")=="true":return True
+            if project.get("provider")=="mock" or live_allowed(project):return True
         else:
             state=read(s)
             if state.get("definition_sha")==sha(definition(project)) and state.get("status") not in ("complete","blocked"):return True

@@ -30,6 +30,16 @@ class Tests(unittest.TestCase):
         self.assertEqual(e.result("job_test",r),"abc")
         r["result_sha256"]="0"*64
         with self.assertRaises(e.Blocked):e.result("job_test",r)
+    def test_explicit_pilot_live_approval_is_scoped(self):
+        p=sample("hitel")
+        with patch.dict(e.os.environ,{"HITEL_ALLOW_LIVE":""}):
+            self.assertFalse(e.live_allowed(p))
+            p.update(project_id="stocktv-cases-20261127-0001-p01-v2",task_id="stocktv-universal-20261127")
+            self.assertTrue(e.live_allowed(p))
+            p["command"]="pause"
+            self.assertFalse(e.live_allowed(p))
+            p["command"]="start";p["task_id"]="other-task"
+            self.assertFalse(e.live_allowed(p))
     def test_closed_task(self):
         p=sample("hitel");p["task_id"]="scribd-18109"
         with self.assertRaises(ValueError):e.validate(p)
