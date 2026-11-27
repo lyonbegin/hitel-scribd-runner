@@ -1,4 +1,4 @@
-# Universal Actions backend — API contract (v0.1)
+# Universal Actions backend — API contract (v0.2)
 The backend is GitHub Actions, not Railway or a Pages-hosted Python server. The existing authorized HITEL service remains the AI transport only. No Scribd task or production workflow is reused or reactivated.
 
 UI and other programs call the same GitHub REST API with a user-authorized token. No token is embedded in Pages or persisted by the UI. Token permissions: Contents read/write on the target repository, Actions read/write if dispatch or cancellation is needed. Never put secrets or confidential data in a public repository. For confidential work install the engine/workflow in a private repository; the public Pages UI can target that repository via the user's authorized token.
@@ -38,5 +38,8 @@ GitHub Pages must be enabled in repository Settings > Pages (source GitHub Actio
 ## Verified initial QA (2026-11-27 KST)
 - Actions 45907244721: 7 offline tests passed; watchdog emitted WATCHDOG_DISPATCH_ACCEPTED.
 - Child Actions 45907281993: run and watchdog succeeded; synthetic records demo-1, demo-2, demo-3 exported, two batches, mock_completed=3, verified_ai_completed=0; WATCHDOG_NO_PENDING_WORK.
-- Pages Actions 45907260438: configure-pages failed because the repository has no Pages site and the integration cannot create one (Resource not accessible by integration). Administrator must enable Pages / GitHub Actions in repository settings and permit the deployment branch in github-pages environment if restricted. Do not describe the UI as publicly deployed until the deploy succeeds.
+- Pages initial 45907260438 failed; administrator enabled Pages and run 45915626971 subsequently succeeded. Updated notification UI run 45920728795 completed its deploy steps.
 - No live AI, real browser session, full-size input, independent worker restart or production UI end-to-end test has been performed. The generic engine adapts the legacy transport/checkpoint validation, not all Scribd-specific recovery branches. Existing Scribd release and closed main remain untouched.
+
+## v0.2 event notifications
+Public Korean API guide (including all notification configuration, delivery payloads, receiver setup and ChatGPT Work limitations): [HITEL_UNIVERSAL_AI_PUBLIC_API_GUIDE_KO.md](../docs/HITEL_UNIVERSAL_AI_PUBLIC_API_GUIDE_KO.md). GET /repos/{owner}/{repo}/contents/universal/state/{id}/events.json?ref={branch}. Optional project.notifications config: channel none/github_pr/webhook, pr_number for approved PR, heartbeat_seconds 30-3600, events list. Settings excluded from definition hash, loaded on next run. External transport must be explicitly configured and authorized. HTTP 2xx is receiver acceptance, not ChatGPT delivery. Actual event ledger and 14 offline tests passed in 45920741445; no live webhook receiver or Work trigger has been verified. No arbitrary ChatGPT conversation POST endpoint exists in this implementation.
